@@ -1,0 +1,12 @@
+Desktop controls:
+Left and right arrow keys to turn.
+Down arrow key to look back.
+
+Mobile controls:
+Tap on the left and right side of the screen to turn.
+Bottom of the screen to look back.
+
+
+
+
+

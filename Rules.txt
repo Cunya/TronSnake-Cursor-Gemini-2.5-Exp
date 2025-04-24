@@ -1,0 +1,62 @@
+AI:
+Powerups should behave the same way as the player
+
+General:
+Do not spawn a new powerup into a wall
+Powerups should spawn at least 5 units away from heads.
+
+
+Blue Cube: ("Zoom Out!")
+Grants 20 points to Players when one is picked up.
+Player Only: Zooms the player's camera out further and higher for 5 seconds, providing a wider view.
+Triggers particle explosion + text effect (only if player collects).
+Spawns a new powerup with the same type.
+
+
+Pink Cube: ("Speed Up!")
+Unlocked at when the high score of 50 is reached.
+Grants 40 points to Players when one is picked up.
+Activates a temporary speed boost for whichever snake collected it (Player or AI). The snake's movement updates twice as fast.
+Triggers particle explosion + text effect.
+Spawns a new powerup with the same type.
+
+
+Yellow Blocks: ("Sparse Trail!")
+Unlocked at when the high score of 200 is reached.
+Grants 60 points to Players when one is picked up.
+Activates a "sparse trail" effect for the collecting snake for 8 seconds. During this time, the snake only leaves a trail segment every other time it moves, creating gaps.
+Triggers particle explosion + text effect.
+Spawns a new powerup with the same type.
+
+White Cube: ("Clear Walls!")
+Unlocked at when the high score of 500 is reached.
+Grants 80 points to Players when one is picked up.
+Instantly removes all existing snake trails (walls) from the arena for both players.
+Triggers particle explosion + text effect on the powerup location.
+Triggers additional particle effects along some of the removed wall segments.
+Spawns whith each 20 other powerups have been picked up.
+
+[Color] Cube: ("More players!") 
+Unlocked at when the high score of 1000 is reached.
+Grants 100 points to Players when one is picked up.
+Spawns a new AI player with a new unused color.
+Triggers particle explosion + text effect on the powerup location.
+Spawns whith each 50 other powerups have been picked up.
+
+Green Cube: ("Expand!")
+Unlocked at when the high score of 1500 is reached.
+Grants 150 points to Players when one is picked up.
+Expands the play area boundary outwards by 10 units in the direction the collecting snake was moving.
+Triggers particle explosion + text effect.
+Spawns whith each 100 other powerups have been picked up.
+
+Purple Gems: ("More!")
+Unlocked at when the high score of 2000 is reached.
+Grants 200 points to Players when one is picked up.
+Spawns 1 of a random powerup type.
+Increases the max number of the powerup type that was spawned.
+Spawns a new powerup with the same type.
+
+Only the Zoom Out is unlocked at first.
+The intro text should only mention unlocked powerups.
+The intro text should mention when the next powerup is unlocked.

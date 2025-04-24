@@ -7,7 +7,7 @@ import * as THREE from 'three';
 // import { FontLoader } from 'three/addons/loaders/FontLoader.js';
 // import { TextGeometry } from 'three/addons/geometries/TextGeometry.js';
 
-const GAME_VERSION = "v1.0.2"; // Add Multi-Spawn pickup
+const GAME_VERSION = "v1.0.20"; // Updated version
 
 let scene, camera, renderer;
 let planeMesh, gridMesh;
@@ -59,6 +59,7 @@ let sparseTrailEndTimeAI = 0;
 let trailCounterAI = 0; // Counter for sparse trail placement
 let lastUpdateTimeAI = 0;
 let isLookingBack = false; // Flag for look back camera
+let lookBackTouchId = null; // Store ID of touch used for looking back
 
 // Common Game Settings
 const segmentSize = 1;
@@ -70,12 +71,12 @@ const sparseTrailDuration = 8000; // 8 seconds sparse trail
 const LERP_FACTOR = 0.2; // Smoothing factor for visual movement
 
 // --- Dynamic Boundary --- 
-const initialBoundaryHalfSize = 10;
+const initialBoundaryHalfSize = 15; // Increased initial size
 let boundaryXMin = -initialBoundaryHalfSize;
 let boundaryXMax = initialBoundaryHalfSize;
 let boundaryZMin = -initialBoundaryHalfSize;
 let boundaryZMax = initialBoundaryHalfSize;
-const expansionAmount = 20; // Increased expansion amount
+const expansionAmount = 10; // Expansion amount as per updated rules
 
 // Camera Settings
 const cameraHeight = 3; // Lowered camera height further
@@ -90,17 +91,16 @@ const gameOverCameraLag = 0.06;
 // Scoring & Pickups
 let scoreP1 = 0;
 const scoreIncrementPerTick = 1; // Score for surviving a tick
-const pickupScoreValue = 50;    // Score for getting a pickup
 const scorePickups = []; // Renamed array
 const scorePickupGeometry = new THREE.BoxGeometry(segmentSize * 0.6, segmentSize * 0.6, segmentSize * 0.6); // Smaller sphere
 const scorePickupMaterial = new THREE.MeshPhongMaterial({ color: 0xff00ff, emissive: 0x550055 }); // Bright Pink
-const maxScorePickups = 1; // Only one pickup on screen at a time
+let maxScorePickups = 1; // Changed to let
 
 // Expansion Pickup
 const expansionPickups = [];
 const expansionPickupGeometry = new THREE.BoxGeometry(segmentSize * 0.7, segmentSize * 0.7, segmentSize * 0.7);
 const expansionPickupMaterial = new THREE.MeshPhongMaterial({ color: 0x00ff00, emissive: 0x005500 }); // Green
-const maxExpansionPickups = 1;
+let maxExpansionPickups = 1; // Changed to let
 const expansionPickupSpawnChance = 0.15; // Reduced chance slightly
 const aiPickupScanRadius = 7; // Increased scan radius slightly
 
@@ -108,14 +108,14 @@ const aiPickupScanRadius = 7; // Increased scan radius slightly
 const clearPickups = [];
 const clearPickupGeometry = new THREE.BoxGeometry(segmentSize * 0.5, segmentSize * 0.5, segmentSize * 0.5); // Smallest cube
 const clearPickupMaterial = new THREE.MeshPhongMaterial({ color: 0xffffff, emissive: 0xaaaaaa }); // White/Bright
-const maxClearPickups = 1;
+let maxClearPickups = 1; // Changed to let
 const clearPickupSpawnChance = 0.10; // Lower chance
 
 // Zoom Pickup
 const zoomPickups = [];
 const zoomPickupGeometry = new THREE.BoxGeometry(segmentSize * 0.5, segmentSize * 0.5, segmentSize * 0.5); 
 const zoomPickupMaterial = new THREE.MeshPhongMaterial({ color: 0x0088ff, emissive: 0x0033aa }); // Blue
-const maxZoomPickups = 1;
+let maxZoomPickups = 1; // Changed to let
 const zoomPickupSpawnChance = 0.10; // Same chance as clear pickup
 
 // Sparse Trail Pickup
@@ -123,15 +123,21 @@ const sparseTrailPickups = [];
 // Geometry is now created by a function
 // const sparseTrailGeometry = new THREE.TorusGeometry(segmentSize * 0.35, segmentSize * 0.1, 8, 16);
 const sparseTrailMaterial = new THREE.MeshPhongMaterial({ color: 0xffff00, emissive: 0xaaaa00 }); // Yellow
-const maxSparseTrailPickups = 1;
+let maxSparseTrailPickups = 1; // Changed to let
 const sparseTrailPickupSpawnChance = 0.08; 
 
 // Multi-Spawn Pickup
 const multiSpawnPickups = [];
 const multiSpawnGeometry = new THREE.IcosahedronGeometry(segmentSize * 0.45, 0); // Icosahedron, radius 0.45
 const multiSpawnMaterial = new THREE.MeshPhongMaterial({ color: 0x9900ff, emissive: 0x5500aa }); // Purple
-const maxMultiSpawnPickups = 1;
+let maxMultiSpawnPickups = 1; // Changed to let
 const multiSpawnPickupSpawnChance = 0.07; // Make it slightly rarer
+
+// NEW Pickup Type Placeholder
+const addAiPickups = []; // Placeholder array
+const addAiPickupGeometry = new THREE.OctahedronGeometry(segmentSize * 0.6, 0); // Placeholder shape
+const addAiPickupMaterial = new THREE.MeshPhongMaterial({ color: 0x888888, emissive: 0x444444 }); // Placeholder Gray
+let maxAddAiPickups = 1; // Placeholder max
 
 // Game state
 let isGameOver = false;
@@ -144,6 +150,7 @@ let gameOverTextElement;
 let versionTextElement;
 let openingDialogElement; // New element for opening dialog
 let scoreTextElement; // New element for score
+let topScoreTextElement; // New element for top score display
 
 const epsilon = 0.01; // Small tolerance for floating point comparisons
 
@@ -180,6 +187,7 @@ const TEXT_HEIGHT_OFFSET = 0.5; // Start slightly above pickup
 
 // --- Top Score State ---
 let topScore = 0;
+let pickupsCollectedCounter = 0; // Counter for Clear Walls pickup
 
 // Pickup checks use TARGET positions and check XZ distance with LARGER threshold
 const PICKUP_COLLISION_THRESHOLD_SQ = (segmentSize * 0.5) * (segmentSize * 0.5);
@@ -258,11 +266,16 @@ function init() {
     window.addEventListener('keyup', onKeyUp, false); // Add keyup listener
     window.addEventListener('click', handleFirstClick); // Add click listener too
 
+    // Add touch controls listener
+    window.addEventListener('touchstart', onTouchStart, { passive: false }); // Use non-passive to allow preventDefault
+    window.addEventListener('touchend', onTouchEnd, { passive: false });
+
     // Add Game Over text display
-    createOpeningDialog(); // Create the opening dialog
+    // Moved createOpeningDialog call below localStorage loading
     createGameOverText();
     createVersionText();
     createScoreText(); // Create score display
+    // Moved createTopScoreText call below localStorage loading
 
     // Spawn initial pickup(s)
     spawnInitialPickups();
@@ -279,6 +292,10 @@ function init() {
     } else {
         console.log("No previous top score found.");
     }
+
+    // Create UI elements AFTER topScore is potentially loaded
+    createOpeningDialog(); 
+    createTopScoreText(); 
 
     animate();
 }
@@ -401,7 +418,7 @@ function isPositionSafe(pos, checkOwnTrail = true, checkHeads = true) {
 function updateAIPlayer() {
     const currentPos = snakeTargetPosition2;
     const currentDir = snakeDirection2;
-    const lookAheadSteps = 2; // How many steps ahead to check for avoidance
+    const lookAheadSteps = 3; // Keep lookahead at 3
 
     // --- Identify Target Pickup --- 
     let targetPickupPos = null;
@@ -412,7 +429,8 @@ function updateAIPlayer() {
         ...clearPickups, 
         ...zoomPickups,
         ...sparseTrailPickups,
-        ...multiSpawnPickups // Scan for multi-spawn
+        ...multiSpawnPickups, 
+        ...addAiPickups // Scan for Add AI pickup
     ]; 
     for (const pickup of allPickups) {
         const distSq = currentPos.distanceToSquared(pickup.position);
@@ -422,35 +440,35 @@ function updateAIPlayer() {
         }
     }
 
-    // --- Evaluate Immediate Safe Moves --- 
-    const safeMoves = []; // Stores safe directions { dir: Vector3, pos: Vector3 }
+    // --- Evaluate Immediate Safe Moves (for Pickup Pursuit) --- 
+    const safeMovesForPickup = []; // Stores safe directions { dir: Vector3, pos: Vector3 }
     const potentialDirections = {
         forward: currentDir,
         left: currentDir.clone().applyAxisAngle(yAxis, Math.PI / 2),
         right: currentDir.clone().applyAxisAngle(yAxis, -Math.PI / 2)
     };
-
+    
+    // Check initial safety for pickup pursuit
     for (const moveName in potentialDirections) {
         const dir = potentialDirections[moveName];
         const nextPos = currentPos.clone().addScaledVector(dir, segmentSize);
         if (isPositionSafe(nextPos, true, true)) {
-            safeMoves.push({ dir: dir.clone(), pos: nextPos });
+            safeMovesForPickup.push({ dir: dir.clone(), pos: nextPos });
         }
     }
 
     // --- Pickup Pursuit Logic --- 
-    if (targetPickupPos && safeMoves.length > 0) {
+    if (targetPickupPos && safeMovesForPickup.length > 0) {
         let bestMove = null;
         let minPickupDistSq = currentPos.distanceToSquared(targetPickupPos);
 
-        for (const move of safeMoves) {
+        for (const move of safeMovesForPickup) {
             const distSq = move.pos.distanceToSquared(targetPickupPos);
             if (distSq < minPickupDistSq) {
                 minPickupDistSq = distSq;
                 bestMove = move;
             }
         }
-
         // If a safe move gets us closer to the pickup, take it
         if (bestMove) {
              // console.log("AI pursuing pickup via safe move.");
@@ -459,8 +477,9 @@ function updateAIPlayer() {
         }
     }
     
-    // --- Fallback: Obstacle Avoidance (with Lookahead) --- 
-    // Check Forward (LookaheadSteps)
+    // --- Fallback: Obstacle Avoidance --- 
+    
+    // Check Forward safety
     let safeForward = true;
     for (let i = 1; i <= lookAheadSteps; i++) {
         const checkPos = currentPos.clone().addScaledVector(currentDir, segmentSize * i);
@@ -469,78 +488,72 @@ function updateAIPlayer() {
             break;
         }
     }
-
-    // Random chance to turn even if forward is safe
-    if (safeForward && Math.random() < 0.9) { 
-         // console.log("AI: Avoidance - Path forward clear, going straight.");
-         return; 
-    }
     
-    // Evaluate Turns (LookaheadSteps + Escape Check)
-    const safeTurns = [];   // Safe 2 steps AND has escape route
-    const trapTurns = [];   // Safe 2 steps BUT NO escape route
-    const backupTurns = []; // Safe only 1 step
-    const turnDirections = [potentialDirections.left, potentialDirections.right];
-
-    for (const turnDir of turnDirections) {
-        let turnSafeLookahead = true;
-        let turnSafeOneStep = false;
-        for (let i = 1; i <= lookAheadSteps; i++) {
-            const checkPos = currentPos.clone().addScaledVector(turnDir, segmentSize * i);
-            if (!isPositionSafe(checkPos, true, true)) {
-                turnSafeLookahead = false;
-                if (i === 1) turnSafeOneStep = false; 
-                break; 
-            }
-            if (i === 1) turnSafeOneStep = true;
-        }
-
-        if (turnSafeLookahead) {
-            // Perform escape check
-            const simPos = currentPos.clone().addScaledVector(turnDir, segmentSize);
-            const simDir = turnDir; // Direction after the turn
-            const escapeForwardPos = simPos.clone().addScaledVector(simDir, segmentSize);
-            const escapeLeftDir = simDir.clone().applyAxisAngle(yAxis, Math.PI / 2);
-            const escapeLeftPos = simPos.clone().addScaledVector(escapeLeftDir, segmentSize);
-            const escapeRightDir = simDir.clone().applyAxisAngle(yAxis, -Math.PI / 2);
-            const escapeRightPos = simPos.clone().addScaledVector(escapeRightDir, segmentSize);
-
-            const escapeForwardSafe = isPositionSafe(escapeForwardPos, true, true);
-            const escapeLeftSafe = isPositionSafe(escapeLeftPos, true, true);
-            const escapeRightSafe = isPositionSafe(escapeRightPos, true, true);
-
-            if (escapeForwardSafe || escapeLeftSafe || escapeRightSafe) {
-                safeTurns.push(turnDir.clone()); // Good turn
-            } else {
-                trapTurns.push(turnDir.clone()); // Leads into a dead end
-            }
-        } else if (turnSafeOneStep) {
-            backupTurns.push(turnDir.clone()); // Only safe for one step
-        }
+    // Strong bias to continue straight if safe
+    if (safeForward && Math.random() < 0.9) { // 90% chance to go straight if safe
+        // console.log("AI: Avoidance - Path forward clear, going straight (90% bias).");
+        return;
     }
 
-    // Decision Making (Avoidance - Prioritize safe escape)
+    // Evaluate Turns (Simple safety check)
+    const safeTurns = [];
+    const leftDir = potentialDirections.left;
+    const rightDir = potentialDirections.right;
+    
+    let leftSafe = true;
+    for (let i = 1; i <= lookAheadSteps; i++) {
+        if (!isPositionSafe(currentPos.clone().addScaledVector(leftDir, segmentSize * i), true, true)) {
+            leftSafe = false;
+            break;
+        }
+    }
+    if (leftSafe) safeTurns.push(leftDir);
+    
+    let rightSafe = true;
+    for (let i = 1; i <= lookAheadSteps; i++) {
+        if (!isPositionSafe(currentPos.clone().addScaledVector(rightDir, segmentSize * i), true, true)) {
+            rightSafe = false;
+            break;
+        }
+    }
+    if (rightSafe) safeTurns.push(rightDir);
+
+    // Decision Making (with Wall Avoidance Bias)
     if (safeTurns.length > 0) {
-        const chosenTurnIndex = Math.floor(Math.random() * safeTurns.length);
-        // console.log(`AI: Avoidance - Choosing safe turn (${safeTurns.length} options).`);
-        snakeDirection2.copy(safeTurns[chosenTurnIndex]);
-        return;
-    } else if (trapTurns.length > 0) { // Accept trap over backup/crash
-        const chosenTurnIndex = Math.floor(Math.random() * trapTurns.length);
-        // console.log(`AI: Avoidance - Choosing trap turn (${trapTurns.length} options).`);
-        snakeDirection2.copy(trapTurns[chosenTurnIndex]);
-        return;
-    } else if (backupTurns.length > 0) { // One step turn is better than crash
-        const chosenTurnIndex = Math.floor(Math.random() * backupTurns.length);
-        // console.log(`AI: Avoidance - Choosing backup turn (${backupTurns.length} options).`);
-        snakeDirection2.copy(backupTurns[chosenTurnIndex]);
+        if (safeTurns.length === 2) { // Both left and right turns are safe
+            // Check immediate adjacency for walls
+            const immediateLeftPos = currentPos.clone().addScaledVector(leftDir, segmentSize);
+            const immediateRightPos = currentPos.clone().addScaledVector(rightDir, segmentSize);
+            const isImmediateLeftSafe = isPositionSafe(immediateLeftPos, true, true);
+            const isImmediateRightSafe = isPositionSafe(immediateRightPos, true, true);
+
+            if (isImmediateLeftSafe && !isImmediateRightSafe) {
+                // Prefer turning left (away from right wall)
+                // console.log("AI: Avoidance - Wall right, turning left.");
+                snakeDirection2.copy(leftDir);
+            } else if (!isImmediateLeftSafe && isImmediateRightSafe) {
+                // Prefer turning right (away from left wall)
+                // console.log("AI: Avoidance - Wall left, turning right.");
+                snakeDirection2.copy(rightDir);
+            } else {
+                // Both adjacent are safe OR both are unsafe - choose randomly
+                // console.log("AI: Avoidance - No wall bias, choosing random safe turn.");
+                const chosenTurnIndex = Math.floor(Math.random() * safeTurns.length);
+                snakeDirection2.copy(safeTurns[chosenTurnIndex]);
+            }
+        } else { // Only one safe turn available
+            // console.log(`AI: Avoidance - Choosing the only safe turn.`);
+            snakeDirection2.copy(safeTurns[0]);
+        }
         return;
     } else if (safeForward) {
-        // console.log("AI: Avoidance - Turns blocked/unsafe, forcing forward.");
-         return; // Keep current direction (forward)
+        // No safe turns, but forward was safe (random check failed earlier)
+        // console.log("AI: Avoidance - No safe turns, forcing straight.");
+        return; // Go straight
     } else {
-        // console.log("AI: Avoidance - No safe moves detected, crashing forward.");
-         return; // Keep current direction (forward)
+        // No safe turns AND forward is not safe - Trapped!
+        // console.log("AI: Avoidance - Trapped! Crashing forward.");
+        return; // Crash forward
     }
 }
 
@@ -599,38 +612,100 @@ function checkCollisions(head1Pos, head2Pos, trail1, trail2) {
     return 0;
 }
 
+// --- Helper Function for Unlock Status --- 
+function getUnlockStatusText(currentTopScore) {
+    const pickups = [
+        { name: "Zoom Out", color: "#0088ff", type: "Blue Cube", score: 0, desc: "Grants 20 pts. Briefly zooms out player camera." }, // Unlock score 0
+        { name: "Speed Up", color: "#ff00ff", type: "Pink Cube", score: 50, desc: "Grants 40 pts. Temporary speed boost." }, // Unlock score 50
+        { name: "Sparse Trail", color: "#ffff00", type: "Yellow Blocks", score: 200, desc: "Grants 60 pts. Leave gaps in your trail." }, // Unlock score 200
+        { name: "Clear Walls", color: "#ffffff", type: "White Cube", score: 500, desc: "Grants 80 pts. Removes walls. (Spawns every 20 powerups)", spawnCondition: "counter", counterThreshold: 20 }, // Unlock score 500
+        { name: "More Players", color: "#888888", type: "Gray Octahedron", score: 1000, desc: "Grants 100 pts. Spawns a new AI opponent. (Spawns every 50 powerups)", spawnCondition: "counter", counterThreshold: 50 }, // Unlock score 1000
+        { name: "Expand", color: "#00ff00", type: "Green Cube", score: 1500, desc: "Grants 150 pts (Player only). Expands play area. (Spawns every 100 powerups)", spawnCondition: "counter", counterThreshold: 100 }, // Unlock score 1500
+        { name: "More", color: "#9900ff", type: "Purple Gems", score: 2000, desc: "Grants 200 pts (Player only). Increases max powerups & spawns another." } // Unlock score 2000 (already correct)
+    ];
+
+    let unlockedHTML = '<h3 style="font-size: 22px; margin-bottom: 10px; margin-top: 20px; color: #dddddd;">Unlocked Powerups:</h3>'; // Renamed
+    let nextUnlockScore = Infinity;
+    let allUnlocked = true;
+    let anyUnlocked = false; 
+
+    pickups.forEach(p => {
+        // Display based on score unlock, but mention counter if applicable
+        if (currentTopScore >= p.score) {
+            unlockedHTML += `<p style="margin-bottom: 10px; font-size: 18px;"><strong style="color: ${p.color};">${p.name} (${p.type}):</strong> ${p.desc}</p>`;
+            if (p.score > 0) anyUnlocked = true; 
+        } else {
+            allUnlocked = false;
+            if (p.score < nextUnlockScore) {
+                nextUnlockScore = p.score;
+            }
+        }
+    });
+
+    // Handle case where only zoom is unlocked
+    if (!anyUnlocked && currentTopScore >= 0) {
+         // Find Zoom explicitly to display
+         const zoomInfo = pickups.find(p => p.score === 0);
+         if (zoomInfo) {
+            unlockedHTML += `<p style="margin-bottom: 10px; font-size: 18px;"><strong style="color: ${zoomInfo.color};">${zoomInfo.name} (${zoomInfo.type}):</strong> ${zoomInfo.desc}</p>`;
+         }
+    } else if (!anyUnlocked && currentTopScore < 0) { // Safety
+         unlockedHTML += '<p style="font-size: 18px; color: #cccccc;">None</p>';
+    }
+
+    let nextUnlockMsg = "";
+    if (allUnlocked) {
+        nextUnlockMsg = `<p style="margin-top: 20px; font-size: 18px; color: #aaffaa;">All powerups unlocked!</p>`; // Renamed
+    } else {
+        nextUnlockMsg = `<p style="margin-top: 20px; font-size: 18px; color: #aaaaff;">Next powerup unlocks at ${nextUnlockScore} points (Top Score)!</p>`; // Renamed
+    }
+
+    // Add controls text
+    let controlsText = 
+        `<div style="margin-top: 20px; border-top: 1px solid #555; padding-top: 15px;">` +
+        `<h4 style="font-size: 18px; margin-bottom: 8px; color: #cccccc;">Controls:</h4>` +
+        `<p style="font-size: 16px; margin-bottom: 5px;">Arrows: Left/Right (Turn), Down (Look Back)</p>` +
+        `<p style="font-size: 16px; margin-bottom: 5px;">Touch: Left/Right Side (Turn), Bottom (Look Back)</p>` +
+        `</div>`;
+
+    // Return object including controls text
+    return { unlockedHTML, nextUnlockMsg, controlsText }; 
+}
+
 function createOpeningDialog() {
-    openingDialogElement = document.createElement('div');
-    // Style similar to GameOver, but adjust content and maybe size
-    openingDialogElement.style.position = 'absolute';
-    openingDialogElement.style.top = '50%';
-    openingDialogElement.style.left = '50%';
-    openingDialogElement.style.transform = 'translate(-50%, -50%)';
-    openingDialogElement.style.color = 'white';
-    openingDialogElement.style.backgroundColor = 'rgba(0, 0, 0, 0.8)'; // Slightly more opaque background
-    openingDialogElement.style.padding = '30px 50px';
-    openingDialogElement.style.borderRadius = '10px';
-    openingDialogElement.style.border = '2px solid rgba(255, 255, 255, 0.6)';
-    openingDialogElement.style.fontSize = '24px'; // Smaller base font size
-    openingDialogElement.style.fontFamily = 'Arial, sans-serif';
-    openingDialogElement.style.textShadow = '1px 1px 3px #000000';
-    openingDialogElement.style.textAlign = 'center'; 
-    openingDialogElement.style.display = 'block'; // Show initially
-    openingDialogElement.style.cursor = 'pointer'; // Indicate it's clickable
+    if (!openingDialogElement) { // Create if it doesn't exist
+        openingDialogElement = document.createElement('div');
+        // Style similar to GameOver, but adjust content and maybe size
+        openingDialogElement.style.position = 'absolute';
+        openingDialogElement.style.top = '50%';
+        openingDialogElement.style.left = '50%';
+        openingDialogElement.style.transform = 'translate(-50%, -50%)';
+        openingDialogElement.style.color = 'white';
+        openingDialogElement.style.backgroundColor = 'rgba(0, 0, 0, 0.8)';
+        openingDialogElement.style.padding = '30px 50px';
+        openingDialogElement.style.borderRadius = '10px';
+        openingDialogElement.style.border = '2px solid rgba(255, 255, 255, 0.6)';
+        openingDialogElement.style.fontSize = '24px'; // Base font size
+        openingDialogElement.style.fontFamily = 'Arial, sans-serif';
+        openingDialogElement.style.textShadow = '1px 1px 3px #000000';
+        openingDialogElement.style.textAlign = 'center'; 
+        openingDialogElement.style.cursor = 'pointer';
+        document.body.appendChild(openingDialogElement);
+    }
 
-    openingDialogElement.innerHTML = 
+    // --- Dynamic Content Generation --- 
+    const unlockStatus = getUnlockStatusText(topScore); // Call helper
+
+    let dialogHTML = 
         `<h2 style="font-size: 32px; margin-top: 0; margin-bottom: 15px; color: #00ffff;">Tron Snake 3D</h2>` +
-        `<p style="margin-bottom: 10px;">Use <strong style="color: #00ffff;">Left/Right Arrow Keys</strong> to turn.</p>` +
-        `<p style="margin-bottom: 10px;">Trap the <strong style="color: #ff8800;">Orange AI</strong> opponent.</p>` +
-        `<p style="margin-bottom: 10px;">Collect <strong style="color: #ff00ff;">Pink Cubes</strong> for points & speed boost!</p>` +
-        `<p style="margin-bottom: 10px;">Collect <strong style="color: #00ff00;">Green Cubes</strong> to expand the arena!</p>` +
-        `<p style="margin-bottom: 10px;">Collect <strong style="color: #ffffff;">White Cubes</strong> to clear all walls!</p>` +
-        `<p style="margin-bottom: 20px;">Collect <strong style="color: #0088ff;">Blue Cubes</strong> to zoom out briefly!</p>` +
-        `<p style="margin-bottom: 20px;">Collect <strong style="color: #ffff00;">Yellow Blocks</strong> for sparse trails!</p>` + // Changed Rings to Blocks
-        `<p style="margin-bottom: 20px;">Collect <strong style="color: #9900ff;">Purple Gems</strong> to spawn more pickups!</p>` + // Mention multi-spawn
-        `<p style="font-size: 18px; color: #cccccc;">(Click or Press Any Key to Start)</p>`;
+        `<p style="margin-bottom: 20px;">Trap the <strong style="color: #ff8800;">Orange AI</strong> opponent.</p>` +
+        unlockStatus.unlockedHTML + 
+        unlockStatus.nextUnlockMsg +  
+        unlockStatus.controlsText + // Add controls text from helper
+        `<p style="margin-top: 25px; font-size: 18px; color: #cccccc;">(Click or Press Any Key to Start)</p>`;
 
-    document.body.appendChild(openingDialogElement);
+    openingDialogElement.innerHTML = dialogHTML;
+    openingDialogElement.style.display = 'block'; // Show initially
 }
 
 function createGameOverText() {
@@ -657,13 +732,14 @@ function createVersionText() {
     versionTextElement.style.position = 'absolute';
     versionTextElement.style.top = '10px';
     versionTextElement.style.right = '10px';
-    versionTextElement.style.color = 'rgba(255, 255, 255, 0.8)'; // Slightly more opaque text
-    versionTextElement.style.backgroundColor = 'rgba(0, 0, 0, 0.5)'; // Semi-transparent black background
-    versionTextElement.style.padding = '5px 10px'; // Add padding
-    versionTextElement.style.borderRadius = '5px'; // Rounded corners
-    versionTextElement.style.fontSize = '14px';
+    versionTextElement.style.color = 'rgba(255, 255, 255, 0.9)'; // Consistent color
+    versionTextElement.style.backgroundColor = 'rgba(0, 0, 0, 0.5)'; 
+    versionTextElement.style.padding = '5px 10px';
+    versionTextElement.style.borderRadius = '5px'; 
+    versionTextElement.style.fontSize = '18px'; // Consistent font size
     versionTextElement.style.fontFamily = 'Arial, sans-serif';
-    versionTextElement.textContent = GAME_VERSION;
+    // Format text as "Version X.Y.Z"
+    versionTextElement.textContent = `Version ${GAME_VERSION.substring(1)}`; 
     document.body.appendChild(versionTextElement);
 }
 
@@ -682,6 +758,23 @@ function createScoreText() {
     document.body.appendChild(scoreTextElement);
 }
 
+// --- Create Top Score Display --- 
+function createTopScoreText() {
+    topScoreTextElement = document.createElement('div');
+    topScoreTextElement.style.position = 'absolute';
+    topScoreTextElement.style.bottom = '10px'; // Position at bottom
+    topScoreTextElement.style.left = '10px'; // Position at left
+    topScoreTextElement.style.right = 'unset'; 
+    topScoreTextElement.style.color = 'rgba(255, 255, 255, 0.9)'; // Consistent color
+    topScoreTextElement.style.backgroundColor = 'rgba(0, 0, 0, 0.5)';
+    topScoreTextElement.style.padding = '5px 10px';
+    topScoreTextElement.style.borderRadius = '5px';
+    topScoreTextElement.style.fontSize = '18px'; // Consistent font size
+    topScoreTextElement.style.fontFamily = 'Arial, sans-serif';
+    topScoreTextElement.textContent = `Top Score: ${topScore}`; // Updated text prefix
+    document.body.appendChild(topScoreTextElement);
+}
+
 function showGameOverMessage(winner) {
     let message = "";
     if (winner === 1) message = 'AI Wins! (Orange)';
@@ -689,15 +782,27 @@ function showGameOverMessage(winner) {
     else if (winner === 3) message = 'Draw!';
 
     let scoreMessage = `Final Score: ${scoreP1}`;
-    if (scoreP1 > topScore && (winner === 2 || winner === 3)) { // Add check if P1 didn't lose outright
+    // No need for topScoreMessage here anymore
+    if (scoreP1 > topScore && (winner === 2 || winner === 3)) { 
        scoreMessage += ` (NEW TOP SCORE!)`;
+       if(topScoreTextElement) topScoreTextElement.textContent = `Top Score: ${scoreP1}`; // Updated text prefix
+       // topScore variable is already updated in animate()
     }
+
+    // Get unlock status text
+    const unlockStatus = getUnlockStatusText(topScore);
 
     gameOverTextElement.innerHTML = 
         `${message}<br>` +
         `<span style="font-size: 32px; color: #cccccc;">${scoreMessage}</span><br>` +
-        `<span style="font-size: 24px; color: #aaaaaa;">Top Score: ${topScore}</span><br>` + // Display Top Score
-        `<span style="font-size: 24px;">Press Any Key to Restart</span>`;
+        // --- Add Unlock Status --- 
+        `<div style="margin-top: 20px; border-top: 1px solid #555; padding-top: 15px;">` +
+        unlockStatus.unlockedHTML + 
+        unlockStatus.nextUnlockMsg +
+        `</div>` +
+        // --------------------------
+        unlockStatus.controlsText + // Add controls text from helper
+        `<span style="font-size: 24px; margin-top: 10px;">Press Any Key to Restart</span>`;
     gameOverTextElement.style.display = 'block';
 }
 
@@ -717,6 +822,7 @@ function resetGame() {
     isSparseTrailActiveAI = false;
     sparseTrailEndTimeAI = 0;
     trailCounterAI = 0;
+    pickupsCollectedCounter = 0; // Reset counter on game reset
     if (scoreTextElement) scoreTextElement.textContent = "Score: 0"; // Reset score display
     gameOverTextElement.style.display = 'none';
     gameActive = true; // Ensure game is active on reset
@@ -770,6 +876,16 @@ function resetGame() {
     // Clear floating texts
     floatingTexts.forEach(t => scene.remove(t.mesh));
     floatingTexts.length = 0;
+
+    // Reset Max Pickup Counts
+    maxScorePickups = 1;
+    maxExpansionPickups = 1;
+    maxClearPickups = 1;
+    maxZoomPickups = 1;
+    maxSparseTrailPickups = 1;
+    maxMultiSpawnPickups = 1; // Reset this too, although it doesn't increase itself
+    maxAddAiPickups = 1; // Reset Add AI placeholders
+    console.log("Pickup Max limits reset to 1.");
 }
 
 function spawnInitialPickups() {
@@ -778,67 +894,63 @@ function spawnInitialPickups() {
     scorePickups.length = 0;
     expansionPickups.forEach(p => scene.remove(p));
     expansionPickups.length = 0;
-    clearPickups.forEach(p => scene.remove(p)); // Clear this too
+    clearPickups.forEach(p => scene.remove(p));
     clearPickups.length = 0;
     zoomPickups.forEach(p => scene.remove(p));
-    zoomPickups.length = 0; // Clear zoom pickups
+    zoomPickups.length = 0;
     sparseTrailPickups.forEach(p => scene.remove(p));
-    sparseTrailPickups.length = 0; // Clear sparse pickups
-    multiSpawnPickups.forEach(p => scene.remove(p)); multiSpawnPickups.length = 0; // Clear multi-spawn
+    sparseTrailPickups.length = 0;
+    multiSpawnPickups.forEach(p => scene.remove(p)); 
+    multiSpawnPickups.length = 0;
+    addAiPickups.forEach(p => scene.remove(p)); // Clear Add AI placeholders
+    addAiPickups.length = 0;
     
-    spawnPickup("score"); 
-    spawnPickup("expansion");
-    spawnPickup("clear");
-    spawnPickup("zoom"); 
-    spawnPickup("sparse"); 
-    spawnPickup("multi"); // Spawn initial multi-spawn
+    // Attempt to spawn a few pickups using the standard (unlock-aware) logic
+    const initialSpawnAttempts = 3;
+    console.log(`Attempting to spawn up to ${initialSpawnAttempts} initial pickups based on topScore: ${topScore}`);
+    for (let i = 0; i < initialSpawnAttempts; i++) {
+        spawnPickup(); // Call without forcing type
+    }
 }
 
 // Updated Spawn Logic for 6 Types
 function spawnPickup(forceType = null) {
     let pickupType = forceType;
+    const CLEAR_WALL_PICKUP_THRESHOLD = 20;
+    const ADD_AI_PICKUP_THRESHOLD = 50; // Counter for new AI pickup
+    const EXPAND_PICKUP_THRESHOLD = 100; // Counter for expansion pickup
     
     if (!pickupType) { 
-        const rand = Math.random();
-        // Define probability ranges
-        const multiEnd = multiSpawnPickupSpawnChance;
-        const sparseEnd = multiEnd + sparseTrailPickupSpawnChance;
-        const zoomEnd = sparseEnd + zoomPickupSpawnChance;
-        const clearEnd = zoomEnd + clearPickupSpawnChance;
-        const expansionEnd = clearEnd + expansionPickupSpawnChance;
+        // --- Score/Counter-based Unlock Logic --- 
+        let eligibleTypes = [];
+        // Always check if below max count
+        
+        // Score Unlocks:
+        if (zoomPickups.length < maxZoomPickups) eligibleTypes.push({ type: "zoom"});
+        if (topScore >= 50 && scorePickups.length < maxScorePickups) eligibleTypes.push({ type: "score"});
+        if (topScore >= 200 && sparseTrailPickups.length < maxSparseTrailPickups) eligibleTypes.push({ type: "sparse"});
+        if (topScore >= 2000 && multiSpawnPickups.length < maxMultiSpawnPickups) eligibleTypes.push({ type: "multi"});
+        
+        // Counter Unlocks (also check score unlock condition):
+        if (topScore >= 500 && pickupsCollectedCounter >= CLEAR_WALL_PICKUP_THRESHOLD && clearPickups.length < maxClearPickups) eligibleTypes.push({ type: "clear"});
+        if (topScore >= 500 && pickupsCollectedCounter >= ADD_AI_PICKUP_THRESHOLD && addAiPickups.length < maxAddAiPickups) eligibleTypes.push({ type: "add_ai"}); // Placeholder type
+        if (topScore >= 1000 && pickupsCollectedCounter >= EXPAND_PICKUP_THRESHOLD && expansionPickups.length < maxExpansionPickups) eligibleTypes.push({ type: "expansion"}); 
 
-        if (rand < multiEnd && multiSpawnPickups.length < maxMultiSpawnPickups) pickupType = "multi";
-        else if (rand < sparseEnd && sparseTrailPickups.length < maxSparseTrailPickups) pickupType = "sparse";
-        else if (rand < zoomEnd && zoomPickups.length < maxZoomPickups) pickupType = "zoom";
-        else if (rand < clearEnd && clearPickups.length < maxClearPickups) pickupType = "clear";
-        else if (rand < expansionEnd && expansionPickups.length < maxExpansionPickups) pickupType = "expansion";
-        else if (scorePickups.length < maxScorePickups) pickupType = "score";
-        else { /* Fallback */ 
-             if (multiSpawnPickups.length < maxMultiSpawnPickups) pickupType = "multi";
-             else if (sparseTrailPickups.length < maxSparseTrailPickups) pickupType = "sparse";
-             else if (zoomPickups.length < maxZoomPickups) pickupType = "zoom";
-             else if (clearPickups.length < maxClearPickups) pickupType = "clear";
-             else if (expansionPickups.length < maxExpansionPickups) pickupType = "expansion";
-             else if (scorePickups.length < maxScorePickups) pickupType = "score";
-             else return; 
+        // If no types are eligible, do nothing
+        if (eligibleTypes.length === 0) {
+            // console.log("No eligible pickup types to spawn.");
+            return; 
         }
+
+        // Randomly select from the eligible types
+        const randomIndex = Math.floor(Math.random() * eligibleTypes.length);
+        pickupType = eligibleTypes[randomIndex].type;
     }
     
-    // Double check max count
-    if (pickupType === "multi" && multiSpawnPickups.length >= maxMultiSpawnPickups) pickupType = null;
-    if (pickupType === "sparse" && sparseTrailPickups.length >= maxSparseTrailPickups) pickupType = null;
-    if (pickupType === "zoom" && zoomPickups.length >= maxZoomPickups) pickupType = null;
-    if (pickupType === "clear" && clearPickups.length >= maxClearPickups) pickupType = null;
-    if (pickupType === "expansion" && expansionPickups.length >= maxExpansionPickups) pickupType = null;
-
-    if (!pickupType) { /* Final fallback */
-         if (multiSpawnPickups.length < maxMultiSpawnPickups) pickupType = "multi";
-         else if (sparseTrailPickups.length < maxSparseTrailPickups) pickupType = "sparse";
-         else if (zoomPickups.length < maxZoomPickups) pickupType = "zoom";
-         else if (clearPickups.length < maxClearPickups) pickupType = "clear";
-         else if (expansionPickups.length < maxExpansionPickups) pickupType = "expansion";
-         else if (scorePickups.length < maxScorePickups) pickupType = "score";
-         else return; 
+    // Ensure a pickupType was determined (either forced or selected)
+    if (!pickupType) {
+        console.warn("SpawnPickup: No pickup type could be determined.");
+        return;
     }
 
     let geometry, material, targetArray, pickupHeight;
@@ -875,6 +987,13 @@ function spawnPickup(forceType = null) {
             targetArray = scorePickups; 
             pickupHeight = segmentSize * 0.6;
             break;
+        case "add_ai": 
+            // TODO: Implement actual AI spawning logic
+            console.warn("Add AI Pickup spawned (Placeholder - No effect yet)");
+            pickupVisual = new THREE.Mesh(addAiPickupGeometry, addAiPickupMaterial);
+            targetArray = addAiPickups;
+            pickupHeight = segmentSize * 0.6 * 2; // Approx height for Octahedron radius 0.6
+            break;
     }
 
     const maxAttempts = 50;
@@ -903,11 +1022,22 @@ function spawnPickup(forceType = null) {
 
 // Combined check for if a position is occupied by anything
 function isPositionOccupied(pos, threshold) {
+    const HEAD_DISTANCE_THRESHOLD_SQ = 5 * 5; // Minimum squared distance from heads
+
+    // Check distance from current snake head positions (visual)
+    if (snakeHead1 && pos.distanceToSquared(snakeHead1.position) < HEAD_DISTANCE_THRESHOLD_SQ) return true;
+    if (snakeHead2 && pos.distanceToSquared(snakeHead2.position) < HEAD_DISTANCE_THRESHOLD_SQ) return true;
+
+    // Check distance from target positions (logical) using smaller threshold for grid alignment?
+    // (Keeping this check might still be useful for preventing spawns exactly where a snake is GOING)
     if (pos.distanceTo(snakeTargetPosition1) < threshold) return true;
     if (pos.distanceTo(snakeTargetPosition2) < threshold) return true;
+    
+    // Check trails (walls) using smaller threshold
     for (const seg of [...trailSegments1, ...trailSegments2]) {
         if (pos.distanceTo(seg.position) < threshold) return true;
     }
+    // Check other pickups using smaller threshold
     for (const pick of scorePickups) {
         if (pos.distanceTo(pick.position) < threshold) return true;
     }
@@ -924,6 +1054,7 @@ function isPositionOccupied(pos, threshold) {
         if (pos.distanceTo(pick.position) < threshold) return true;
     } // Check sparse pickups too
     for (const pick of multiSpawnPickups) { if (pos.distanceTo(pick.position) < threshold) return true; } // Check multi
+    for (const pick of addAiPickups) { if (pos.distanceTo(pick.position) < threshold) return true; } // Check Add AI placeholder
     return false;
 }
 
@@ -936,14 +1067,16 @@ function checkScorePickupCollision() {
         if ((dx * dx + dz * dz) < PICKUP_COLLISION_THRESHOLD_SQ) { // Use larger threshold
             const pos = pickup.position.clone(); const col = pickup.material.color.clone();
             createExplosionEffect(pos, col);
-            createFloatingText("Speed Up!", pos, col);
-            scoreP1 += pickupScoreValue;
+            createFloatingText("+40 Speed Up!", pos, col); // Updated text
+            scoreP1 += 40; // Pink Cube: 40 points
             scene.remove(pickup); scorePickups.splice(i, 1);
             if (!isSpeedBoostActiveP1) { 
                 snakeHead1.material.color.setHex(P1_HEAD_COLOR_BOOST);
             }
             isSpeedBoostActiveP1 = true; speedBoostEndTimeP1 = performance.now() + boostDuration;
-            spawnPickup(); return true;
+            pickupsCollectedCounter++; // Increment counter
+            spawnPickup("score"); // Respawn same type
+            return true;
         }
     }
     return false;
@@ -958,7 +1091,8 @@ function checkExpansionPickupCollision() {
         if ((dx * dx + dz * dz) < PICKUP_COLLISION_THRESHOLD_SQ) { // Use larger threshold
             const pos = pickup.position.clone(); const col = pickup.material.color.clone();
             createExplosionEffect(pos, col);
-            createFloatingText("Expand!", pos, col);
+            createFloatingText("+150 Expand!", pos, col); // Updated text
+            scoreP1 += 150; // Green Cube: 150 points (Updated)
             scene.remove(pickup); expansionPickups.splice(i, 1);
 
             // Use threshold checks for direction
@@ -996,7 +1130,9 @@ function checkExpansionPickupCollision() {
             console.log("  New bounds:", boundaryXMin, boundaryXMax, boundaryZMin, boundaryZMax);
             createPlayAreaVisuals(boundaryXMin, boundaryXMax, boundaryZMin, boundaryZMax);
 
-            spawnPickup(); return true;
+            pickupsCollectedCounter++; // Increment counter
+            spawnPickup("expansion"); // Respawn same type
+            return true;
         }
     }
     return false;
@@ -1011,7 +1147,7 @@ function checkClearPickupCollision() {
         if ((dx * dx + dz * dz) < PICKUP_COLLISION_THRESHOLD_SQ) { // Use larger threshold
             const pos = pickup.position.clone(); const col = pickup.material.color.clone();
             createExplosionEffect(pos, col); // Effect for pickup itself
-            createFloatingText("Clear Walls!", pos, col);
+            createFloatingText("+80 Clear Walls!", pos, col); // Updated text
             
             // --- Wall Clear Effects --- 
             const effectFrequency = 4; // Create effect every N segments
@@ -1029,6 +1165,7 @@ function checkClearPickupCollision() {
             }
             // --------------------------
 
+            scoreP1 += 80; // White Cube: 80 points (Updated)
             scene.remove(pickup); clearPickups.splice(i, 1);
             // Clear walls AFTER adding effects
             trailSegments1.forEach(seg => scene.remove(seg)); trailSegments1.length = 0;
@@ -1036,11 +1173,110 @@ function checkClearPickupCollision() {
             lastTrailSegment1 = null; 
             lastTrailSegment2 = null; 
             console.log("  Walls cleared!");
-            spawnPickup(); return true;
+            pickupsCollectedCounter = 0; // Reset counter
+            // Do NOT respawn clear pickup immediately
+            return true;
         }
     }
     return false;
 }
+
+function checkZoomPickupCollision() {
+    // Use the larger threshold
+    for (let i = zoomPickups.length - 1; i >= 0; i--) {
+        const pickup = zoomPickups[i];
+        const dx = snakeTargetPosition1.x - pickup.position.x;
+        const dz = snakeTargetPosition1.z - pickup.position.z;
+        if ((dx * dx + dz * dz) < PICKUP_COLLISION_THRESHOLD_SQ) { // Use larger threshold
+            const pos = pickup.position.clone(); const col = pickup.material.color.clone();
+            createExplosionEffect(pos, col);
+            createFloatingText("+20 Zoom Out!", pos, col); // Updated text
+            console.log("Player collected Zoom Out pickup!");
+            scoreP1 += 20; // Blue Cube: 20 points
+            scene.remove(pickup); zoomPickups.splice(i, 1);
+            isZoomedOutP1 = true; zoomOutEndTimeP1 = performance.now() + zoomOutDuration;
+            pickupsCollectedCounter++; // Increment counter
+            spawnPickup("zoom"); // Respawn SAME type
+            return true;
+        }
+    }
+    return false;
+}
+
+function checkSparseTrailPickupCollision() {
+    // Revert to XZ check with larger threshold
+    for (let i = sparseTrailPickups.length - 1; i >= 0; i--) {
+        const pickup = sparseTrailPickups[i];
+        const dx = snakeTargetPosition1.x - pickup.position.x;
+        const dz = snakeTargetPosition1.z - pickup.position.z;
+        if ((dx * dx + dz * dz) < PICKUP_COLLISION_THRESHOLD_SQ) { 
+            const pos = pickup.position.clone(); 
+            const col = sparseTrailMaterial.color.clone();
+            createExplosionEffect(pos, col);
+            createFloatingText("+60 Sparse Trail!", pos, col); // Updated text
+            scoreP1 += 60; // Yellow Blocks: 60 points (Updated)
+            console.log("Sparse Trail P1: Attempting remove", pickup);
+            scene.remove(pickup); 
+            console.log("Sparse Trail P1: Removed from scene.");
+            sparseTrailPickups.splice(i, 1);
+            isSparseTrailActiveP1 = true;
+            sparseTrailEndTimeP1 = performance.now() + sparseTrailDuration;
+            trailCounterP1 = 0; // Reset counter on pickup
+            console.log(`Sparse Trail P1 Activated: Active=${isSparseTrailActiveP1}, EndTime=${sparseTrailEndTimeP1.toFixed(0)}, Counter=${trailCounterP1}`);
+            pickupsCollectedCounter++; // Increment counter
+            spawnPickup("sparse"); // Respawn same type
+            return true;
+        }
+    }
+    return false;
+}
+
+function checkMultiSpawnPickupCollision() {
+    // Use the larger threshold 
+    for (let i = multiSpawnPickups.length - 1; i >= 0; i--) {
+        const pickup = multiSpawnPickups[i];
+        const dx = snakeTargetPosition1.x - pickup.position.x;
+        const dz = snakeTargetPosition1.z - pickup.position.z;
+        if ((dx * dx + dz * dz) < PICKUP_COLLISION_THRESHOLD_SQ) { 
+            const pos = pickup.position.clone(); const col = multiSpawnMaterial.color.clone();
+            createExplosionEffect(pos, col);
+            createFloatingText("+200 Max ++!", pos, col); // Updated text with points
+            scoreP1 += 200; // Purple Gems: 200 points (Updated)
+            console.log("Player collected Multi-Spawn powerup! Increasing max limits.");
+            scene.remove(pickup); multiSpawnPickups.splice(i, 1);
+            
+            // --- Updated Multi-Spawn Logic ---
+            // 1. Determine a random type to spawn (excluding multi itself for the random spawn part)
+            const availableSpawnTypes = ["score", "expansion", "clear", "zoom", "sparse"];
+            const randomTypeIndex = Math.floor(Math.random() * availableSpawnTypes.length);
+            const typeToSpawn = availableSpawnTypes[randomTypeIndex];
+            
+            // 2. Increase the max count for THAT type
+            let maxIncreased = false;
+            switch(typeToSpawn) {
+                case "score": maxScorePickups++; maxIncreased = true; break;
+                case "expansion": maxExpansionPickups++; maxIncreased = true; break;
+                case "clear": maxClearPickups++; maxIncreased = true; break;
+                case "zoom": maxZoomPickups++; maxIncreased = true; break;
+                case "sparse": maxSparseTrailPickups++; maxIncreased = true; break;
+            }
+            if(maxIncreased) console.log(` -> Increased max for ${typeToSpawn}`);
+            else console.warn(` -> Could not increase max for selected type: ${typeToSpawn}`);
+
+            // 3. Spawn ONE of that type
+            spawnPickup(typeToSpawn);
+
+            // 4. Spawn a new "multi" pickup (respawn self)
+            spawnPickup("multi");
+            
+            pickupsCollectedCounter++; // Increment main counter
+            return true;
+        }
+    }
+    return false;
+}
+
+// --- AI Collision Checks --- 
 
 function checkAIScorePickupCollision() {
     // Use the larger threshold
@@ -1058,7 +1294,9 @@ function checkAIScorePickupCollision() {
                  snakeHead2.material.color.setHex(AI_HEAD_COLOR_BOOST);
             }
             isSpeedBoostActiveAI = true; speedBoostEndTimeAI = performance.now() + boostDuration;
-            spawnPickup(); return true;
+            pickupsCollectedCounter++; // Increment counter
+            spawnPickup("score"); // Respawn same type
+            return true;
         }
     }
     return false;
@@ -1074,7 +1312,8 @@ function checkAIExpansionPickupCollision() {
             const pos = pickup.position.clone(); const col = pickup.material.color.clone();
             createExplosionEffect(pos, col);
             createFloatingText("Expand!", pos, col);
-            console.log("AI collected expansion pickup!");
+            console.log("AI collected expansion powerup!");
+            // scoreP1 += 150; // AI does not grant score for this powerup
             scene.remove(pickup); expansionPickups.splice(i, 1);
 
             // Use threshold checks for direction
@@ -1112,7 +1351,9 @@ function checkAIExpansionPickupCollision() {
             console.log("  New bounds:", boundaryXMin, boundaryXMax, boundaryZMin, boundaryZMax);
             createPlayAreaVisuals(boundaryXMin, boundaryXMax, boundaryZMin, boundaryZMax);
 
-            spawnPickup(); return true;
+            pickupsCollectedCounter++; // Increment counter
+            spawnPickup(); // Respawn RANDOM type
+            return true;
         }
     }
     return false;
@@ -1145,6 +1386,7 @@ function checkAIClearPickupCollision() {
             }
             // --------------------------
 
+            // scoreP1 += 80; // AI doesn't increase player 1 score
             scene.remove(pickup); clearPickups.splice(i, 1);
             // Clear walls AFTER adding effects
             trailSegments1.forEach(seg => scene.remove(seg)); trailSegments1.length = 0;
@@ -1152,26 +1394,9 @@ function checkAIClearPickupCollision() {
             lastTrailSegment1 = null; 
             lastTrailSegment2 = null; 
             console.log("  Walls cleared by AI!");
-            spawnPickup(); return true;
-        }
-    }
-    return false;
-}
-
-function checkZoomPickupCollision() {
-    // Use the larger threshold
-    for (let i = zoomPickups.length - 1; i >= 0; i--) {
-        const pickup = zoomPickups[i];
-        const dx = snakeTargetPosition1.x - pickup.position.x;
-        const dz = snakeTargetPosition1.z - pickup.position.z;
-        if ((dx * dx + dz * dz) < PICKUP_COLLISION_THRESHOLD_SQ) { // Use larger threshold
-            const pos = pickup.position.clone(); const col = pickup.material.color.clone();
-            createExplosionEffect(pos, col);
-            createFloatingText("Zoom Out!", pos, col);
-            console.log("Player collected Zoom Out pickup!");
-            scene.remove(pickup); zoomPickups.splice(i, 1);
-            isZoomedOutP1 = true; zoomOutEndTimeP1 = performance.now() + zoomOutDuration;
-            spawnPickup(); return true;
+            pickupsCollectedCounter = 0; // Reset counter
+            // Do NOT respawn clear pickup immediately
+            return true;
         }
     }
     return false;
@@ -1186,36 +1411,12 @@ function checkAIZoomPickupCollision() {
         if ((dx * dx + dz * dz) < PICKUP_COLLISION_THRESHOLD_SQ) { // Use larger threshold
             const pos = pickup.position.clone(); const col = pickup.material.color.clone();
             createExplosionEffect(pos, col);
-            // AI doesn't get zoom, so no text needed? Or maybe different text?
-            // createFloatingText("AI Zoom!", pos, col); // Optional: Add text even if no effect
+            // createFloatingText("AI Zoom!", pos, col); // Optional
             console.log("AI collected Zoom Out pickup!");
             scene.remove(pickup); zoomPickups.splice(i, 1);
-            spawnPickup(); return true;
-        }
-    }
-    return false;
-}
-
-function checkSparseTrailPickupCollision() {
-    // Revert to XZ check with larger threshold
-    for (let i = sparseTrailPickups.length - 1; i >= 0; i--) {
-        const pickup = sparseTrailPickups[i];
-        const dx = snakeTargetPosition1.x - pickup.position.x;
-        const dz = snakeTargetPosition1.z - pickup.position.z;
-        if ((dx * dx + dz * dz) < PICKUP_COLLISION_THRESHOLD_SQ) { 
-            const pos = pickup.position.clone(); 
-            const col = sparseTrailMaterial.color.clone();
-            createExplosionEffect(pos, col);
-            createFloatingText("Sparse Trail!", pos, col);
-            console.log("Sparse Trail P1: Attempting remove", pickup);
-            scene.remove(pickup); 
-            console.log("Sparse Trail P1: Removed from scene.");
-            sparseTrailPickups.splice(i, 1);
-            isSparseTrailActiveP1 = true;
-            sparseTrailEndTimeP1 = performance.now() + sparseTrailDuration;
-            trailCounterP1 = 0; // Reset counter on pickup
-            console.log(`Sparse Trail P1 Activated: Active=${isSparseTrailActiveP1}, EndTime=${sparseTrailEndTimeP1.toFixed(0)}, Counter=${trailCounterP1}`);
-            spawnPickup(); return true;
+            pickupsCollectedCounter++; // Increment counter
+            spawnPickup("zoom"); // Respawn SAME type
+            return true;
         }
     }
     return false;
@@ -1232,6 +1433,7 @@ function checkAISparseTrailPickupCollision() {
             const col = sparseTrailMaterial.color.clone(); 
             createExplosionEffect(pos, col);
             createFloatingText("Sparse Trail!", pos, col); 
+            // scoreP1 += 60; // AI doesn't increase player 1 score
             console.log("Sparse Trail AI: Attempting remove", pickup);
             scene.remove(pickup); 
             console.log("Sparse Trail AI: Removed from scene.");
@@ -1240,34 +1442,8 @@ function checkAISparseTrailPickupCollision() {
             sparseTrailEndTimeAI = performance.now() + sparseTrailDuration;
             trailCounterAI = 0; // Reset counter on pickup
             console.log(`Sparse Trail AI Activated: Active=${isSparseTrailActiveAI}, EndTime=${sparseTrailEndTimeAI.toFixed(0)}, Counter=${trailCounterAI}`);
-            spawnPickup(); return true;
-        }
-    }
-    return false;
-}
-
-function checkMultiSpawnPickupCollision() {
-    // Use the larger threshold 
-    for (let i = multiSpawnPickups.length - 1; i >= 0; i--) {
-        const pickup = multiSpawnPickups[i];
-        const dx = snakeTargetPosition1.x - pickup.position.x;
-        const dz = snakeTargetPosition1.z - pickup.position.z;
-        if ((dx * dx + dz * dz) < PICKUP_COLLISION_THRESHOLD_SQ) { 
-            const pos = pickup.position.clone(); const col = multiSpawnMaterial.color.clone();
-            createExplosionEffect(pos, col);
-            createFloatingText("Multi Spawn!", pos, col);
-            console.log("Player collected Multi-Spawn pickup!");
-            scene.remove(pickup); multiSpawnPickups.splice(i, 1);
-            
-            // Spawn one of each other type (if limits allow)
-            spawnPickup("score");
-            spawnPickup("expansion");
-            spawnPickup("clear");
-            spawnPickup("zoom");
-            spawnPickup("sparse");
-            
-            // Spawn a new random one to replace this multi-spawn
-            spawnPickup(); 
+            pickupsCollectedCounter++; // Increment counter
+            spawnPickup("sparse"); // Respawn same type
             return true;
         }
     }
@@ -1283,19 +1459,78 @@ function checkAIMultiSpawnPickupCollision() {
         if ((dx * dx + dz * dz) < PICKUP_COLLISION_THRESHOLD_SQ) {
             const pos = pickup.position.clone(); const col = multiSpawnMaterial.color.clone();
             createExplosionEffect(pos, col);
-            createFloatingText("Multi Spawn!", pos, col); // Same text
-            console.log("AI collected Multi-Spawn pickup!");
+            createFloatingText("Max ++!", pos, col); // Updated text
+            // scoreP1 += 200; // AI does not grant score for this powerup
+            console.log("AI collected Multi-Spawn powerup! Increasing max limits.");
             scene.remove(pickup); multiSpawnPickups.splice(i, 1);
             
-            // Spawn one of each other type (if limits allow)
-            spawnPickup("score");
-            spawnPickup("expansion");
-            spawnPickup("clear");
-            spawnPickup("zoom");
-            spawnPickup("sparse");
+            // --- Updated Multi-Spawn Logic (AI) ---
+            // 1. Determine a random type to spawn (excluding multi itself)
+            const availableSpawnTypes = ["score", "expansion", "clear", "zoom", "sparse"];
+            const randomTypeIndex = Math.floor(Math.random() * availableSpawnTypes.length);
+            const typeToSpawn = availableSpawnTypes[randomTypeIndex];
             
-            // Spawn a new random one to replace this multi-spawn
-            spawnPickup(); 
+            // 2. Increase the max count for THAT type
+            let maxIncreased = false;
+            switch(typeToSpawn) {
+                case "score": maxScorePickups++; maxIncreased = true; break;
+                case "expansion": maxExpansionPickups++; maxIncreased = true; break;
+                case "clear": maxClearPickups++; maxIncreased = true; break;
+                case "zoom": maxZoomPickups++; maxIncreased = true; break;
+                case "sparse": maxSparseTrailPickups++; maxIncreased = true; break;
+            }
+            if(maxIncreased) console.log(` -> AI Increased max for ${typeToSpawn}`);
+            else console.warn(` -> AI Could not increase max for selected type: ${typeToSpawn}`);
+
+            // 3. Spawn ONE of that type
+            spawnPickup(typeToSpawn);
+
+            // 4. Spawn a new "multi" pickup (respawn self)
+            spawnPickup("multi");
+
+            pickupsCollectedCounter++; // Increment main counter
+            return true;
+        }
+    }
+    return false;
+}
+
+function checkAddAiPickupCollision() {
+    for (let i = addAiPickups.length - 1; i >= 0; i--) {
+        const pickup = addAiPickups[i];
+        const dx = snakeTargetPosition1.x - pickup.position.x;
+        const dz = snakeTargetPosition1.z - pickup.position.z;
+        if ((dx * dx + dz * dz) < PICKUP_COLLISION_THRESHOLD_SQ) {
+            const pos = pickup.position.clone(); const col = addAiPickupMaterial.color.clone();
+            createExplosionEffect(pos, col);
+            createFloatingText("+100 More Players! (TODO)", pos, col); // Updated text with points
+            scoreP1 += 100; // Add AI Placeholder: 100 points
+            console.log("Player collected Add AI powerup! (Placeholder)");
+            scene.remove(pickup); addAiPickups.splice(i, 1);
+            // TODO: Implement actual AI spawning!
+            pickupsCollectedCounter = 0; // Reset counter
+            // Do not respawn immediately
+            return true;
+        }
+    }
+    return false;
+}
+
+function checkAIAddAiPickupCollision() {
+     for (let i = addAiPickups.length - 1; i >= 0; i--) {
+        const pickup = addAiPickups[i];
+        const dx = snakeTargetPosition2.x - pickup.position.x;
+        const dz = snakeTargetPosition2.z - pickup.position.z;
+        if ((dx * dx + dz * dz) < PICKUP_COLLISION_THRESHOLD_SQ) {
+            const pos = pickup.position.clone(); const col = addAiPickupMaterial.color.clone();
+            createExplosionEffect(pos, col);
+            // createFloatingText("AI More Players!", pos, col); // Optional text for AI
+            // scoreP1 += 100; // AI doesn't increase player 1 score
+            console.log("AI collected Add AI powerup! (Placeholder)");
+            scene.remove(pickup); addAiPickups.splice(i, 1);
+            // TODO: Implement actual AI spawning!
+            pickupsCollectedCounter = 0; // Reset counter
+            // Do not respawn immediately
             return true;
         }
     }
@@ -1388,7 +1623,8 @@ function animate(currentTime) {
             checkClearPickupCollision();
             checkZoomPickupCollision(); 
             checkSparseTrailPickupCollision(); 
-            checkMultiSpawnPickupCollision(); // Check multi-spawn
+            checkMultiSpawnPickupCollision();
+            checkAddAiPickupCollision(); // Add check for new pickup
         }
 
         // --- AI Update Logic ---
@@ -1418,7 +1654,8 @@ function animate(currentTime) {
             checkAIClearPickupCollision();
             checkAIZoomPickupCollision(); 
             checkAISparseTrailPickupCollision(); 
-            checkAIMultiSpawnPickupCollision(); // Check multi-spawn
+            checkAIMultiSpawnPickupCollision();
+            checkAIAddAiPickupCollision(); // Add check for new pickup
         }
         
         // --- Collision Check & Trail Creation (Run if either snake moved) --- 
@@ -1473,6 +1710,8 @@ function animate(currentTime) {
                     console.log(`New Top Score! ${scoreP1} (Previous: ${topScore})`);
                     topScore = scoreP1;
                     localStorage.setItem('tronSnakeTopScore', topScore.toString());
+                    // Update the display immediately
+                    if(topScoreTextElement) topScoreTextElement.textContent = `Top Score: ${topScore}`; // Updated text prefix
                 }
                 
                 // Log and Display Game Over Message (now includes top score info)
@@ -1730,5 +1969,55 @@ function createSparseTrailPickupVisual() {
 }
 // Create the template visual once
 const sparseTrailPickupTemplate = createSparseTrailPickupVisual();
+
+// --- Touch Controls --- 
+function onTouchStart(event) {
+    if (!gameActive || isGameOver) return;
+    event.preventDefault(); // Prevent scrolling/zooming
+
+    const lookBackZoneHeight = window.innerHeight / 3; // Bottom third
+    const turnZoneWidth = window.innerWidth / 2;
+
+    for (let i = 0; i < event.changedTouches.length; i++) {
+        const touch = event.changedTouches[i];
+        const touchX = touch.clientX;
+        const touchY = touch.clientY;
+
+        // Check for Look Back first
+        if (touchY > window.innerHeight - lookBackZoneHeight) {
+            if (lookBackTouchId === null) { // Only allow one finger for look back
+                isLookingBack = true;
+                lookBackTouchId = touch.identifier;
+                // console.log("Touch Look Back ON, ID:", lookBackTouchId); 
+            }
+        } else { // If not in look back zone, check for turns
+             if (touchX < turnZoneWidth) {
+                 // Turn Left
+                 snakeDirection1.applyAxisAngle(yAxis, Math.PI / 2);
+                 // console.log("Touch Turn Left");
+             } else {
+                 // Turn Right
+                 snakeDirection1.applyAxisAngle(yAxis, -Math.PI / 2);
+                 // console.log("Touch Turn Right");
+             }
+        }
+    }
+}
+
+function onTouchEnd(event) {
+    if (!gameActive) return; // Check gameActive just in case
+    event.preventDefault();
+
+    for (let i = 0; i < event.changedTouches.length; i++) {
+        const touch = event.changedTouches[i];
+        // If the touch that ended was the one used for looking back
+        if (touch.identifier === lookBackTouchId) {
+            isLookingBack = false;
+            lookBackTouchId = null; // Clear the stored ID
+            // console.log("Touch Look Back OFF, ID:", touch.identifier);
+            break; // Assume only one look back touch
+        }
+    }
+}
 
 init(); 
