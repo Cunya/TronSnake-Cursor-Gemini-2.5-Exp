@@ -679,30 +679,39 @@ function createOpeningDialog() {
         openingDialogElement.style.position = 'absolute';
         openingDialogElement.style.top = '50%';
         openingDialogElement.style.left = '50%';
+        // Ensure dialog doesn't exceed viewport width, especially on mobile
+        openingDialogElement.style.width = 'clamp(300px, 90vw, 600px)'; 
         openingDialogElement.style.transform = 'translate(-50%, -50%)';
         openingDialogElement.style.color = 'white';
-        openingDialogElement.style.backgroundColor = 'rgba(0, 0, 0, 0.8)';
-        openingDialogElement.style.padding = '30px 50px';
+        openingDialogElement.style.backgroundColor = 'rgba(0, 0, 0, 0.85)'; // Slightly more opaque
+        openingDialogElement.style.padding = 'clamp(15px, 4vw, 30px) clamp(20px, 5vw, 50px)'; // Responsive padding
         openingDialogElement.style.borderRadius = '10px';
         openingDialogElement.style.border = '2px solid rgba(255, 255, 255, 0.6)';
-        openingDialogElement.style.fontSize = '24px'; // Base font size
+        // Responsive base font size using clamp: min 16px, preferred 3vw, max 24px
+        openingDialogElement.style.fontSize = 'clamp(16px, 3vw, 24px)';
         openingDialogElement.style.fontFamily = 'Arial, sans-serif';
         openingDialogElement.style.textShadow = '1px 1px 3px #000000';
         openingDialogElement.style.textAlign = 'center'; 
         openingDialogElement.style.cursor = 'pointer';
+        // Ensure it's scrollable if content overflows (less likely with responsive fonts, but safer)
+        openingDialogElement.style.maxHeight = '80vh'; 
+        openingDialogElement.style.overflowY = 'auto';
         document.body.appendChild(openingDialogElement);
     }
 
     // --- Dynamic Content Generation --- 
     const unlockStatus = getUnlockStatusText(topScore); // Call helper
 
+    // Use responsive font sizes within the HTML string as well
     let dialogHTML = 
-        `<h2 style="font-size: 32px; margin-top: 0; margin-bottom: 15px; color: #00ffff;">Tron Snake 3D</h2>` +
-        `<p style="margin-bottom: 20px;">Trap the <strong style="color: #ff8800;">Orange AI</strong> opponent.</p>` +
-        unlockStatus.unlockedHTML + 
-        unlockStatus.nextUnlockMsg +  
-        unlockStatus.controlsText + // Add controls text from helper
-        `<p style="margin-top: 25px; font-size: 18px; color: #cccccc;">(Click or Press Any Key to Start)</p>`;
+        `<h2 style="font-size: clamp(24px, 5vw, 32px); margin-top: 0; margin-bottom: 15px; color: #00ffff;">Tron Snake 3D</h2>` +
+        `<p style="font-size: clamp(16px, 3vw, 20px); margin-bottom: 20px;">Trap the <strong style="color: #ff8800;">Orange AI</strong> opponent.</p>` +
+        // Apply responsive styles to getUnlockStatusText output (this requires modifying getUnlockStatusText) 
+        // For now, let's assume the base font size handles most cases, but ideally, the styles inside getUnlockStatusText would also be responsive.
+        unlockStatus.unlockedHTML.replace(/font-size: \d+px;/g, 'font-size: clamp(14px, 2.5vw, 18px);') + // Make unlocked items responsive
+        unlockStatus.nextUnlockMsg.replace(/font-size: \d+px;/g, 'font-size: clamp(14px, 2.5vw, 18px);') + // Make next unlock msg responsive
+        unlockStatus.controlsText.replace(/font-size: \d+px;/g, 'font-size: clamp(13px, 2.2vw, 16px);') + // Make controls text responsive
+        `<p style="margin-top: 25px; font-size: clamp(14px, 2.5vw, 18px); color: #cccccc;">(Click, Touch, or Press Any Key to Start)</p>`; // Updated prompt text
 
     openingDialogElement.innerHTML = dialogHTML;
     openingDialogElement.style.display = 'block'; // Show initially
@@ -713,17 +722,25 @@ function createGameOverText() {
     gameOverTextElement.style.position = 'absolute';
     gameOverTextElement.style.top = '50%';
     gameOverTextElement.style.left = '50%';
+    // Ensure dialog doesn't exceed viewport width
+    gameOverTextElement.style.width = 'clamp(300px, 90vw, 700px)';
     gameOverTextElement.style.transform = 'translate(-50%, -50%)';
     gameOverTextElement.style.color = 'white';
-    gameOverTextElement.style.backgroundColor = 'rgba(0, 0, 0, 0.7)'; // Semi-transparent black background
-    gameOverTextElement.style.padding = '20px 40px'; // Add padding
-    gameOverTextElement.style.borderRadius = '10px'; // Rounded corners
-    gameOverTextElement.style.border = '2px solid rgba(255, 255, 255, 0.5)'; // Subtle white border
-    gameOverTextElement.style.fontSize = '48px';
+    gameOverTextElement.style.backgroundColor = 'rgba(0, 0, 0, 0.75)'; // Slightly more opaque background
+    gameOverTextElement.style.padding = 'clamp(15px, 4vw, 20px) clamp(20px, 5vw, 40px)'; // Responsive padding
+    gameOverTextElement.style.borderRadius = '10px';
+    gameOverTextElement.style.border = '2px solid rgba(255, 255, 255, 0.5)';
+    // Responsive font size for the main game over message
+    gameOverTextElement.style.fontSize = 'clamp(28px, 6vw, 48px)';
     gameOverTextElement.style.fontFamily = 'Arial, sans-serif';
     gameOverTextElement.style.textShadow = '2px 2px 4px #000000';
-    gameOverTextElement.style.textAlign = 'center'; // Center align text
-    gameOverTextElement.style.display = 'none';
+    gameOverTextElement.style.textAlign = 'center';
+    // Ensure scrollable if content overflows
+    gameOverTextElement.style.maxHeight = '85vh'; 
+    gameOverTextElement.style.overflowY = 'auto';
+    gameOverTextElement.style.display = 'none'; 
+    // Add cursor pointer to indicate it's clickable for restart
+    gameOverTextElement.style.cursor = 'pointer'; 
     document.body.appendChild(gameOverTextElement);
 }
 
@@ -782,27 +799,28 @@ function showGameOverMessage(winner) {
     else if (winner === 3) message = 'Draw!';
 
     let scoreMessage = `Final Score: ${scoreP1}`;
-    // No need for topScoreMessage here anymore
     if (scoreP1 > topScore && (winner === 2 || winner === 3)) { 
        scoreMessage += ` (NEW TOP SCORE!)`;
-       if(topScoreTextElement) topScoreTextElement.textContent = `Top Score: ${scoreP1}`; // Updated text prefix
-       // topScore variable is already updated in animate()
+       if(topScoreTextElement) topScoreTextElement.textContent = `Top Score: ${scoreP1}`; 
     }
 
-    // Get unlock status text
     const unlockStatus = getUnlockStatusText(topScore);
 
+    // Use responsive font sizes in the HTML string
     gameOverTextElement.innerHTML = 
         `${message}<br>` +
-        `<span style="font-size: 32px; color: #cccccc;">${scoreMessage}</span><br>` +
-        // --- Add Unlock Status --- 
-        `<div style="margin-top: 20px; border-top: 1px solid #555; padding-top: 15px;">` +
-        unlockStatus.unlockedHTML + 
-        unlockStatus.nextUnlockMsg +
+        // Responsive score message
+        `<span style="font-size: clamp(20px, 4vw, 32px); color: #cccccc;">${scoreMessage}</span><br>` +
+        // --- Add Unlock Status (Make responsive) --- 
+        `<div style="margin-top: 20px; border-top: 1px solid #555; padding-top: 15px; font-size: clamp(14px, 2.5vw, 18px);">` +
+        unlockStatus.unlockedHTML.replace(/font-size: \d+px;/g, 'font-size: clamp(14px, 2.5vw, 18px);') + 
+        unlockStatus.nextUnlockMsg.replace(/font-size: \d+px;/g, 'font-size: clamp(14px, 2.5vw, 18px);') +
         `</div>` +
         // --------------------------
-        unlockStatus.controlsText + // Add controls text from helper
-        `<span style="font-size: 24px; margin-top: 10px;">Press Any Key to Restart</span>`;
+        // Make controls text responsive
+        unlockStatus.controlsText.replace(/font-size: \d+px;/g, 'font-size: clamp(13px, 2.2vw, 16px);') + 
+        // Responsive restart prompt
+        `<span style="display: block; margin-top: 15px; font-size: clamp(16px, 3vw, 24px); color: #dddddd;">Tap or Press Any Key to Restart</span>`;
     gameOverTextElement.style.display = 'block';
 }
 
@@ -1972,7 +1990,15 @@ const sparseTrailPickupTemplate = createSparseTrailPickupVisual();
 
 // --- Touch Controls --- 
 function onTouchStart(event) {
-    if (!gameActive || isGameOver) return;
+    // --- Add Game Over Check First --- 
+    if (isGameOver) {
+        resetGame();
+        event.preventDefault(); // Prevent default actions if we reset
+        return; // Stop further processing for this touch
+    }
+    // ----------------------------------
+    
+    if (!gameActive) return; // Keep check for when game hasn't started yet (but not game over)
     event.preventDefault(); // Prevent scrolling/zooming
 
     const lookBackZoneHeight = window.innerHeight / 3; // Bottom third
@@ -1988,17 +2014,14 @@ function onTouchStart(event) {
             if (lookBackTouchId === null) { // Only allow one finger for look back
                 isLookingBack = true;
                 lookBackTouchId = touch.identifier;
-                // console.log("Touch Look Back ON, ID:", lookBackTouchId); 
             }
         } else { // If not in look back zone, check for turns
              if (touchX < turnZoneWidth) {
                  // Turn Left
                  snakeDirection1.applyAxisAngle(yAxis, Math.PI / 2);
-                 // console.log("Touch Turn Left");
              } else {
                  // Turn Right
                  snakeDirection1.applyAxisAngle(yAxis, -Math.PI / 2);
-                 // console.log("Touch Turn Right");
              }
         }
     }
