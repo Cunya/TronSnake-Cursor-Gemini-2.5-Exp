@@ -7,7 +7,7 @@ import * as THREE from 'three';
 // import { FontLoader } from 'three/addons/loaders/FontLoader.js';
 // import { TextGeometry } from 'three/addons/geometries/TextGeometry.js';
 
-const GAME_VERSION = "v1.0.0"; // Initial public release
+const GAME_VERSION = "v1.0.2"; // Add Multi-Spawn pickup
 
 let scene, camera, renderer;
 let planeMesh, gridMesh;
@@ -126,6 +126,13 @@ const sparseTrailMaterial = new THREE.MeshPhongMaterial({ color: 0xffff00, emiss
 const maxSparseTrailPickups = 1;
 const sparseTrailPickupSpawnChance = 0.08; 
 
+// Multi-Spawn Pickup
+const multiSpawnPickups = [];
+const multiSpawnGeometry = new THREE.IcosahedronGeometry(segmentSize * 0.45, 0); // Icosahedron, radius 0.45
+const multiSpawnMaterial = new THREE.MeshPhongMaterial({ color: 0x9900ff, emissive: 0x5500aa }); // Purple
+const maxMultiSpawnPickups = 1;
+const multiSpawnPickupSpawnChance = 0.07; // Make it slightly rarer
+
 // Game state
 let isGameOver = false;
 let gameActive = false; // New state: controls if game logic runs
@@ -154,7 +161,7 @@ const viewShiftPoint = new THREE.Vector3(); // Renamed from lookAheadPoint
 // --- Particle Effect Vars ---
 const explosionParticles = [];
 let lastFrameTime = 0; // For particle physics delta time
-const PARTICLE_COUNT = 30; // Increased particle count
+const PARTICLE_COUNT = 60; // Doubled particle count
 const PARTICLE_SIZE = 0.15; // Relative to segmentSize
 const EXPLOSION_FORCE = 5.0;
 const PARTICLE_GRAVITY = -9.8;
@@ -173,6 +180,9 @@ const TEXT_HEIGHT_OFFSET = 0.5; // Start slightly above pickup
 
 // --- Top Score State ---
 let topScore = 0;
+
+// Pickup checks use TARGET positions and check XZ distance with LARGER threshold
+const PICKUP_COLLISION_THRESHOLD_SQ = (segmentSize * 0.5) * (segmentSize * 0.5);
 
 // Helper function to get grid center coordinate from world coordinate
 function snapToGridCenter(value, axis) {
@@ -401,7 +411,8 @@ function updateAIPlayer() {
         ...expansionPickups, 
         ...clearPickups, 
         ...zoomPickups,
-        ...sparseTrailPickups // Scan for sparse trail pickups
+        ...sparseTrailPickups,
+        ...multiSpawnPickups // Scan for multi-spawn
     ]; 
     for (const pickup of allPickups) {
         const distSq = currentPos.distanceToSquared(pickup.position);
@@ -615,7 +626,8 @@ function createOpeningDialog() {
         `<p style="margin-bottom: 10px;">Collect <strong style="color: #00ff00;">Green Cubes</strong> to expand the arena!</p>` +
         `<p style="margin-bottom: 10px;">Collect <strong style="color: #ffffff;">White Cubes</strong> to clear all walls!</p>` +
         `<p style="margin-bottom: 20px;">Collect <strong style="color: #0088ff;">Blue Cubes</strong> to zoom out briefly!</p>` +
-        `<p style="margin-bottom: 20px;">Collect <strong style="color: #ffff00;">Yellow Rings</strong> for sparse trails!</p>` +
+        `<p style="margin-bottom: 20px;">Collect <strong style="color: #ffff00;">Yellow Blocks</strong> for sparse trails!</p>` + // Changed Rings to Blocks
+        `<p style="margin-bottom: 20px;">Collect <strong style="color: #9900ff;">Purple Gems</strong> to spawn more pickups!</p>` + // Mention multi-spawn
         `<p style="font-size: 18px; color: #cccccc;">(Click or Press Any Key to Start)</p>`;
 
     document.body.appendChild(openingDialogElement);
@@ -772,49 +784,56 @@ function spawnInitialPickups() {
     zoomPickups.length = 0; // Clear zoom pickups
     sparseTrailPickups.forEach(p => scene.remove(p));
     sparseTrailPickups.length = 0; // Clear sparse pickups
+    multiSpawnPickups.forEach(p => scene.remove(p)); multiSpawnPickups.length = 0; // Clear multi-spawn
     
     spawnPickup("score"); 
     spawnPickup("expansion");
     spawnPickup("clear");
     spawnPickup("zoom"); 
-    spawnPickup("sparse"); // Spawn initial sparse pickup
+    spawnPickup("sparse"); 
+    spawnPickup("multi"); // Spawn initial multi-spawn
 }
 
-// Updated Spawn Logic for 5 Types
+// Updated Spawn Logic for 6 Types
 function spawnPickup(forceType = null) {
     let pickupType = forceType;
     
     if (!pickupType) { 
         const rand = Math.random();
         // Define probability ranges
-        const sparseEnd = sparseTrailPickupSpawnChance;
+        const multiEnd = multiSpawnPickupSpawnChance;
+        const sparseEnd = multiEnd + sparseTrailPickupSpawnChance;
         const zoomEnd = sparseEnd + zoomPickupSpawnChance;
         const clearEnd = zoomEnd + clearPickupSpawnChance;
         const expansionEnd = clearEnd + expansionPickupSpawnChance;
 
-        if (rand < sparseEnd && sparseTrailPickups.length < maxSparseTrailPickups) pickupType = "sparse";
+        if (rand < multiEnd && multiSpawnPickups.length < maxMultiSpawnPickups) pickupType = "multi";
+        else if (rand < sparseEnd && sparseTrailPickups.length < maxSparseTrailPickups) pickupType = "sparse";
         else if (rand < zoomEnd && zoomPickups.length < maxZoomPickups) pickupType = "zoom";
         else if (rand < clearEnd && clearPickups.length < maxClearPickups) pickupType = "clear";
         else if (rand < expansionEnd && expansionPickups.length < maxExpansionPickups) pickupType = "expansion";
         else if (scorePickups.length < maxScorePickups) pickupType = "score";
         else { /* Fallback */ 
-            if (sparseTrailPickups.length < maxSparseTrailPickups) pickupType = "sparse";
-            else if (zoomPickups.length < maxZoomPickups) pickupType = "zoom";
-            else if (clearPickups.length < maxClearPickups) pickupType = "clear";
-            else if (expansionPickups.length < maxExpansionPickups) pickupType = "expansion";
-            else if (scorePickups.length < maxScorePickups) pickupType = "score";
-            else return; 
+             if (multiSpawnPickups.length < maxMultiSpawnPickups) pickupType = "multi";
+             else if (sparseTrailPickups.length < maxSparseTrailPickups) pickupType = "sparse";
+             else if (zoomPickups.length < maxZoomPickups) pickupType = "zoom";
+             else if (clearPickups.length < maxClearPickups) pickupType = "clear";
+             else if (expansionPickups.length < maxExpansionPickups) pickupType = "expansion";
+             else if (scorePickups.length < maxScorePickups) pickupType = "score";
+             else return; 
         }
     }
     
     // Double check max count
+    if (pickupType === "multi" && multiSpawnPickups.length >= maxMultiSpawnPickups) pickupType = null;
     if (pickupType === "sparse" && sparseTrailPickups.length >= maxSparseTrailPickups) pickupType = null;
     if (pickupType === "zoom" && zoomPickups.length >= maxZoomPickups) pickupType = null;
     if (pickupType === "clear" && clearPickups.length >= maxClearPickups) pickupType = null;
     if (pickupType === "expansion" && expansionPickups.length >= maxExpansionPickups) pickupType = null;
 
     if (!pickupType) { /* Final fallback */
-         if (sparseTrailPickups.length < maxSparseTrailPickups) pickupType = "sparse";
+         if (multiSpawnPickups.length < maxMultiSpawnPickups) pickupType = "multi";
+         else if (sparseTrailPickups.length < maxSparseTrailPickups) pickupType = "sparse";
          else if (zoomPickups.length < maxZoomPickups) pickupType = "zoom";
          else if (clearPickups.length < maxClearPickups) pickupType = "clear";
          else if (expansionPickups.length < maxExpansionPickups) pickupType = "expansion";
@@ -826,11 +845,15 @@ function spawnPickup(forceType = null) {
     // Use 'pickupVisual' to hold the Mesh/Group template
     let pickupVisual;
     switch (pickupType) {
+        case "multi":
+            pickupVisual = new THREE.Mesh(multiSpawnGeometry, multiSpawnMaterial);
+            targetArray = multiSpawnPickups;
+            pickupHeight = segmentSize * 0.45 * 2; // Approx height for Icosahedron radius 0.45
+            break;
         case "sparse": 
             pickupVisual = sparseTrailPickupTemplate; 
             targetArray = sparseTrailPickups; 
-            // Height is two cubes + gap
-            pickupHeight = (segmentSize * 0.45 * 2) + 0.02; // Adjusted height
+            pickupHeight = (segmentSize * 0.45 * 2) + 0.1; 
             break;
         case "zoom": 
             pickupVisual = new THREE.Mesh(zoomPickupGeometry, zoomPickupMaterial); 
@@ -900,16 +923,17 @@ function isPositionOccupied(pos, threshold) {
     for (const pick of sparseTrailPickups) {
         if (pos.distanceTo(pick.position) < threshold) return true;
     } // Check sparse pickups too
+    for (const pick of multiSpawnPickups) { if (pos.distanceTo(pick.position) < threshold) return true; } // Check multi
     return false;
 }
 
 function checkScorePickupCollision() {
-    const thresholdSq = (segmentSize * 0.1) * (segmentSize * 0.1);
+    // Use the larger threshold
     for (let i = scorePickups.length - 1; i >= 0; i--) {
         const pickup = scorePickups[i];
         const dx = snakeTargetPosition1.x - pickup.position.x;
         const dz = snakeTargetPosition1.z - pickup.position.z;
-        if ((dx * dx + dz * dz) < thresholdSq) {
+        if ((dx * dx + dz * dz) < PICKUP_COLLISION_THRESHOLD_SQ) { // Use larger threshold
             const pos = pickup.position.clone(); const col = pickup.material.color.clone();
             createExplosionEffect(pos, col);
             createFloatingText("Speed Up!", pos, col);
@@ -926,12 +950,12 @@ function checkScorePickupCollision() {
 }
 
 function checkExpansionPickupCollision() {
-     const thresholdSq = (segmentSize * 0.1) * (segmentSize * 0.1);
+     // Use the larger threshold
      for (let i = expansionPickups.length - 1; i >= 0; i--) {
         const pickup = expansionPickups[i];
         const dx = snakeTargetPosition1.x - pickup.position.x;
         const dz = snakeTargetPosition1.z - pickup.position.z;
-        if ((dx * dx + dz * dz) < thresholdSq) {
+        if ((dx * dx + dz * dz) < PICKUP_COLLISION_THRESHOLD_SQ) { // Use larger threshold
             const pos = pickup.position.clone(); const col = pickup.material.color.clone();
             createExplosionEffect(pos, col);
             createFloatingText("Expand!", pos, col);
@@ -979,22 +1003,38 @@ function checkExpansionPickupCollision() {
 }
 
 function checkClearPickupCollision() {
-    const thresholdSq = (segmentSize * 0.1) * (segmentSize * 0.1);
+    // Use the larger threshold
     for (let i = clearPickups.length - 1; i >= 0; i--) {
         const pickup = clearPickups[i];
         const dx = snakeTargetPosition1.x - pickup.position.x;
         const dz = snakeTargetPosition1.z - pickup.position.z;
-        if ((dx * dx + dz * dz) < thresholdSq) {
+        if ((dx * dx + dz * dz) < PICKUP_COLLISION_THRESHOLD_SQ) { // Use larger threshold
             const pos = pickup.position.clone(); const col = pickup.material.color.clone();
-            createExplosionEffect(pos, col);
+            createExplosionEffect(pos, col); // Effect for pickup itself
             createFloatingText("Clear Walls!", pos, col);
+            
+            // --- Wall Clear Effects --- 
+            const effectFrequency = 4; // Create effect every N segments
+            for(let j=0; j < trailSegments1.length; j++) {
+                if (j % effectFrequency === 0) {
+                    const seg = trailSegments1[j];
+                    createExplosionEffect(seg.position.clone(), seg.material.color.clone());
+                }
+            }
+            for(let j=0; j < trailSegments2.length; j++) {
+                if (j % effectFrequency === 0) {
+                    const seg = trailSegments2[j];
+                    createExplosionEffect(seg.position.clone(), seg.material.color.clone());
+                }
+            }
+            // --------------------------
+
             scene.remove(pickup); clearPickups.splice(i, 1);
-            trailSegments1.forEach(seg => scene.remove(seg));
-            trailSegments1.length = 0;
-            trailSegments2.forEach(seg => scene.remove(seg));
-            trailSegments2.length = 0;
-            lastTrailSegment1 = null; // Clear tracker
-            lastTrailSegment2 = null; // Clear tracker
+            // Clear walls AFTER adding effects
+            trailSegments1.forEach(seg => scene.remove(seg)); trailSegments1.length = 0;
+            trailSegments2.forEach(seg => scene.remove(seg)); trailSegments2.length = 0;
+            lastTrailSegment1 = null; 
+            lastTrailSegment2 = null; 
             console.log("  Walls cleared!");
             spawnPickup(); return true;
         }
@@ -1003,12 +1043,12 @@ function checkClearPickupCollision() {
 }
 
 function checkAIScorePickupCollision() {
-    const thresholdSq = (segmentSize * 0.1) * (segmentSize * 0.1);
+    // Use the larger threshold
     for (let i = scorePickups.length - 1; i >= 0; i--) {
         const pickup = scorePickups[i];
         const dx = snakeTargetPosition2.x - pickup.position.x;
         const dz = snakeTargetPosition2.z - pickup.position.z;
-        if ((dx * dx + dz * dz) < thresholdSq) {
+        if ((dx * dx + dz * dz) < PICKUP_COLLISION_THRESHOLD_SQ) { // Use larger threshold
             const pos = pickup.position.clone(); const col = pickup.material.color.clone();
             createExplosionEffect(pos, col);
             createFloatingText("Speed Up!", pos, col);
@@ -1025,12 +1065,12 @@ function checkAIScorePickupCollision() {
 }
 
 function checkAIExpansionPickupCollision() {
-     const thresholdSq = (segmentSize * 0.1) * (segmentSize * 0.1);
+     // Use the larger threshold
      for (let i = expansionPickups.length - 1; i >= 0; i--) {
         const pickup = expansionPickups[i];
         const dx = snakeTargetPosition2.x - pickup.position.x;
         const dz = snakeTargetPosition2.z - pickup.position.z;
-        if ((dx * dx + dz * dz) < thresholdSq) {
+        if ((dx * dx + dz * dz) < PICKUP_COLLISION_THRESHOLD_SQ) { // Use larger threshold
             const pos = pickup.position.clone(); const col = pickup.material.color.clone();
             createExplosionEffect(pos, col);
             createFloatingText("Expand!", pos, col);
@@ -1079,23 +1119,38 @@ function checkAIExpansionPickupCollision() {
 }
 
 function checkAIClearPickupCollision() {
-    const thresholdSq = (segmentSize * 0.1) * (segmentSize * 0.1);
+    // Use the larger threshold
     for (let i = clearPickups.length - 1; i >= 0; i--) {
         const pickup = clearPickups[i];
         const dx = snakeTargetPosition2.x - pickup.position.x;
         const dz = snakeTargetPosition2.z - pickup.position.z;
-        if ((dx * dx + dz * dz) < thresholdSq) {
+        if ((dx * dx + dz * dz) < PICKUP_COLLISION_THRESHOLD_SQ) { // Use larger threshold
             const pos = pickup.position.clone(); const col = pickup.material.color.clone();
-            createExplosionEffect(pos, col);
+            createExplosionEffect(pos, col); // Effect for pickup itself
             createFloatingText("Clear Walls!", pos, col);
-            console.log("AI collected Clear Wall pickup!");
+
+            // --- Wall Clear Effects --- 
+            const effectFrequency = 4; // Create effect every N segments
+            for(let j=0; j < trailSegments1.length; j++) {
+                if (j % effectFrequency === 0) {
+                    const seg = trailSegments1[j];
+                    createExplosionEffect(seg.position.clone(), seg.material.color.clone());
+                }
+            }
+            for(let j=0; j < trailSegments2.length; j++) {
+                if (j % effectFrequency === 0) {
+                    const seg = trailSegments2[j];
+                    createExplosionEffect(seg.position.clone(), seg.material.color.clone());
+                }
+            }
+            // --------------------------
+
             scene.remove(pickup); clearPickups.splice(i, 1);
-            trailSegments1.forEach(seg => scene.remove(seg));
-            trailSegments1.length = 0;
-            trailSegments2.forEach(seg => scene.remove(seg));
-            trailSegments2.length = 0;
-            lastTrailSegment1 = null; // Clear tracker
-            lastTrailSegment2 = null; // Clear tracker
+            // Clear walls AFTER adding effects
+            trailSegments1.forEach(seg => scene.remove(seg)); trailSegments1.length = 0;
+            trailSegments2.forEach(seg => scene.remove(seg)); trailSegments2.length = 0;
+            lastTrailSegment1 = null; 
+            lastTrailSegment2 = null; 
             console.log("  Walls cleared by AI!");
             spawnPickup(); return true;
         }
@@ -1104,12 +1159,12 @@ function checkAIClearPickupCollision() {
 }
 
 function checkZoomPickupCollision() {
-    const thresholdSq = (segmentSize * 0.1) * (segmentSize * 0.1);
+    // Use the larger threshold
     for (let i = zoomPickups.length - 1; i >= 0; i--) {
         const pickup = zoomPickups[i];
         const dx = snakeTargetPosition1.x - pickup.position.x;
         const dz = snakeTargetPosition1.z - pickup.position.z;
-        if ((dx * dx + dz * dz) < thresholdSq) {
+        if ((dx * dx + dz * dz) < PICKUP_COLLISION_THRESHOLD_SQ) { // Use larger threshold
             const pos = pickup.position.clone(); const col = pickup.material.color.clone();
             createExplosionEffect(pos, col);
             createFloatingText("Zoom Out!", pos, col);
@@ -1123,12 +1178,12 @@ function checkZoomPickupCollision() {
 }
 
 function checkAIZoomPickupCollision() {
-    const thresholdSq = (segmentSize * 0.1) * (segmentSize * 0.1);
+    // Use the larger threshold
     for (let i = zoomPickups.length - 1; i >= 0; i--) {
         const pickup = zoomPickups[i];
         const dx = snakeTargetPosition2.x - pickup.position.x;
         const dz = snakeTargetPosition2.z - pickup.position.z;
-        if ((dx * dx + dz * dz) < thresholdSq) {
+        if ((dx * dx + dz * dz) < PICKUP_COLLISION_THRESHOLD_SQ) { // Use larger threshold
             const pos = pickup.position.clone(); const col = pickup.material.color.clone();
             createExplosionEffect(pos, col);
             // AI doesn't get zoom, so no text needed? Or maybe different text?
@@ -1142,20 +1197,24 @@ function checkAIZoomPickupCollision() {
 }
 
 function checkSparseTrailPickupCollision() {
-    const thresholdSq = (segmentSize * 0.1) * (segmentSize * 0.1);
+    // Revert to XZ check with larger threshold
     for (let i = sparseTrailPickups.length - 1; i >= 0; i--) {
         const pickup = sparseTrailPickups[i];
         const dx = snakeTargetPosition1.x - pickup.position.x;
         const dz = snakeTargetPosition1.z - pickup.position.z;
-        if ((dx * dx + dz * dz) < thresholdSq) {
-            const pos = pickup.position.clone(); const col = pickup.material.color.clone();
+        if ((dx * dx + dz * dz) < PICKUP_COLLISION_THRESHOLD_SQ) { 
+            const pos = pickup.position.clone(); 
+            const col = sparseTrailMaterial.color.clone();
             createExplosionEffect(pos, col);
             createFloatingText("Sparse Trail!", pos, col);
-            console.log("Player collected Sparse Trail pickup!");
-            scene.remove(pickup); sparseTrailPickups.splice(i, 1);
+            console.log("Sparse Trail P1: Attempting remove", pickup);
+            scene.remove(pickup); 
+            console.log("Sparse Trail P1: Removed from scene.");
+            sparseTrailPickups.splice(i, 1);
             isSparseTrailActiveP1 = true;
             sparseTrailEndTimeP1 = performance.now() + sparseTrailDuration;
             trailCounterP1 = 0; // Reset counter on pickup
+            console.log(`Sparse Trail P1 Activated: Active=${isSparseTrailActiveP1}, EndTime=${sparseTrailEndTimeP1.toFixed(0)}, Counter=${trailCounterP1}`);
             spawnPickup(); return true;
         }
     }
@@ -1163,21 +1222,81 @@ function checkSparseTrailPickupCollision() {
 }
 
 function checkAISparseTrailPickupCollision() {
-    const thresholdSq = (segmentSize * 0.1) * (segmentSize * 0.1);
+    // Revert to XZ check with larger threshold
     for (let i = sparseTrailPickups.length - 1; i >= 0; i--) {
         const pickup = sparseTrailPickups[i];
         const dx = snakeTargetPosition2.x - pickup.position.x;
         const dz = snakeTargetPosition2.z - pickup.position.z;
-        if ((dx * dx + dz * dz) < thresholdSq) {
-            const pos = pickup.position.clone(); const col = pickup.material.color.clone();
+        if ((dx * dx + dz * dz) < PICKUP_COLLISION_THRESHOLD_SQ) {
+            const pos = pickup.position.clone(); 
+            const col = sparseTrailMaterial.color.clone(); 
             createExplosionEffect(pos, col);
-            createFloatingText("Sparse Trail!", pos, col); // Same text
-            console.log("AI collected Sparse Trail pickup!");
-            scene.remove(pickup); sparseTrailPickups.splice(i, 1);
+            createFloatingText("Sparse Trail!", pos, col); 
+            console.log("Sparse Trail AI: Attempting remove", pickup);
+            scene.remove(pickup); 
+            console.log("Sparse Trail AI: Removed from scene.");
+            sparseTrailPickups.splice(i, 1);
             isSparseTrailActiveAI = true;
             sparseTrailEndTimeAI = performance.now() + sparseTrailDuration;
             trailCounterAI = 0; // Reset counter on pickup
+            console.log(`Sparse Trail AI Activated: Active=${isSparseTrailActiveAI}, EndTime=${sparseTrailEndTimeAI.toFixed(0)}, Counter=${trailCounterAI}`);
             spawnPickup(); return true;
+        }
+    }
+    return false;
+}
+
+function checkMultiSpawnPickupCollision() {
+    // Use the larger threshold 
+    for (let i = multiSpawnPickups.length - 1; i >= 0; i--) {
+        const pickup = multiSpawnPickups[i];
+        const dx = snakeTargetPosition1.x - pickup.position.x;
+        const dz = snakeTargetPosition1.z - pickup.position.z;
+        if ((dx * dx + dz * dz) < PICKUP_COLLISION_THRESHOLD_SQ) { 
+            const pos = pickup.position.clone(); const col = multiSpawnMaterial.color.clone();
+            createExplosionEffect(pos, col);
+            createFloatingText("Multi Spawn!", pos, col);
+            console.log("Player collected Multi-Spawn pickup!");
+            scene.remove(pickup); multiSpawnPickups.splice(i, 1);
+            
+            // Spawn one of each other type (if limits allow)
+            spawnPickup("score");
+            spawnPickup("expansion");
+            spawnPickup("clear");
+            spawnPickup("zoom");
+            spawnPickup("sparse");
+            
+            // Spawn a new random one to replace this multi-spawn
+            spawnPickup(); 
+            return true;
+        }
+    }
+    return false;
+}
+
+function checkAIMultiSpawnPickupCollision() {
+    // Use the larger threshold 
+    for (let i = multiSpawnPickups.length - 1; i >= 0; i--) {
+        const pickup = multiSpawnPickups[i];
+        const dx = snakeTargetPosition2.x - pickup.position.x;
+        const dz = snakeTargetPosition2.z - pickup.position.z;
+        if ((dx * dx + dz * dz) < PICKUP_COLLISION_THRESHOLD_SQ) {
+            const pos = pickup.position.clone(); const col = multiSpawnMaterial.color.clone();
+            createExplosionEffect(pos, col);
+            createFloatingText("Multi Spawn!", pos, col); // Same text
+            console.log("AI collected Multi-Spawn pickup!");
+            scene.remove(pickup); multiSpawnPickups.splice(i, 1);
+            
+            // Spawn one of each other type (if limits allow)
+            spawnPickup("score");
+            spawnPickup("expansion");
+            spawnPickup("clear");
+            spawnPickup("zoom");
+            spawnPickup("sparse");
+            
+            // Spawn a new random one to replace this multi-spawn
+            spawnPickup(); 
+            return true;
         }
     }
     return false;
@@ -1268,7 +1387,8 @@ function animate(currentTime) {
             checkExpansionPickupCollision();
             checkClearPickupCollision();
             checkZoomPickupCollision(); 
-            checkSparseTrailPickupCollision(); // Check sparse pickup
+            checkSparseTrailPickupCollision(); 
+            checkMultiSpawnPickupCollision(); // Check multi-spawn
         }
 
         // --- AI Update Logic ---
@@ -1297,7 +1417,8 @@ function animate(currentTime) {
             checkAIExpansionPickupCollision();
             checkAIClearPickupCollision();
             checkAIZoomPickupCollision(); 
-            checkAISparseTrailPickupCollision(); // Check sparse pickup
+            checkAISparseTrailPickupCollision(); 
+            checkAIMultiSpawnPickupCollision(); // Check multi-spawn
         }
         
         // --- Collision Check & Trail Creation (Run if either snake moved) --- 
@@ -1306,6 +1427,12 @@ function animate(currentTime) {
 
             // Create trail segments conditionally
             if (playerMoved && (winner === 0 || winner === 2)) { 
+                // Log state BEFORE creating trail segment
+                console.log(`P1 Trail Check: SparseActive=${isSparseTrailActiveP1}, Counter=${trailCounterP1}`);
+                // Visibility fix: Make last segment visible if this one is skipped
+                if (isSparseTrailActiveP1 && trailCounterP1 % 2 !== 0 && lastTrailSegment1) {
+                    lastTrailSegment1.visible = true;
+                }
                 // Only place trail if not sparse OR counter is even
                 if (!isSparseTrailActiveP1 || trailCounterP1 % 2 === 0) {
                     createTrailSegment(prevTargetPos1, trailSegments1, 1);
@@ -1313,6 +1440,12 @@ function animate(currentTime) {
                 trailCounterP1++; // Increment regardless of placement
             }
             if (aiMoved && (winner === 0 || winner === 1)) { 
+                 // Log state BEFORE creating trail segment
+                console.log(`AI Trail Check: SparseActive=${isSparseTrailActiveAI}, Counter=${trailCounterAI}`);
+                 // Visibility fix: Make last segment visible if this one is skipped
+                if (isSparseTrailActiveAI && trailCounterAI % 2 !== 0 && lastTrailSegment2) {
+                    lastTrailSegment2.visible = true;
+                }
                  // Only place trail if not sparse OR counter is even
                 if (!isSparseTrailActiveAI || trailCounterAI % 2 === 0) {
                     createTrailSegment(prevTargetPos2, trailSegments2, 2);
@@ -1581,7 +1714,7 @@ function createSparseTrailPickupVisual() {
     const cubeWidth = segmentSize * 0.8; // Keep slightly narrow
     const cubeHeight = segmentSize * 0.45; // Make taller (0.45 * 2 = 0.9 total cube height)
     const cubeDepth = segmentSize * 0.8; // Keep slightly narrow
-    const gap = 0.02; 
+    const gap = 0.1; // Increased gap between cubes
 
     const cubeGeom = new THREE.BoxGeometry(cubeWidth, cubeHeight, cubeDepth);
     const cubeMesh1 = new THREE.Mesh(cubeGeom, sparseTrailMaterial);
