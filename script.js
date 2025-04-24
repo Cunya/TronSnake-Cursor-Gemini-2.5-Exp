@@ -40,6 +40,7 @@ let zoomOutEndTimeP1 = 0;
 let isSparseTrailActiveP1 = false; // Sparse trail state
 let sparseTrailEndTimeP1 = 0;
 let trailCounterP1 = 0; // Counter for sparse trail placement
+let sparseLevelP1 = 1; // Sparseness level (higher means more gaps)
 let lastUpdateTimeP1 = 0;
 
 // Player 2 (AI)
@@ -57,6 +58,7 @@ let speedBoostEndTimeAI = 0;
 let isSparseTrailActiveAI = false; // Sparse trail state
 let sparseTrailEndTimeAI = 0;
 let trailCounterAI = 0; // Counter for sparse trail placement
+let sparseLevelAI = 1; // Sparseness level for AI
 let lastUpdateTimeAI = 0;
 let isLookingBack = false; // Flag for look back camera
 let lookBackTouchId = null; // Store ID of touch used for looking back
@@ -66,7 +68,7 @@ const segmentSize = 1;
 const normalUpdateInterval = 250; // Normal speed
 const boostedUpdateInterval = 125; // Faster speed (half interval)
 const boostDuration = 3000; // milliseconds (3 seconds)
-const zoomOutDuration = 5000; // 5 seconds zoom
+const zoomOutDuration = 10000; // Doubled to 10 seconds zoom
 const sparseTrailDuration = 8000; // 8 seconds sparse trail
 const LERP_FACTOR = 0.2; // Smoothing factor for visual movement
 
@@ -277,8 +279,8 @@ function init() {
     createScoreText(); // Create score display
     // Moved createTopScoreText call below localStorage loading
 
-    // Spawn initial pickup(s)
-    spawnInitialPickups();
+    // Spawn initial pickup(s) - MOVED DOWN
+    // spawnInitialPickups();
 
     lastUpdateTimeP1 = performance.now(); // Initialize P1 timer
     lastUpdateTimeAI = performance.now(); // Initialize AI timer
@@ -296,6 +298,9 @@ function init() {
     // Create UI elements AFTER topScore is potentially loaded
     createOpeningDialog(); 
     createTopScoreText(); 
+
+    // Spawn initial pickup(s) AFTER topScore is loaded
+    spawnInitialPickups();
 
     animate();
 }
@@ -479,7 +484,7 @@ function updateAIPlayer() {
     
     // --- Fallback: Obstacle Avoidance --- 
     
-    // Check Forward safety
+    // Check Forward safety (using lookahead)
     let safeForward = true;
     for (let i = 1; i <= lookAheadSteps; i++) {
         const checkPos = currentPos.clone().addScaledVector(currentDir, segmentSize * i);
@@ -491,70 +496,79 @@ function updateAIPlayer() {
     
     // Strong bias to continue straight if safe
     if (safeForward && Math.random() < 0.9) { // 90% chance to go straight if safe
-        // console.log("AI: Avoidance - Path forward clear, going straight (90% bias).");
-        return;
+        return; // Go straight
     }
 
-    // Evaluate Turns (Simple safety check)
+    // --- Turn Evaluation (Context-Dependent) --- 
     const safeTurns = [];
     const leftDir = potentialDirections.left;
     const rightDir = potentialDirections.right;
-    
-    let leftSafe = true;
-    for (let i = 1; i <= lookAheadSteps; i++) {
-        if (!isPositionSafe(currentPos.clone().addScaledVector(leftDir, segmentSize * i), true, true)) {
-            leftSafe = false;
-            break;
-        }
-    }
-    if (leftSafe) safeTurns.push(leftDir);
-    
-    let rightSafe = true;
-    for (let i = 1; i <= lookAheadSteps; i++) {
-        if (!isPositionSafe(currentPos.clone().addScaledVector(rightDir, segmentSize * i), true, true)) {
-            rightSafe = false;
-            break;
-        }
-    }
-    if (rightSafe) safeTurns.push(rightDir);
 
-    // Decision Making (with Wall Avoidance Bias)
-    if (safeTurns.length > 0) {
-        if (safeTurns.length === 2) { // Both left and right turns are safe
-            // Check immediate adjacency for walls
-            const immediateLeftPos = currentPos.clone().addScaledVector(leftDir, segmentSize);
-            const immediateRightPos = currentPos.clone().addScaledVector(rightDir, segmentSize);
-            const isImmediateLeftSafe = isPositionSafe(immediateLeftPos, true, true);
-            const isImmediateRightSafe = isPositionSafe(immediateRightPos, true, true);
-
-            if (isImmediateLeftSafe && !isImmediateRightSafe) {
-                // Prefer turning left (away from right wall)
-                // console.log("AI: Avoidance - Wall right, turning left.");
-                snakeDirection2.copy(leftDir);
-            } else if (!isImmediateLeftSafe && isImmediateRightSafe) {
-                // Prefer turning right (away from left wall)
-                // console.log("AI: Avoidance - Wall left, turning right.");
-                snakeDirection2.copy(rightDir);
-            } else {
-                // Both adjacent are safe OR both are unsafe - choose randomly
-                // console.log("AI: Avoidance - No wall bias, choosing random safe turn.");
-                const chosenTurnIndex = Math.floor(Math.random() * safeTurns.length);
-                snakeDirection2.copy(safeTurns[chosenTurnIndex]);
+    if (safeForward) {
+        // If forward is safe, use multi-step lookahead for smoother turns
+        let leftSafe = true;
+        for (let i = 1; i <= lookAheadSteps; i++) {
+            if (!isPositionSafe(currentPos.clone().addScaledVector(leftDir, segmentSize * i), true, true)) {
+                leftSafe = false;
+                break;
             }
-        } else { // Only one safe turn available
-            // console.log(`AI: Avoidance - Choosing the only safe turn.`);
-            snakeDirection2.copy(safeTurns[0]);
         }
-        return;
-    } else if (safeForward) {
-        // No safe turns, but forward was safe (random check failed earlier)
-        // console.log("AI: Avoidance - No safe turns, forcing straight.");
-        return; // Go straight
+        if (leftSafe) safeTurns.push(leftDir);
+        
+        let rightSafe = true;
+        for (let i = 1; i <= lookAheadSteps; i++) {
+            if (!isPositionSafe(currentPos.clone().addScaledVector(rightDir, segmentSize * i), true, true)) {
+                rightSafe = false;
+                break;
+            }
+        }
+        if (rightSafe) safeTurns.push(rightDir);
+
+        // Decision Making (Forward is Safe - prioritize smooth turns)
+        if (safeTurns.length > 0) {
+            // Basic random choice if multiple safe turns exist and forward is also safe
+            const chosenTurnIndex = Math.floor(Math.random() * safeTurns.length);
+            snakeDirection2.copy(safeTurns[chosenTurnIndex]);
+            // console.log("AI: Forward safe, choosing smooth turn randomly.");
+        } else {
+            // Forward is safe, but no multi-step turns are safe - must go straight
+             // console.log("AI: Forward safe, no smooth turns, forcing straight.");
+            // No direction change needed, just return
+        }
+        return; // Exit after making decision when forward is safe
+
     } else {
-        // No safe turns AND forward is not safe - Trapped!
-        // console.log("AI: Avoidance - Trapped! Crashing forward.");
-        return; // Crash forward
+        // If forward is NOT safe, prioritize immediate survival turns (1-step lookahead)
+        // console.log("AI: Forward NOT safe, checking immediate turns...");
+        const immediateSafeTurns = [];
+        const immediateLeftPos = currentPos.clone().addScaledVector(leftDir, segmentSize);
+        const immediateRightPos = currentPos.clone().addScaledVector(rightDir, segmentSize);
+        
+        if (isPositionSafe(immediateLeftPos, true, true)) {
+            immediateSafeTurns.push(leftDir);
+            // console.log("  -> Immediate Left is SAFE.");
+        }
+        if (isPositionSafe(immediateRightPos, true, true)) {
+            immediateSafeTurns.push(rightDir);
+            // console.log("  -> Immediate Right is SAFE.");
+        }
+
+        // Decision Making (Forward is Unsafe - prioritize immediate survival)
+        if (immediateSafeTurns.length > 0) {
+            // Choose a random immediately available turn to escape
+            const chosenTurnIndex = Math.floor(Math.random() * immediateSafeTurns.length);
+            snakeDirection2.copy(immediateSafeTurns[chosenTurnIndex]);
+            // console.log(`AI: Forward unsafe, taking immediate safe turn.`);
+        } else {
+            // Forward is unsafe AND no immediate turns are safe - TRAPPED!
+            // console.log("AI: Forward unsafe, no immediate turns safe - TRAPPED! Crashing forward.");
+            // No direction change needed, just return to crash forward
+        }
+        return; // Exit after making decision when forward is unsafe
     }
+
+    // This part should ideally not be reached if the logic above is exhaustive
+    // console.warn("AI: Reached end of avoidance logic unexpectedly."); 
 }
 
 function checkCollisions(head1Pos, head2Pos, trail1, trail2) {
@@ -618,13 +632,13 @@ function getUnlockStatusText(currentTopScore) {
         { name: "Zoom Out", color: "#0088ff", type: "Blue Cube", score: 0, desc: "Grants 20 pts. Briefly zooms out player camera." }, // Unlock score 0
         { name: "Speed Up", color: "#ff00ff", type: "Pink Cube", score: 50, desc: "Grants 40 pts. Temporary speed boost." }, // Unlock score 50
         { name: "Sparse Trail", color: "#ffff00", type: "Yellow Blocks", score: 200, desc: "Grants 60 pts. Leave gaps in your trail." }, // Unlock score 200
-        { name: "Clear Walls", color: "#ffffff", type: "White Cube", score: 500, desc: "Grants 80 pts. Removes walls. (Spawns every 20 powerups)", spawnCondition: "counter", counterThreshold: 20 }, // Unlock score 500
+        { name: "Clear Walls", color: "#ffffff", type: "White Cube", score: 300, desc: "Grants 80 pts. Removes walls. (Spawns every 5 powerups)", spawnCondition: "counter", counterThreshold: 5 }, // Unlock score 300, Spawn Counter 5
         { name: "More Players", color: "#888888", type: "Gray Octahedron", score: 1000, desc: "Grants 100 pts. Spawns a new AI opponent. (Spawns every 50 powerups)", spawnCondition: "counter", counterThreshold: 50 }, // Unlock score 1000
         { name: "Expand", color: "#00ff00", type: "Green Cube", score: 1500, desc: "Grants 150 pts (Player only). Expands play area. (Spawns every 100 powerups)", spawnCondition: "counter", counterThreshold: 100 }, // Unlock score 1500
         { name: "More", color: "#9900ff", type: "Purple Gems", score: 2000, desc: "Grants 200 pts (Player only). Increases max powerups & spawns another." } // Unlock score 2000 (already correct)
     ];
 
-    let unlockedHTML = '<h3 style="font-size: 22px; margin-bottom: 10px; margin-top: 20px; color: #dddddd;">Unlocked Powerups:</h3>'; // Renamed
+    let unlockedHTML = '<h3 style="font-size: clamp(18px, 3vw, 22px); margin-bottom: 10px; margin-top: 20px; color: #dddddd;">Unlocked Powerups:</h3>'; // Adjusted heading size
     let nextUnlockScore = Infinity;
     let allUnlocked = true;
     let anyUnlocked = false; 
@@ -704,13 +718,12 @@ function createOpeningDialog() {
 
     // Use responsive font sizes within the HTML string as well
     let dialogHTML = 
-        `<h2 style="font-size: clamp(24px, 5vw, 32px); margin-top: 0; margin-bottom: 15px; color: #00ffff;">Tron Snake 3D</h2>` +
+        `<h2 style="font-size: clamp(24px, 5vw, 32px); margin-top: 0; margin-bottom: 15px; color: #00ffff;">Powerup Tron</h2>` + // Renamed game title
         `<p style="font-size: clamp(16px, 3vw, 20px); margin-bottom: 20px;">Trap the <strong style="color: #ff8800;">Orange AI</strong> opponent.</p>` +
-        // Apply responsive styles to getUnlockStatusText output (this requires modifying getUnlockStatusText) 
-        // For now, let's assume the base font size handles most cases, but ideally, the styles inside getUnlockStatusText would also be responsive.
-        unlockStatus.unlockedHTML.replace(/font-size: \d+px;/g, 'font-size: clamp(14px, 2.5vw, 18px);') + // Make unlocked items responsive
-        unlockStatus.nextUnlockMsg.replace(/font-size: \d+px;/g, 'font-size: clamp(14px, 2.5vw, 18px);') + // Make next unlock msg responsive
-        unlockStatus.controlsText.replace(/font-size: \d+px;/g, 'font-size: clamp(13px, 2.2vw, 16px);') + // Make controls text responsive
+        // Apply responsive styles to getUnlockStatusText output 
+        unlockStatus.unlockedHTML + // Use the HTML with embedded responsive styles now
+        unlockStatus.nextUnlockMsg + 
+        unlockStatus.controlsText + 
         `<p style="margin-top: 25px; font-size: clamp(14px, 2.5vw, 18px); color: #cccccc;">(Click, Touch, or Press Any Key to Start)</p>`; // Updated prompt text
 
     openingDialogElement.innerHTML = dialogHTML;
@@ -811,14 +824,14 @@ function showGameOverMessage(winner) {
         `${message}<br>` +
         // Responsive score message
         `<span style="font-size: clamp(20px, 4vw, 32px); color: #cccccc;">${scoreMessage}</span><br>` +
-        // --- Add Unlock Status (Make responsive) --- 
-        `<div style="margin-top: 20px; border-top: 1px solid #555; padding-top: 15px; font-size: clamp(14px, 2.5vw, 18px);">` +
-        unlockStatus.unlockedHTML.replace(/font-size: \d+px;/g, 'font-size: clamp(14px, 2.5vw, 18px);') + 
-        unlockStatus.nextUnlockMsg.replace(/font-size: \d+px;/g, 'font-size: clamp(14px, 2.5vw, 18px);') +
+        // --- Add Unlock Status (Uses responsive styles from getUnlockStatusText) --- 
+        `<div style="margin-top: 20px; border-top: 1px solid #555; padding-top: 15px;">` + // Removed redundant font size
+        unlockStatus.unlockedHTML + 
+        unlockStatus.nextUnlockMsg +
         `</div>` +
         // --------------------------
-        // Make controls text responsive
-        unlockStatus.controlsText.replace(/font-size: \d+px;/g, 'font-size: clamp(13px, 2.2vw, 16px);') + 
+        // Use responsive controls text from getUnlockStatusText
+        unlockStatus.controlsText + 
         // Responsive restart prompt
         `<span style="display: block; margin-top: 15px; font-size: clamp(16px, 3vw, 24px); color: #dddddd;">Tap or Press Any Key to Restart</span>`;
     gameOverTextElement.style.display = 'block';
@@ -835,11 +848,13 @@ function resetGame() {
     isSparseTrailActiveP1 = false; // Reset sparse trail state
     sparseTrailEndTimeP1 = 0;
     trailCounterP1 = 0;
+    sparseLevelP1 = 1; // Reset sparse level
     isSpeedBoostActiveAI = false; // Reset AI boost state
     speedBoostEndTimeAI = 0;
     isSparseTrailActiveAI = false;
     sparseTrailEndTimeAI = 0;
     trailCounterAI = 0;
+    sparseLevelAI = 1; // Reset AI sparse level
     pickupsCollectedCounter = 0; // Reset counter on game reset
     if (scoreTextElement) scoreTextElement.textContent = "Score: 0"; // Reset score display
     gameOverTextElement.style.display = 'none';
@@ -934,11 +949,14 @@ function spawnInitialPickups() {
 // Updated Spawn Logic for 6 Types
 function spawnPickup(forceType = null) {
     let pickupType = forceType;
-    const CLEAR_WALL_PICKUP_THRESHOLD = 20;
+    const CLEAR_WALL_PICKUP_THRESHOLD = 5; // Updated threshold to 5
     const ADD_AI_PICKUP_THRESHOLD = 50; // Counter for new AI pickup
     const EXPAND_PICKUP_THRESHOLD = 100; // Counter for expansion pickup
     
     if (!pickupType) { 
+        // --- Log counter value --- 
+        console.log(`Spawn attempt: pickupsCollectedCounter = ${pickupsCollectedCounter}, topScore = ${topScore}`);
+        // -------------------------
         // --- Score/Counter-based Unlock Logic --- 
         let eligibleTypes = [];
         // Always check if below max count
@@ -950,19 +968,43 @@ function spawnPickup(forceType = null) {
         if (topScore >= 2000 && multiSpawnPickups.length < maxMultiSpawnPickups) eligibleTypes.push({ type: "multi"});
         
         // Counter Unlocks (also check score unlock condition):
-        if (topScore >= 500 && pickupsCollectedCounter >= CLEAR_WALL_PICKUP_THRESHOLD && clearPickups.length < maxClearPickups) eligibleTypes.push({ type: "clear"});
-        if (topScore >= 500 && pickupsCollectedCounter >= ADD_AI_PICKUP_THRESHOLD && addAiPickups.length < maxAddAiPickups) eligibleTypes.push({ type: "add_ai"}); // Placeholder type
-        if (topScore >= 1000 && pickupsCollectedCounter >= EXPAND_PICKUP_THRESHOLD && expansionPickups.length < maxExpansionPickups) eligibleTypes.push({ type: "expansion"}); 
+        // Log check for Clear Walls specifically
+        const clearEligible = topScore >= 300 && pickupsCollectedCounter >= CLEAR_WALL_PICKUP_THRESHOLD && clearPickups.length < maxClearPickups;
+        // console.log(`Checking Clear Walls: topScore=${topScore}>=300 (${topScore >= 300}), counter=${pickupsCollectedCounter}>=${CLEAR_WALL_PICKUP_THRESHOLD} (${pickupsCollectedCounter >= CLEAR_WALL_PICKUP_THRESHOLD}), length=${clearPickups.length}<${maxClearPickups} (${clearPickups.length < maxClearPickups}) => Eligible: ${clearEligible}`);
+        // More detailed log including maxClearPickups value
+        console.log(`Check Clear: score ${topScore}>=300 (${topScore >= 300}), count ${pickupsCollectedCounter}>=${CLEAR_WALL_PICKUP_THRESHOLD} (${pickupsCollectedCounter >= CLEAR_WALL_PICKUP_THRESHOLD}), len ${clearPickups.length}<${maxClearPickups} (${clearPickups.length < maxClearPickups}) -> ${clearEligible}`);
+        
+        if (clearEligible) eligibleTypes.push({ type: "clear"}); 
+        if (topScore >= 1000 && pickupsCollectedCounter >= ADD_AI_PICKUP_THRESHOLD && addAiPickups.length < maxAddAiPickups) eligibleTypes.push({ type: "add_ai"}); // Placeholder type
+        if (topScore >= 1500 && pickupsCollectedCounter >= EXPAND_PICKUP_THRESHOLD && expansionPickups.length < maxExpansionPickups) eligibleTypes.push({ type: "expansion"}); 
 
+        // --- REMOVED TEMPORARY DEBUG --- 
+        // if (topScore >= 300 && pickupsCollectedCounter === 5 && clearPickups.length < maxClearPickups) { ... }
+        
+        // --- Original Random Selection --- 
         // If no types are eligible, do nothing
         if (eligibleTypes.length === 0) {
             // console.log("No eligible pickup types to spawn.");
             return; 
         }
 
+        // --- Debug Log ---
+        // More detailed log including maxClearPickups value
+        // console.log(`Eligible pickup types: ${JSON.stringify(eligibleTypes.map(t => t.type))}`); // Show type names
+        // -----------------
+
         // Randomly select from the eligible types
         const randomIndex = Math.floor(Math.random() * eligibleTypes.length);
         pickupType = eligibleTypes[randomIndex].type;
+        // --- End Original Random Selection --- 
+
+        // --- GUARANTEED SPAWN LOGIC (Overrides random selection if conditions met) ---
+        if (topScore >= 300 && pickupsCollectedCounter === CLEAR_WALL_PICKUP_THRESHOLD && clearPickups.length < maxClearPickups) {
+            console.log(`GUARANTEED SPAWN: Conditions met for Clear Walls (Counter = ${CLEAR_WALL_PICKUP_THRESHOLD}). Forcing type.`);
+            pickupType = "clear"; // Force spawn Clear Walls
+        }
+        // --- End GUARANTEED SPAWN LOGIC ---
+        
     }
     
     // Ensure a pickupType was determined (either forced or selected)
@@ -1026,53 +1068,68 @@ function spawnPickup(forceType = null) {
         const potentialPos = new THREE.Vector3(worldX, worldY, worldZ);
         const collisionThreshold = segmentSize * 0.1;
         
+        // Step 1: Check if the target cell itself is occupied (by heads, targets, other pickups)
         if (!isPositionOccupied(potentialPos, collisionThreshold)) {
-            // Clone the template visual (Mesh or Group)
-            const pickup = pickupVisual.clone(); 
-            pickup.position.copy(potentialPos);
-            scene.add(pickup);
-            targetArray.push(pickup);
-            return;
-        }
+            
+            // Step 2: Check if any adjacent cell has a wall
+            if (!isCellAdjacentToWall(gridX, gridZ)) { 
+                // If cell is not occupied AND no adjacent walls, SP receptacles
+                const pickup = pickupVisual.clone(); 
+                pickup.position.copy(potentialPos);
+                scene.add(pickup);
+                targetArray.push(pickup);
+                // console.log(`Spawned ${pickupType} at grid (${gridX}, ${gridZ})`);
+                return; // Successfully spawned
+            } 
+            // else { console.log(`Spawn Rejected: Adjacent wall check failed for grid (${gridX}, ${gridZ})`); }
+        } 
+        // else { console.log(`Spawn Rejected: isPositionOccupied failed for grid (${gridX}, ${gridZ})`); }
     }
-    console.warn("Could not find empty space for pickup.");
+    console.warn("Could not find empty space for pickup (after checking occupancy and adjacent walls).");
 }
 
 // Combined check for if a position is occupied by anything
 function isPositionOccupied(pos, threshold) {
     const HEAD_DISTANCE_THRESHOLD_SQ = 5 * 5; // Minimum squared distance from heads
+    const TRAIL_PICKUP_THRESHOLD = segmentSize * 0.45; // Increased threshold for trails/pickups
 
     // Check distance from current snake head positions (visual)
     if (snakeHead1 && pos.distanceToSquared(snakeHead1.position) < HEAD_DISTANCE_THRESHOLD_SQ) return true;
     if (snakeHead2 && pos.distanceToSquared(snakeHead2.position) < HEAD_DISTANCE_THRESHOLD_SQ) return true;
 
-    // Check distance from target positions (logical) using smaller threshold for grid alignment?
-    // (Keeping this check might still be useful for preventing spawns exactly where a snake is GOING)
+    // Check distance from target positions (logical) - Keep using the smaller threshold passed in?
+    // Or perhaps use the larger one here too? Let's try keeping it small for targets.
     if (pos.distanceTo(snakeTargetPosition1) < threshold) return true;
     if (pos.distanceTo(snakeTargetPosition2) < threshold) return true;
     
-    // Check trails (walls) using smaller threshold
+    // Check trails (walls) using LARGER threshold
     for (const seg of [...trailSegments1, ...trailSegments2]) {
-        if (pos.distanceTo(seg.position) < threshold) return true;
+        if (pos.distanceTo(seg.position) < TRAIL_PICKUP_THRESHOLD) { // Use larger threshold
+            return true;
+        }
     }
-    // Check other pickups using smaller threshold
+    // Check other pickups using LARGER threshold
     for (const pick of scorePickups) {
-        if (pos.distanceTo(pick.position) < threshold) return true;
+        if (pos.distanceTo(pick.position) < TRAIL_PICKUP_THRESHOLD) return true; // Use larger threshold
     }
     for (const pick of expansionPickups) {
-        if (pos.distanceTo(pick.position) < threshold) return true;
+        if (pos.distanceTo(pick.position) < TRAIL_PICKUP_THRESHOLD) return true; // Use larger threshold
     }
     for (const pick of clearPickups) { // Check clear pickups too
-        if (pos.distanceTo(pick.position) < threshold) return true;
+        if (pos.distanceTo(pick.position) < TRAIL_PICKUP_THRESHOLD) return true; // Use larger threshold
     }
     for (const pick of zoomPickups) {
-        if (pos.distanceTo(pick.position) < threshold) return true;
+        if (pos.distanceTo(pick.position) < TRAIL_PICKUP_THRESHOLD) return true; // Use larger threshold
     } // Check zoom pickups too
     for (const pick of sparseTrailPickups) {
-        if (pos.distanceTo(pick.position) < threshold) return true;
+        if (pos.distanceTo(pick.position) < TRAIL_PICKUP_THRESHOLD) return true; // Use larger threshold
     } // Check sparse pickups too
-    for (const pick of multiSpawnPickups) { if (pos.distanceTo(pick.position) < threshold) return true; } // Check multi
-    for (const pick of addAiPickups) { if (pos.distanceTo(pick.position) < threshold) return true; } // Check Add AI placeholder
+    for (const pick of multiSpawnPickups) { 
+        if (pos.distanceTo(pick.position) < TRAIL_PICKUP_THRESHOLD) return true; // Use larger threshold
+    } // Check multi
+    for (const pick of addAiPickups) { 
+        if (pos.distanceTo(pick.position) < TRAIL_PICKUP_THRESHOLD) return true; // Use larger threshold
+    } // Check Add AI placeholder
     return false;
 }
 
@@ -1093,7 +1150,8 @@ function checkScorePickupCollision() {
             }
             isSpeedBoostActiveP1 = true; speedBoostEndTimeP1 = performance.now() + boostDuration;
             pickupsCollectedCounter++; // Increment counter
-            spawnPickup("score"); // Respawn same type
+            console.log(`Counter incremented to: ${pickupsCollectedCounter} (by Player SpeedUp)`); // Log new count
+            spawnPickup(); // Respawn based on eligibility (allows guaranteed spawns)
             return true;
         }
     }
@@ -1149,6 +1207,7 @@ function checkExpansionPickupCollision() {
             createPlayAreaVisuals(boundaryXMin, boundaryXMax, boundaryZMin, boundaryZMax);
 
             pickupsCollectedCounter++; // Increment counter
+            console.log(`Counter incremented to: ${pickupsCollectedCounter} (by Player Expand)`); // Log new count
             spawnPickup("expansion"); // Respawn same type
             return true;
         }
@@ -1191,7 +1250,7 @@ function checkClearPickupCollision() {
             lastTrailSegment1 = null; 
             lastTrailSegment2 = null; 
             console.log("  Walls cleared!");
-            pickupsCollectedCounter = 0; // Reset counter
+            // pickupsCollectedCounter = 0; // REMOVED Incorrect reset
             // Do NOT respawn clear pickup immediately
             return true;
         }
@@ -1212,9 +1271,24 @@ function checkZoomPickupCollision() {
             console.log("Player collected Zoom Out pickup!");
             scoreP1 += 20; // Blue Cube: 20 points
             scene.remove(pickup); zoomPickups.splice(i, 1);
-            isZoomedOutP1 = true; zoomOutEndTimeP1 = performance.now() + zoomOutDuration;
+            
+            // --- Stacking Logic --- 
+            const currentTime = performance.now();
+            if (isZoomedOutP1 && zoomOutEndTimeP1 > currentTime) {
+                // If already zoomed and timer hasn't expired, add duration to existing end time
+                zoomOutEndTimeP1 += zoomOutDuration;
+                console.log(`Zoom Out Stacked! New end time: ${zoomOutEndTimeP1.toFixed(0)}`);
+            } else {
+                // Otherwise, start a new zoom timer
+                isZoomedOutP1 = true; 
+                zoomOutEndTimeP1 = currentTime + zoomOutDuration;
+                console.log(`Zoom Out Activated! End time: ${zoomOutEndTimeP1.toFixed(0)}`);
+            }
+            // ---------------------
+            
             pickupsCollectedCounter++; // Increment counter
-            spawnPickup("zoom"); // Respawn SAME type
+            console.log(`Counter incremented to: ${pickupsCollectedCounter} (by Player Zoom)`); // Log new count
+            spawnPickup(); // Respawn based on eligibility (allows guaranteed spawns)
             return true;
         }
     }
@@ -1231,18 +1305,38 @@ function checkSparseTrailPickupCollision() {
             const pos = pickup.position.clone(); 
             const col = sparseTrailMaterial.color.clone();
             createExplosionEffect(pos, col);
-            createFloatingText("+60 Sparse Trail!", pos, col); // Updated text
+            
+            const currentTime = performance.now();
+            let newLevelP1;
+
+            // --- Stacking Logic (Conditional) --- 
+            if (isSparseTrailActiveP1 && sparseTrailEndTimeP1 > currentTime) {
+                // STACKS: Increment level if already active
+                sparseLevelP1++;
+                newLevelP1 = sparseLevelP1;
+                console.log(`Sparse Trail P1 Stacked! New Level=${sparseLevelP1}`);
+            } else {
+                // FRESH START: Reset level to 1 if inactive
+                isSparseTrailActiveP1 = true; // Activate it
+                sparseLevelP1 = 1;
+                newLevelP1 = sparseLevelP1;
+                console.log(`Sparse Trail P1 Activated! Level=${sparseLevelP1}`);
+            }
+            // Always reset the timer on pickup
+            sparseTrailEndTimeP1 = currentTime + sparseTrailDuration;
+            // Reset trail counter to potentially place a segment immediately
+            trailCounterP1 = 0; 
+            // -----------------------------------
+
+            // Create text based on the new level calculated above
+            createFloatingText(`+60 Sparse Trail! (Lv ${newLevelP1})`, pos, col); 
             scoreP1 += 60; // Yellow Blocks: 60 points (Updated)
-            console.log("Sparse Trail P1: Attempting remove", pickup);
             scene.remove(pickup); 
-            console.log("Sparse Trail P1: Removed from scene.");
             sparseTrailPickups.splice(i, 1);
-            isSparseTrailActiveP1 = true;
-            sparseTrailEndTimeP1 = performance.now() + sparseTrailDuration;
-            trailCounterP1 = 0; // Reset counter on pickup
-            console.log(`Sparse Trail P1 Activated: Active=${isSparseTrailActiveP1}, EndTime=${sparseTrailEndTimeP1.toFixed(0)}, Counter=${trailCounterP1}`);
+            
             pickupsCollectedCounter++; // Increment counter
-            spawnPickup("sparse"); // Respawn same type
+            console.log(`Counter incremented to: ${pickupsCollectedCounter} (by Player Sparse)`); // Log new count
+            spawnPickup(); // Respawn based on eligibility (allows guaranteed spawns)
             return true;
         }
     }
@@ -1288,6 +1382,7 @@ function checkMultiSpawnPickupCollision() {
             spawnPickup("multi");
             
             pickupsCollectedCounter++; // Increment main counter
+            console.log(`Counter incremented to: ${pickupsCollectedCounter} (by Player Multi)`); // Log new count
             return true;
         }
     }
@@ -1313,7 +1408,8 @@ function checkAIScorePickupCollision() {
             }
             isSpeedBoostActiveAI = true; speedBoostEndTimeAI = performance.now() + boostDuration;
             pickupsCollectedCounter++; // Increment counter
-            spawnPickup("score"); // Respawn same type
+            console.log(`Counter incremented to: ${pickupsCollectedCounter} (by AI SpeedUp)`); // Log new count
+            spawnPickup(); // Respawn based on eligibility (allows guaranteed spawns)
             return true;
         }
     }
@@ -1370,6 +1466,7 @@ function checkAIExpansionPickupCollision() {
             createPlayAreaVisuals(boundaryXMin, boundaryXMax, boundaryZMin, boundaryZMax);
 
             pickupsCollectedCounter++; // Increment counter
+            console.log(`Counter incremented to: ${pickupsCollectedCounter} (by AI Expand)`); // Log new count
             spawnPickup(); // Respawn RANDOM type
             return true;
         }
@@ -1412,7 +1509,7 @@ function checkAIClearPickupCollision() {
             lastTrailSegment1 = null; 
             lastTrailSegment2 = null; 
             console.log("  Walls cleared by AI!");
-            pickupsCollectedCounter = 0; // Reset counter
+            // pickupsCollectedCounter = 0; // REMOVED Incorrect reset
             // Do NOT respawn clear pickup immediately
             return true;
         }
@@ -1433,7 +1530,8 @@ function checkAIZoomPickupCollision() {
             console.log("AI collected Zoom Out pickup!");
             scene.remove(pickup); zoomPickups.splice(i, 1);
             pickupsCollectedCounter++; // Increment counter
-            spawnPickup("zoom"); // Respawn SAME type
+            console.log(`Counter incremented to: ${pickupsCollectedCounter} (by AI Zoom)`); // Log new count
+            spawnPickup(); // Respawn based on eligibility (allows guaranteed spawns)
             return true;
         }
     }
@@ -1450,18 +1548,37 @@ function checkAISparseTrailPickupCollision() {
             const pos = pickup.position.clone(); 
             const col = sparseTrailMaterial.color.clone(); 
             createExplosionEffect(pos, col);
-            createFloatingText("Sparse Trail!", pos, col); 
-            // scoreP1 += 60; // AI doesn't increase player 1 score
-            console.log("Sparse Trail AI: Attempting remove", pickup);
+
+            const currentTime = performance.now();
+            let newLevelAI;
+            
+            // --- Stacking Logic (Conditional for AI) --- 
+            if (isSparseTrailActiveAI && sparseTrailEndTimeAI > currentTime) {
+                // STACKS: Increment level if already active
+                sparseLevelAI++;
+                newLevelAI = sparseLevelAI;
+                console.log(`Sparse Trail AI Stacked! New Level=${sparseLevelAI}`);
+            } else {
+                // FRESH START: Reset level to 1 if inactive
+                isSparseTrailActiveAI = true; // Activate it
+                sparseLevelAI = 1;
+                newLevelAI = sparseLevelAI;
+                console.log(`Sparse Trail AI Activated! Level=${sparseLevelAI}`);
+            }
+            // Always reset the timer on pickup
+            sparseTrailEndTimeAI = currentTime + sparseTrailDuration; 
+            // Reset trail counter
+            trailCounterAI = 0; 
+            // -------------------------------------------
+
+            // Create text based on the new level calculated above (even though AI collects)
+            createFloatingText(`Sparse Trail! (Lv ${newLevelAI})`, pos, col); // Updated text (No score for AI)
             scene.remove(pickup); 
-            console.log("Sparse Trail AI: Removed from scene.");
             sparseTrailPickups.splice(i, 1);
-            isSparseTrailActiveAI = true;
-            sparseTrailEndTimeAI = performance.now() + sparseTrailDuration;
-            trailCounterAI = 0; // Reset counter on pickup
-            console.log(`Sparse Trail AI Activated: Active=${isSparseTrailActiveAI}, EndTime=${sparseTrailEndTimeAI.toFixed(0)}, Counter=${trailCounterAI}`);
+
             pickupsCollectedCounter++; // Increment counter
-            spawnPickup("sparse"); // Respawn same type
+            console.log(`Counter incremented to: ${pickupsCollectedCounter} (by AI Sparse)`); // Log new count
+            spawnPickup(); // Respawn based on eligibility (allows guaranteed spawns)
             return true;
         }
     }
@@ -1507,6 +1624,7 @@ function checkAIMultiSpawnPickupCollision() {
             spawnPickup("multi");
 
             pickupsCollectedCounter++; // Increment main counter
+            console.log(`Counter incremented to: ${pickupsCollectedCounter} (by AI Multi)`); // Log new count
             return true;
         }
     }
@@ -1526,8 +1644,10 @@ function checkAddAiPickupCollision() {
             console.log("Player collected Add AI powerup! (Placeholder)");
             scene.remove(pickup); addAiPickups.splice(i, 1);
             // TODO: Implement actual AI spawning!
-            pickupsCollectedCounter = 0; // Reset counter
+            // pickupsCollectedCounter = 0; // REMOVED Incorrect reset
             // Do not respawn immediately
+            pickupsCollectedCounter++; // Increment counter
+            console.log(`Counter incremented to: ${pickupsCollectedCounter} (by Player AddAI)`); // Log new count
             return true;
         }
     }
@@ -1547,8 +1667,10 @@ function checkAIAddAiPickupCollision() {
             console.log("AI collected Add AI powerup! (Placeholder)");
             scene.remove(pickup); addAiPickups.splice(i, 1);
             // TODO: Implement actual AI spawning!
-            pickupsCollectedCounter = 0; // Reset counter
+            // pickupsCollectedCounter = 0; // REMOVED Incorrect reset
             // Do not respawn immediately
+            pickupsCollectedCounter++; // Increment counter
+            console.log(`Counter incremented to: ${pickupsCollectedCounter} (by AI AddAI)`); // Log new count
             return true;
         }
     }
@@ -1618,10 +1740,14 @@ function animate(currentTime) {
         if (isSpeedBoostActiveP1 && currentTime > speedBoostEndTimeP1) {
             isSpeedBoostActiveP1 = false;
             snakeHead1.material.color.setHex(P1_HEAD_COLOR_NORMAL); // Revert head color
-            // console.log("Player speed boost ended."); // REMOVE LOG
         }
         if (isZoomedOutP1 && currentTime > zoomOutEndTimeP1) isZoomedOutP1 = false; 
-        if (isSparseTrailActiveP1 && currentTime > sparseTrailEndTimeP1) isSparseTrailActiveP1 = false; // Check sparse expiry
+        // Check sparse expiry and reset level
+        if (isSparseTrailActiveP1 && currentTime > sparseTrailEndTimeP1) { 
+            isSparseTrailActiveP1 = false;
+            sparseLevelP1 = 1; // Reset level when timer expires
+            console.log("Sparse Trail P1 Expired.");
+        } 
         const currentUpdateIntervalP1 = isSpeedBoostActiveP1 ? boostedUpdateInterval : normalUpdateInterval;
         const deltaTimeP1 = currentTime - lastUpdateTimeP1;
 
@@ -1649,9 +1775,13 @@ function animate(currentTime) {
         if (isSpeedBoostActiveAI && currentTime > speedBoostEndTimeAI) {
             isSpeedBoostActiveAI = false;
             snakeHead2.material.color.setHex(AI_HEAD_COLOR_NORMAL); // Revert head color
-            // console.log("AI speed boost ended."); // REMOVE LOG
         }
-        if (isSparseTrailActiveAI && currentTime > sparseTrailEndTimeAI) isSparseTrailActiveAI = false; // Check sparse expiry
+        // Check sparse expiry and reset level for AI
+        if (isSparseTrailActiveAI && currentTime > sparseTrailEndTimeAI) { 
+            isSparseTrailActiveAI = false;
+            sparseLevelAI = 1; // Reset level when timer expires
+            console.log("Sparse Trail AI Expired.");
+        } 
         const currentUpdateIntervalAI = isSpeedBoostActiveAI ? boostedUpdateInterval : normalUpdateInterval;
         const deltaTimeAI = currentTime - lastUpdateTimeAI;
         
@@ -1683,26 +1813,28 @@ function animate(currentTime) {
             // Create trail segments conditionally
             if (playerMoved && (winner === 0 || winner === 2)) { 
                 // Log state BEFORE creating trail segment
-                console.log(`P1 Trail Check: SparseActive=${isSparseTrailActiveP1}, Counter=${trailCounterP1}`);
+                // console.log(`P1 Trail Check: SparseActive=${isSparseTrailActiveP1}, Level=${sparseLevelP1}, Counter=${trailCounterP1}`);
+                const placeIntervalP1 = sparseLevelP1 + 1;
                 // Visibility fix: Make last segment visible if this one is skipped
-                if (isSparseTrailActiveP1 && trailCounterP1 % 2 !== 0 && lastTrailSegment1) {
+                if (isSparseTrailActiveP1 && trailCounterP1 % placeIntervalP1 !== 0 && lastTrailSegment1) {
                     lastTrailSegment1.visible = true;
                 }
-                // Only place trail if not sparse OR counter is even
-                if (!isSparseTrailActiveP1 || trailCounterP1 % 2 === 0) {
+                // Only place trail if not sparse OR counter is at the interval based on level
+                if (!isSparseTrailActiveP1 || trailCounterP1 % placeIntervalP1 === 0) {
                     createTrailSegment(prevTargetPos1, trailSegments1, 1);
                 }
                 trailCounterP1++; // Increment regardless of placement
             }
             if (aiMoved && (winner === 0 || winner === 1)) { 
                  // Log state BEFORE creating trail segment
-                console.log(`AI Trail Check: SparseActive=${isSparseTrailActiveAI}, Counter=${trailCounterAI}`);
+                // console.log(`AI Trail Check: SparseActive=${isSparseTrailActiveAI}, Level=${sparseLevelAI}, Counter=${trailCounterAI}`);
+                 const placeIntervalAI = sparseLevelAI + 1;
                  // Visibility fix: Make last segment visible if this one is skipped
-                if (isSparseTrailActiveAI && trailCounterAI % 2 !== 0 && lastTrailSegment2) {
+                if (isSparseTrailActiveAI && trailCounterAI % placeIntervalAI !== 0 && lastTrailSegment2) {
                     lastTrailSegment2.visible = true;
                 }
-                 // Only place trail if not sparse OR counter is even
-                if (!isSparseTrailActiveAI || trailCounterAI % 2 === 0) {
+                 // Only place trail if not sparse OR counter is at the interval based on level
+                if (!isSparseTrailActiveAI || trailCounterAI % placeIntervalAI === 0) {
                     createTrailSegment(prevTargetPos2, trailSegments2, 2);
                 }
                 trailCounterAI++; // Increment regardless of placement
@@ -1969,13 +2101,15 @@ fontLoader.load('https://raw.githubusercontent.com/mrdoob/three.js/dev/examples/
 function createSparseTrailPickupVisual() {
     const group = new THREE.Group();
     const cubeWidth = segmentSize * 0.8; // Keep slightly narrow
-    const cubeHeight = segmentSize * 0.45; // Make taller (0.45 * 2 = 0.9 total cube height)
+    // const cubeHeight = segmentSize * 0.45; // Old height
+    const cubeHeight = segmentSize * 0.27; // New height (60% of 0.45)
     const cubeDepth = segmentSize * 0.8; // Keep slightly narrow
-    const gap = 0.1; // Increased gap between cubes
+    // const gap = 0.1; // Old gap
+    const gap = 0.3; // Increased gap between cubes
 
-    const cubeGeom = new THREE.BoxGeometry(cubeWidth, cubeHeight, cubeDepth);
-    const cubeMesh1 = new THREE.Mesh(cubeGeom, sparseTrailMaterial);
-    const cubeMesh2 = new THREE.Mesh(cubeGeom, sparseTrailMaterial); 
+    const cubeGeom = new THREE.BoxGeometry(cubeWidth, cubeHeight, cubeDepth); // Use new height
+    const cubeMesh1 = new THREE.Mesh(cubeGeom.clone(), sparseTrailMaterial); // Clone geometry
+    const cubeMesh2 = new THREE.Mesh(cubeGeom.clone(), sparseTrailMaterial); // Clone geometry
 
     cubeMesh1.position.y = -(cubeHeight / 2 + gap / 2);
     cubeMesh2.position.y = (cubeHeight / 2 + gap / 2);
@@ -2041,6 +2175,48 @@ function onTouchEnd(event) {
             break; // Assume only one look back touch
         }
     }
+}
+
+// --- Helper to check if a grid cell contains a wall ---
+function isCellWall(gridX, gridZ) {
+    const worldX = snapToGridCenter(boundaryXMin + gridX * segmentSize, 'x');
+    const worldZ = snapToGridCenter(boundaryZMin + gridZ * segmentSize, 'z');
+    const checkPos = new THREE.Vector3(worldX, 0, worldZ); // Y doesn't matter for this check
+    const wallCheckThreshold = segmentSize * 0.45; // Use same threshold as pickup check
+
+    for (const seg of [...trailSegments1, ...trailSegments2]) {
+        if (checkPos.distanceTo(seg.position) < wallCheckThreshold) {
+            return true; // Found a wall segment in this cell
+        }
+    }
+    return false; // No wall segments found
+}
+
+// --- Helper to check if any adjacent cell has a wall ---
+function isCellAdjacentToWall(gridX, gridZ) {
+    const { divisionsX, divisionsZ } = getGridDimensions();
+    const neighbors = [
+        { dx: 1, dz: 0 }, // Right
+        { dx: -1, dz: 0 }, // Left
+        { dx: 0, dz: 1 }, // Up (relative to grid)
+        { dx: 0, dz: -1 } // Down (relative to grid)
+    ];
+
+    for (const neighbor of neighbors) {
+        const checkX = gridX + neighbor.dx;
+        const checkZ = gridZ + neighbor.dz;
+
+        // Basic boundary check for the neighbor coordinates
+        if (checkX < 0 || checkX >= divisionsX || checkZ < 0 || checkZ >= divisionsZ) {
+            continue; // Neighbor is outside grid bounds
+        }
+
+        if (isCellWall(checkX, checkZ)) {
+            // console.log(`Spawn Rejected: Adjacent wall found at grid (${checkX}, ${checkZ}) relative to (${gridX}, ${gridZ})`);
+            return true; // Found a wall in an adjacent cell
+        }
+    }
+    return false; // No adjacent walls found
 }
 
 init(); 

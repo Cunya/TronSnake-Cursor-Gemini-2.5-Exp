@@ -4,6 +4,9 @@ Powerups should behave the same way as the player
 General:
 Do not spawn a new powerup into a wall
 Powerups should spawn at least 5 units away from heads.
+Stacking should only happen while the previous same pickup is active.
+The powerups picked up by the ai should be included in the counts where picked up powerup count triggers a spawn.
+Don't spwan pickups immediately by a wall if possible.
 
 
 Blue Cube: ("Zoom Out!")
@@ -11,6 +14,7 @@ Grants 20 points to Players when one is picked up.
 Player Only: Zooms the player's camera out further and higher for 5 seconds, providing a wider view.
 Triggers particle explosion + text effect (only if player collects).
 Spawns a new powerup with the same type.
+This effect should stack.
 
 
 Pink Cube: ("Speed Up!")
@@ -19,6 +23,7 @@ Grants 40 points to Players when one is picked up.
 Activates a temporary speed boost for whichever snake collected it (Player or AI). The snake's movement updates twice as fast.
 Triggers particle explosion + text effect.
 Spawns a new powerup with the same type.
+This effect should stack.
 
 
 Yellow Blocks: ("Sparse Trail!")
@@ -27,14 +32,15 @@ Grants 60 points to Players when one is picked up.
 Activates a "sparse trail" effect for the collecting snake for 8 seconds. During this time, the snake only leaves a trail segment every other time it moves, creating gaps.
 Triggers particle explosion + text effect.
 Spawns a new powerup with the same type.
+This effect should stack.
 
 White Cube: ("Clear Walls!")
-Unlocked at when the high score of 500 is reached.
+Unlocked at when the high score of 300 is reached.
 Grants 80 points to Players when one is picked up.
 Instantly removes all existing snake trails (walls) from the arena for both players.
 Triggers particle explosion + text effect on the powerup location.
 Triggers additional particle effects along some of the removed wall segments.
-Spawns whith each 20 other powerups have been picked up.
+Spawns whith each 10 other powerups have been picked up.
 
 [Color] Cube: ("More players!") 
 Unlocked at when the high score of 1000 is reached.
