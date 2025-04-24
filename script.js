@@ -7,7 +7,7 @@ import * as THREE from 'three';
 // import { FontLoader } from 'three/addons/loaders/FontLoader.js';
 // import { TextGeometry } from 'three/addons/geometries/TextGeometry.js';
 
-const GAME_VERSION = "v0.3.9"; // Add Top Score persistence
+const GAME_VERSION = "v1.0.0"; // Initial public release
 
 let scene, camera, renderer;
 let planeMesh, gridMesh;
@@ -935,7 +935,6 @@ function checkExpansionPickupCollision() {
             const pos = pickup.position.clone(); const col = pickup.material.color.clone();
             createExplosionEffect(pos, col);
             createFloatingText("Expand!", pos, col);
-            console.log("Player Expansion pickup collected!");
             scene.remove(pickup); expansionPickups.splice(i, 1);
 
             // Use threshold checks for direction
@@ -989,7 +988,6 @@ function checkClearPickupCollision() {
             const pos = pickup.position.clone(); const col = pickup.material.color.clone();
             createExplosionEffect(pos, col);
             createFloatingText("Clear Walls!", pos, col);
-            console.log("Player collected Clear Wall pickup!");
             scene.remove(pickup); clearPickups.splice(i, 1);
             trailSegments1.forEach(seg => scene.remove(seg));
             trailSegments1.length = 0;
@@ -1248,7 +1246,7 @@ function animate(currentTime) {
         if (isSpeedBoostActiveP1 && currentTime > speedBoostEndTimeP1) {
             isSpeedBoostActiveP1 = false;
             snakeHead1.material.color.setHex(P1_HEAD_COLOR_NORMAL); // Revert head color
-            console.log("Player speed boost ended.");
+            // console.log("Player speed boost ended."); // REMOVE LOG
         }
         if (isZoomedOutP1 && currentTime > zoomOutEndTimeP1) isZoomedOutP1 = false; 
         if (isSparseTrailActiveP1 && currentTime > sparseTrailEndTimeP1) isSparseTrailActiveP1 = false; // Check sparse expiry
@@ -1277,7 +1275,7 @@ function animate(currentTime) {
         if (isSpeedBoostActiveAI && currentTime > speedBoostEndTimeAI) {
             isSpeedBoostActiveAI = false;
             snakeHead2.material.color.setHex(AI_HEAD_COLOR_NORMAL); // Revert head color
-            console.log("AI speed boost ended.");
+            // console.log("AI speed boost ended."); // REMOVE LOG
         }
         if (isSparseTrailActiveAI && currentTime > sparseTrailEndTimeAI) isSparseTrailActiveAI = false; // Check sparse expiry
         const currentUpdateIntervalAI = isSpeedBoostActiveAI ? boostedUpdateInterval : normalUpdateInterval;
