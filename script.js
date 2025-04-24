@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 
-const GAME_VERSION = "v0.3.4";
+const GAME_VERSION = "v0.3.5";
 
 let scene, camera, renderer;
 let planeMesh, gridMesh;
@@ -16,6 +16,8 @@ const headMaterial1 = new THREE.MeshPhongMaterial({ color: 0x00ffff }); // Cyan
 const trailMaterial1 = new THREE.MeshPhongMaterial({ color: 0x00aaaa }); // Darker Cyan
 let isSpeedBoostActiveP1 = false;
 let speedBoostEndTimeP1 = 0;
+let isZoomedOutP1 = false; // Player zoom state
+let zoomOutEndTimeP1 = 0;
 let lastUpdateTimeP1 = 0;
 
 // Player 2 (AI)
@@ -37,6 +39,7 @@ const segmentSize = 1;
 const normalUpdateInterval = 250; // Normal speed
 const boostedUpdateInterval = 125; // Faster speed (half interval)
 const boostDuration = 3000; // milliseconds (3 seconds)
+const zoomOutDuration = 5000; // 5 seconds zoom
 const LERP_FACTOR = 0.2; // Smoothing factor for visual movement
 
 // --- Dynamic Boundary --- 
@@ -50,9 +53,11 @@ const expansionAmount = 20; // Increased expansion amount
 // Camera Settings
 const cameraHeight = 3; // Lowered camera height further
 const cameraDistanceBehind = 4;
-const cameraLag = 0.08;
-const lookBackDistance = 5; // How far behind the snake the camera goes
-const lookAheadTarget = 10; // How far the camera looks ahead during look back
+const zoomedOutCameraHeight = cameraHeight * 1.8; // Zoom out height
+const zoomedOutCameraDistanceBehind = cameraDistanceBehind * 1.8; // Zoom out distance
+const cameraLag = 0.08; // Reverted to original value for maximum smoothness
+const lookBackDistance = 5; // How far behind the snake the camera goes for position (not used currently)
+const cameraViewShiftDistance = 25; // How far the camera looks ahead/behind
 const gameOverCameraLag = 0.06;
 
 // Scoring & Pickups
@@ -79,6 +84,13 @@ const clearPickupMaterial = new THREE.MeshPhongMaterial({ color: 0xffffff, emiss
 const maxClearPickups = 1;
 const clearPickupSpawnChance = 0.10; // Lower chance
 
+// Zoom Pickup
+const zoomPickups = [];
+const zoomPickupGeometry = new THREE.BoxGeometry(segmentSize * 1.2, segmentSize * 0.3, segmentSize * 1.2); // Wide, flat box
+const zoomPickupMaterial = new THREE.MeshPhongMaterial({ color: 0x0088ff, emissive: 0x0033aa }); // Blue
+const maxZoomPickups = 1;
+const zoomPickupSpawnChance = 0.10; // Same chance as clear pickup
+
 // Game state
 let isGameOver = false;
 let gameActive = false; // New state: controls if game logic runs
@@ -101,8 +113,8 @@ const cameraOffset = new THREE.Vector3();
 const targetLookAt = new THREE.Vector3();
 const gameOverLookAtTarget = new THREE.Vector3();
 const gameOverCameraTargetPosition = new THREE.Vector3();
-const lookBackPosition = new THREE.Vector3(); // Temp vector for look back calc
-const lookAheadPoint = new THREE.Vector3(); // Temp vector for look back target
+const lookBackPosition = new THREE.Vector3(); // Can likely be removed if not used
+const viewShiftPoint = new THREE.Vector3(); // Renamed from lookAheadPoint
 
 // Helper function to get grid center coordinate from world coordinate
 function snapToGridCenter(value, axis) {
@@ -308,11 +320,10 @@ function updateAIPlayer() {
     // --- Identify Target Pickup --- 
     let targetPickupPos = null;
     let closestDistSq = aiPickupScanRadius * aiPickupScanRadius;
-    const allPickups = [...scorePickups, ...expansionPickups, ...clearPickups]; 
+    const allPickups = [...scorePickups, ...expansionPickups, ...clearPickups, ...zoomPickups]; 
     for (const pickup of allPickups) {
         const distSq = currentPos.distanceToSquared(pickup.position);
         if (distSq < closestDistSq) {
-            // Simple distance check is enough here, directionality handled below
             closestDistSq = distSq;
             targetPickupPos = pickup.position;
         }
@@ -372,13 +383,11 @@ function updateAIPlayer() {
          return; 
     }
     
-    // Evaluate Turns (LookaheadSteps)
-    const possibleTurns = []; // Turns safe for lookAheadSteps
-    const backupTurns = []; // Turns safe for only 1 step
-    const turnDirections = [
-        potentialDirections.left,  // Use pre-calculated left
-        potentialDirections.right // Use pre-calculated right
-    ];
+    // Evaluate Turns (LookaheadSteps + Escape Check)
+    const safeTurns = [];   // Safe 2 steps AND has escape route
+    const trapTurns = [];   // Safe 2 steps BUT NO escape route
+    const backupTurns = []; // Safe only 1 step
+    const turnDirections = [potentialDirections.left, potentialDirections.right];
 
     for (const turnDir of turnDirections) {
         let turnSafeLookahead = true;
@@ -394,25 +403,47 @@ function updateAIPlayer() {
         }
 
         if (turnSafeLookahead) {
-            possibleTurns.push(turnDir.clone()); // Clone needed here
+            // Perform escape check
+            const simPos = currentPos.clone().addScaledVector(turnDir, segmentSize);
+            const simDir = turnDir; // Direction after the turn
+            const escapeForwardPos = simPos.clone().addScaledVector(simDir, segmentSize);
+            const escapeLeftDir = simDir.clone().applyAxisAngle(yAxis, Math.PI / 2);
+            const escapeLeftPos = simPos.clone().addScaledVector(escapeLeftDir, segmentSize);
+            const escapeRightDir = simDir.clone().applyAxisAngle(yAxis, -Math.PI / 2);
+            const escapeRightPos = simPos.clone().addScaledVector(escapeRightDir, segmentSize);
+
+            const escapeForwardSafe = isPositionSafe(escapeForwardPos, true, true);
+            const escapeLeftSafe = isPositionSafe(escapeLeftPos, true, true);
+            const escapeRightSafe = isPositionSafe(escapeRightPos, true, true);
+
+            if (escapeForwardSafe || escapeLeftSafe || escapeRightSafe) {
+                safeTurns.push(turnDir.clone()); // Good turn
+            } else {
+                trapTurns.push(turnDir.clone()); // Leads into a dead end
+            }
         } else if (turnSafeOneStep) {
-            backupTurns.push(turnDir.clone()); // Clone needed here
+            backupTurns.push(turnDir.clone()); // Only safe for one step
         }
     }
 
-    // Decision Making (Avoidance)
-    if (possibleTurns.length > 0) {
-        const chosenTurnIndex = Math.floor(Math.random() * possibleTurns.length);
-        // console.log(`AI: Avoidance - Choosing safe turn (${possibleTurns.length} options).`);
-        snakeDirection2.copy(possibleTurns[chosenTurnIndex]);
+    // Decision Making (Avoidance - Prioritize safe escape)
+    if (safeTurns.length > 0) {
+        const chosenTurnIndex = Math.floor(Math.random() * safeTurns.length);
+        // console.log(`AI: Avoidance - Choosing safe turn (${safeTurns.length} options).`);
+        snakeDirection2.copy(safeTurns[chosenTurnIndex]);
         return;
-    } else if (backupTurns.length > 0) {
+    } else if (trapTurns.length > 0) { // Accept trap over backup/crash
+        const chosenTurnIndex = Math.floor(Math.random() * trapTurns.length);
+        // console.log(`AI: Avoidance - Choosing trap turn (${trapTurns.length} options).`);
+        snakeDirection2.copy(trapTurns[chosenTurnIndex]);
+        return;
+    } else if (backupTurns.length > 0) { // One step turn is better than crash
         const chosenTurnIndex = Math.floor(Math.random() * backupTurns.length);
         // console.log(`AI: Avoidance - Choosing backup turn (${backupTurns.length} options).`);
         snakeDirection2.copy(backupTurns[chosenTurnIndex]);
         return;
     } else if (safeForward) {
-        // console.log("AI: Avoidance - Turns blocked, forcing forward.");
+        // console.log("AI: Avoidance - Turns blocked/unsafe, forcing forward.");
          return; // Keep current direction (forward)
     } else {
         // console.log("AI: Avoidance - No safe moves detected, crashing forward.");
@@ -500,7 +531,8 @@ function createOpeningDialog() {
         `<p style="margin-bottom: 10px;">Trap the <strong style="color: #ff8800;">Orange AI</strong> opponent.</p>` +
         `<p style="margin-bottom: 10px;">Collect <strong style="color: #ff00ff;">Pink Cubes</strong> for points & speed boost!</p>` +
         `<p style="margin-bottom: 10px;">Collect <strong style="color: #00ff00;">Green Cubes</strong> to expand the arena!</p>` +
-        `<p style="margin-bottom: 20px;">Collect <strong style="color: #ffffff;">White Cubes</strong> to clear all walls!</p>` +
+        `<p style="margin-bottom: 10px;">Collect <strong style="color: #ffffff;">White Cubes</strong> to clear all walls!</p>` +
+        `<p style="margin-bottom: 20px;">Collect <strong style="color: #0088ff;">Blue Cubes</strong> to zoom out briefly!</p>` +
         `<p style="font-size: 18px; color: #cccccc;">(Click or Press Any Key to Start)</p>`;
 
     document.body.appendChild(openingDialogElement);
@@ -574,6 +606,8 @@ function resetGame() {
     scoreP1 = 0; // Reset score
     isSpeedBoostActiveP1 = false; // Reset P1 boost state
     speedBoostEndTimeP1 = 0;
+    isZoomedOutP1 = false; // Reset zoom state
+    zoomOutEndTimeP1 = 0;
     isSpeedBoostActiveAI = false; // Reset AI boost state
     speedBoostEndTimeAI = 0;
     if (scoreTextElement) scoreTextElement.textContent = "Score: 0"; // Reset score display
@@ -634,11 +668,14 @@ function spawnInitialPickups() {
     expansionPickups.length = 0;
     clearPickups.forEach(p => scene.remove(p)); // Clear this too
     clearPickups.length = 0;
+    zoomPickups.forEach(p => scene.remove(p));
+    zoomPickups.length = 0; // Clear zoom pickups
     
     // Spawn initial set, maybe guarantee one of each type if possible
     spawnPickup("score"); 
     spawnPickup("expansion");
     spawnPickup("clear");
+    spawnPickup("zoom"); // Spawn initial zoom pickup
     // Fill remaining slots randomly if needed
     // while ((scorePickups.length + expansionPickups.length + clearPickups.length) < (maxScorePickups + maxExpansionPickups + maxClearPickups)) {
     //     spawnPickup();
@@ -651,32 +688,35 @@ function spawnPickup(forceType = null) {
     
     if (!pickupType) { // Determine randomly if not forced
         const rand = Math.random();
-        if (rand < clearPickupSpawnChance && clearPickups.length < maxClearPickups) {
-            pickupType = "clear";
-        } else if (rand < clearPickupSpawnChance + expansionPickupSpawnChance && expansionPickups.length < maxExpansionPickups) {
-            pickupType = "expansion";
-        } else if (scorePickups.length < maxScorePickups) { 
-            pickupType = "score";
-        } else {
-            // Try falling back if preferred type is full
-            if (clearPickups.length < maxClearPickups) pickupType = "clear";
-            else if (expansionPickups.length < maxExpansionPickups) pickupType = "expansion";
-            else if (scorePickups.length < maxScorePickups) pickupType = "score";
-            else {
-                 console.log("Cannot spawn any pickup type - all maxed out.");
-                 return; // All types are full
-            }
+        // Adjust probabilities if needed
+        const zoomEnd = zoomPickupSpawnChance;
+        const clearEnd = zoomEnd + clearPickupSpawnChance;
+        const expansionEnd = clearEnd + expansionPickupSpawnChance;
+        // Score takes remaining probability
+
+        if (rand < zoomEnd && zoomPickups.length < maxZoomPickups) pickupType = "zoom";
+        else if (rand < clearEnd && clearPickups.length < maxClearPickups) pickupType = "clear";
+        else if (rand < expansionEnd && expansionPickups.length < maxExpansionPickups) pickupType = "expansion";
+        else if (scorePickups.length < maxScorePickups) pickupType = "score";
+        else { /* Fallback logic */ 
+             if (zoomPickups.length < maxZoomPickups) pickupType = "zoom";
+             else if (clearPickups.length < maxClearPickups) pickupType = "clear";
+             else if (expansionPickups.length < maxExpansionPickups) pickupType = "expansion";
+             else if (scorePickups.length < maxScorePickups) pickupType = "score";
+             else return; 
         }
     }
     
     // Double check max count for the determined type
+    if (pickupType === "zoom" && zoomPickups.length >= maxZoomPickups) pickupType = null;
     if (pickupType === "clear" && clearPickups.length >= maxClearPickups) pickupType = null;
     if (pickupType === "expansion" && expansionPickups.length >= maxExpansionPickups) pickupType = null;
     if (pickupType === "score" && scorePickups.length >= maxScorePickups) pickupType = null;
 
     if (!pickupType) {
         // If the forced or randomly chosen type was full, try to find *any* available slot
-         if (clearPickups.length < maxClearPickups) pickupType = "clear";
+         if (zoomPickups.length < maxZoomPickups) pickupType = "zoom";
+         else if (clearPickups.length < maxClearPickups) pickupType = "clear";
          else if (expansionPickups.length < maxExpansionPickups) pickupType = "expansion";
          else if (scorePickups.length < maxScorePickups) pickupType = "score";
          else return; // Still no slot available
@@ -684,16 +724,9 @@ function spawnPickup(forceType = null) {
 
     let geometry, material, targetArray;
     switch (pickupType) {
-        case "clear":
-            geometry = clearPickupGeometry;
-            material = clearPickupMaterial;
-            targetArray = clearPickups;
-            break;
-        case "expansion":
-            geometry = expansionPickupGeometry;
-            material = expansionPickupMaterial;
-            targetArray = expansionPickups;
-            break;
+        case "zoom": geometry = zoomPickupGeometry; material = zoomPickupMaterial; targetArray = zoomPickups; break;
+        case "clear": geometry = clearPickupGeometry; material = clearPickupMaterial; targetArray = clearPickups; break;
+        case "expansion": geometry = expansionPickupGeometry; material = expansionPickupMaterial; targetArray = expansionPickups; break;
         case "score": // Default to score/speed
         default:
             geometry = scorePickupGeometry;
@@ -740,6 +773,9 @@ function isPositionOccupied(pos, threshold) {
     for (const pick of clearPickups) { // Check clear pickups too
         if (pos.distanceTo(pick.position) < threshold) return true;
     }
+    for (const pick of zoomPickups) {
+        if (pos.distanceTo(pick.position) < threshold) return true;
+    } // Check zoom pickups too
     return false;
 }
 
@@ -917,6 +953,33 @@ function checkAIClearPickupCollision() {
     return false;
 }
 
+function checkZoomPickupCollision() {
+    for (let i = zoomPickups.length - 1; i >= 0; i--) {
+        const pickup = zoomPickups[i];
+        if (snakeTargetPosition1.distanceTo(pickup.position) < segmentSize * 0.1) {
+            console.log("Player collected Zoom Out pickup!");
+            scene.remove(pickup); zoomPickups.splice(i, 1);
+            isZoomedOutP1 = true;
+            zoomOutEndTimeP1 = performance.now() + zoomOutDuration;
+            spawnPickup(); return true;
+        }
+    }
+    return false;
+}
+
+function checkAIZoomPickupCollision() {
+    for (let i = zoomPickups.length - 1; i >= 0; i--) {
+        const pickup = zoomPickups[i];
+        if (snakeTargetPosition2.distanceTo(pickup.position) < segmentSize * 0.1) {
+            console.log("AI collected Zoom Out pickup!");
+            scene.remove(pickup); zoomPickups.splice(i, 1);
+            // AI just removes it, doesn't get effect
+            spawnPickup(); return true;
+        }
+    }
+    return false;
+}
+
 function createPlayAreaVisuals(xMin, xMax, zMin, zMax) {
     // Remove old ones if they exist
     if (planeMesh) scene.remove(planeMesh);
@@ -976,6 +1039,7 @@ function animate(currentTime) {
             isSpeedBoostActiveP1 = false;
             console.log("Player speed boost ended.");
         }
+        if (isZoomedOutP1 && currentTime > zoomOutEndTimeP1) isZoomedOutP1 = false; // Check zoom expiry
         const currentUpdateIntervalP1 = isSpeedBoostActiveP1 ? boostedUpdateInterval : normalUpdateInterval;
         const deltaTimeP1 = currentTime - lastUpdateTimeP1;
 
@@ -989,10 +1053,11 @@ function animate(currentTime) {
             snakeTargetPosition1.z = snapToGridCenter(nextLogicalPos1.z, 'z');
             playerMoved = true;
             
-            // Check Player Pickups immediately after position update
+            // Check Player Pickups
             checkScorePickupCollision();
             checkExpansionPickupCollision();
             checkClearPickupCollision();
+            checkZoomPickupCollision(); // Check for zoom pickup
         }
 
         // --- AI Update Logic ---
@@ -1006,7 +1071,7 @@ function animate(currentTime) {
         if (deltaTimeAI > currentUpdateIntervalAI) {
             lastUpdateTimeAI = currentTime - (deltaTimeAI % currentUpdateIntervalAI);
             
-            updateAIPlayer(); // Decide direction
+            updateAIPlayer();
 
             prevTargetPos2.copy(snakeTargetPosition2);
             let nextLogicalPos2 = snakeTargetPosition2.clone().addScaledVector(snakeDirection2, segmentSize);
@@ -1014,10 +1079,11 @@ function animate(currentTime) {
             snakeTargetPosition2.z = snapToGridCenter(nextLogicalPos2.z, 'z');
             aiMoved = true;
             
-            // Check AI Pickups immediately after position update
+            // Check AI Pickups
             checkAIScorePickupCollision();
             checkAIExpansionPickupCollision();
             checkAIClearPickupCollision();
+            checkAIZoomPickupCollision(); // Check for zoom pickup
         }
         
         // --- Collision Check & Trail Creation (Run if either snake moved) --- 
@@ -1068,31 +1134,34 @@ function animate(currentTime) {
     if (scoreTextElement) { scoreTextElement.textContent = `Score: ${scoreP1}`; }
 
     // Update camera
-    if (!isGameOver && snakeHead1 && gameActive) {
-        let camTargetPos; // Position camera should move towards
-        let lookAtTargetForLerp; // Point targetLookAt should move towards
+    if (!isGameOver && snakeHead1 && gameActive) { 
+        // Determine current camera parameters based on zoom state
+        const currentHeight = isZoomedOutP1 ? zoomedOutCameraHeight : cameraHeight;
+        const currentDistance = isZoomedOutP1 ? zoomedOutCameraDistanceBehind : cameraDistanceBehind;
+        // const currentLookBackDistance = lookBackDistance; // Not currently used for positioning
+
+        let camTargetPos; // Target position for the camera
+        let lookAtTargetForLerp; // Target point for the look-at lerp
 
         if (isLookingBack) {
-            // Look Back Camera
-            lookBackPosition.copy(snakeDirection1).multiplyScalar(lookBackDistance); // Offset backwards
-            lookBackPosition.y = cameraHeight; // Set height
-            camTargetPos = snakeHead1.position.clone().add(lookBackPosition); // Add offset to current visual pos
+            // Look Backwards - Position camera AHEAD of the snake, looking AT the snake.
+            cameraOffset.copy(snakeDirection1).multiplyScalar(+currentDistance); // Offset AHEAD (+distance)
+            cameraOffset.y = currentHeight;
+            camTargetPos = snakeHead1.position.clone().add(cameraOffset); // Target pos is ahead
             
-            lookAheadPoint.copy(snakeDirection1).multiplyScalar(lookAheadTarget); // Point ahead
-            lookAtTargetForLerp = snakeHead1.position.clone().add(lookAheadPoint); // Look ahead from visual pos
+            lookAtTargetForLerp = snakeHead1.position; // Look back AT the snake's head
 
         } else {
-            // Normal Follow Camera
-            cameraOffset.copy(snakeDirection1).multiplyScalar(-cameraDistanceBehind); // Offset forward (negative direction)
-            cameraOffset.y = cameraHeight;
-            camTargetPos = snakeHead1.position.clone().add(cameraOffset); // Base on visual pos
+            // Normal Follow Camera - Position BEHIND the snake, looking AT the snake.
+            cameraOffset.copy(snakeDirection1).multiplyScalar(-currentDistance); // Offset BEHIND (-distance)
+            cameraOffset.y = currentHeight;
+            camTargetPos = snakeHead1.position.clone().add(cameraOffset); // Target pos is behind
             
-            lookAtTargetForLerp = snakeHead1.position; // Look at the snake's visual pos
+            lookAtTargetForLerp = snakeHead1.position; 
         }
 
-        // Apply smooth movement to calculated targets
-        cameraTargetPosition.copy(camTargetPos); // Store the target for lerp
-        camera.position.lerp(cameraTargetPosition, cameraLag);
+        // Apply smooth movement
+        camera.position.lerp(camTargetPos, cameraLag);
         targetLookAt.lerp(lookAtTargetForLerp, cameraLag); 
         camera.lookAt(targetLookAt);
 
