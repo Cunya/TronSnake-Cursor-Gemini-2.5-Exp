@@ -3,7 +3,7 @@ import * as THREE from 'three';
 // Game constants (colors, sizes, speeds, etc.) will be defined and exported from here 
 
 // Version
-export const GAME_VERSION = "v1.1.3";
+export const GAME_VERSION = "v1.1.4";
 
 // Color Constants
 export const P1_HEAD_COLOR_NORMAL = 0x00ffff; // Cyan

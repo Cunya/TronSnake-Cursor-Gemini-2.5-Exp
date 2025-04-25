@@ -5,7 +5,7 @@ import {
     trailSegments1, trailSegments2,
     scorePickups, expansionPickups, clearPickups, zoomPickups, sparseTrailPickups, multiSpawnPickups, addAiPickups, ammoPickups,
     ammoCountAI, // AI needs its ammo count
-    setSnakeDirection2, setAmmoCountAI // AI needs setters for its direction and ammo
+    setAmmoCountAI // AI needs setters for its direction and ammo
 } from './state.js';
 import {
     AI_LOOK_AHEAD_STEPS, segmentSize, AI_PICKUP_SCAN_RADIUS_SQ, AI_STRAIGHT_BIAS, yAxis, epsilon
@@ -221,13 +221,13 @@ export function updateAIPlayer() {
 }
 
 
-// --- Need to fix state access ---
+// --- Need to fix state access --- (Removed Placeholder declarations)
 // Temporary placeholders for boundary state needed in isPositionSafe
-let boundaryXMin = -15;
-let boundaryXMax = 15;
-let boundaryZMin = -15;
-let boundaryZMax = 15;
-let ammoPickups = []; // Placeholder for findTargetPickup
+// REMOVED: let boundaryXMin = -15;
+// REMOVED: let boundaryXMax = 15;
+// REMOVED: let boundaryZMin = -15;
+// REMOVED: let boundaryZMax = 15;
+// REMOVED: let ammoPickups = []; // Placeholder for findTargetPickup
 
 
 // AI logic (updateAIPlayer and helpers) will be moved here 
