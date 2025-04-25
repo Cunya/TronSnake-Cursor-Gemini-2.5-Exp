@@ -90,9 +90,9 @@ function isCellAdjacentToWall(gridX, gridZ) {
 // Helper function to contain the actual spawning logic (Internal)
 // Returns boolean indicating success/failure
 function trySpawn(typeToSpawn) {
-    // console.log(`  [trySpawn] Attempting to spawn type: ${typeToSpawn}`); // Log entry
+    console.log(`  [trySpawn] Attempting to spawn type: ${typeToSpawn}`); // Log entry
     if (!typeToSpawn) {
-        // console.warn("  [trySpawn] Called with no type.");
+        console.warn("  [trySpawn] Called with no type.");
         return false; 
     }
 
@@ -148,20 +148,20 @@ function trySpawn(typeToSpawn) {
     }
 
     if (!pickupVisual) {
-        // console.error(`  [trySpawn] Could not create visual for type: ${typeToSpawn}. Template might be missing.`);
+        console.error(`  [trySpawn] Could not create visual for type: ${typeToSpawn}. Template might be missing.`);
         return false;
     }
 
     const currentMax = getMaxForType(typeToSpawn);
-    // console.log(`  [trySpawn] Current count: ${targetArray.length}, Max allowed: ${currentMax}`); // Log count check
+    console.log(`  [trySpawn] Check: Current count ${targetArray.length}, Max allowed ${currentMax} for type ${typeToSpawn}`); 
     if (targetArray.length >= currentMax) {
-        // console.log(`  [trySpawn] Max reached for type ${typeToSpawn}.`);
+        console.log(`  [trySpawn] Max reached for type ${typeToSpawn}.`);
         return false;
     }
 
     const maxAttempts = 50;
     const { divisionsX, divisionsZ } = getGridDimensions(); 
-    // console.log(`  [trySpawn] Starting position search (max ${maxAttempts} attempts)...`); // Log search start
+    console.log(`  [trySpawn] Starting position search (max ${maxAttempts} attempts)...`); // Log search start
     for (let attempt = 0; attempt < maxAttempts; attempt++) {
         const gridX = Math.floor(Math.random() * divisionsX);
         const gridZ = Math.floor(Math.random() * divisionsZ);
@@ -179,7 +179,7 @@ function trySpawn(typeToSpawn) {
                 pickup.position.copy(potentialPos);
                 scene.add(pickup);
                 targetArray.push(pickup);
-                // console.log(`  [trySpawn] SUCCESS on attempt ${attempt+1} for ${spawnTypeName}!`); // Log success
+                console.log(`  [trySpawn] SUCCESS on attempt ${attempt+1} for ${spawnTypeName}!`); // Log success
                 logTotalPickupCount(`Spawned ${spawnTypeName}`); // Keep this useful one
                 return true;
             } else {
@@ -189,7 +189,7 @@ function trySpawn(typeToSpawn) {
              // console.log(`  [trySpawn attempt ${attempt+1}] Rejected: Position not safe.`); // Log rejection reason
         }
     }
-    // console.warn(`  [trySpawn] Could not find empty space for pickup type ${spawnTypeName} after ${maxAttempts} attempts.`); // Log failure
+    console.warn(`  [trySpawn] Could not find empty space for pickup type ${spawnTypeName} after ${maxAttempts} attempts.`); // Log failure
     logTotalPickupCount(`Failed spawn ${spawnTypeName}`); // Keep this useful one
     return false;
 }
@@ -580,40 +580,47 @@ function checkMultiSpawnPickupCollision() {
         const pickup = multiSpawnPickups[i];
          if (snakeTargetPosition1.distanceToSquared(pickup.position) < PICKUP_COLLISION_THRESHOLD_SQ * 1.1) {
             const pos = pickup.position.clone(); const col = multiSpawnMaterial.color.clone();
-            createExplosionEffect(pos, col); 
-            // Calculate boosted score for text
+            createExplosionEffect(pos, col);
             const baseScore = 200;
             const scoreMultiplier = isSpeedBoostActiveP1 ? (1 + speedLevelP1 * SPEED_BOOST_SCORE_MULTIPLIER) : 1;
             const actualScoreAwarded = Math.round(baseScore * scoreMultiplier);
-            createFloatingText(`+${actualScoreAwarded} Max ++!`, pos, col);
+            createFloatingText(`+${actualScoreAwarded} More Powerups!`, pos, col);
             
             scene.remove(pickup); multiSpawnPickups.splice(i, 1); logTotalPickupCount("Collected Player Multi");
-            handleScoreUpdateAndCounters(baseScore); // Pass BASE score
+            handleScoreUpdateAndCounters(baseScore);
             
             let eligible = [];
-            // Eligibility uses topScore now?
-            if (topScore >= 0 && zoomPickups.length < maxZoomPickups) eligible.push("zoom");
-            if (topScore >= 50 && scorePickups.length < maxScorePickups) eligible.push("score");
-            if (topScore >= 200 && sparseTrailPickups.length < maxSparseTrailPickups) eligible.push("sparse");
+            if (topScore >= 0) eligible.push("zoom");
+            if (topScore >= 50) eligible.push("score");
+            if (topScore >= 200) eligible.push("sparse");
+            console.log("Multi Spawn Eligible Types:", eligible);
             
-            const spawnAndInc = (type) => { 
-                console.log(`Multi Spawn: Spawning random type: ${type}`);
-                spawnPickup(type); // Use the main spawner (handles non-counter types)
-                // Increment max counts (Keep this part)
+            const incMaxAndSpawn = (type) => {
+                if (!type) return;
+                console.log(`Multi Spawn: Incrementing max and attempting spawn for: ${type}`);
+                let oldMax;
+                // Increment Max FIRST
                 switch (type) { 
-                    case "score": setMaxScorePickups(maxScorePickups + 1); break; 
-                    case "expansion": setMaxExpansionPickups(maxExpansionPickups + 1); break; 
-                    case "clear": setMaxClearPickups(maxClearPickups + 1); break; 
-                    case "zoom": setMaxZoomPickups(maxZoomPickups + 1); break; 
-                    case "sparse": setMaxSparseTrailPickups(maxSparseTrailPickups + 1); break; 
-                    case "add_ai": setMaxAddAiPickups(maxAddAiPickups + 1); break; 
-                    case "ammo": setMaxAmmoPickups(maxAmmoPickups + 1); break; 
+                    case "score": oldMax = maxScorePickups; setMaxScorePickups(maxScorePickups + 1); console.log(`  MaxScore: ${oldMax} -> ${maxScorePickups}`); break; 
+                    case "zoom": oldMax = maxZoomPickups; setMaxZoomPickups(maxZoomPickups + 1); console.log(`  MaxZoom: ${oldMax} -> ${maxZoomPickups}`); break; 
+                    case "sparse": oldMax = maxSparseTrailPickups; setMaxSparseTrailPickups(maxSparseTrailPickups + 1); console.log(`  MaxSparse: ${oldMax} -> ${maxSparseTrailPickups}`); break; 
+                    default: console.warn(`Multi Spawn: Tried to increment max for unsupported type: ${type}`); return;
                 } 
-            }; 
-            if (eligible.length > 0) spawnAndInc(eligible[Math.floor(Math.random() * eligible.length)]);
-            if (eligible.length > 0) spawnAndInc(eligible[Math.floor(Math.random() * eligible.length)]);
+                spawnPickup(type);
+            };
+
+            if (eligible.length > 0) {
+                const type1 = eligible[Math.floor(Math.random() * eligible.length)];
+                console.log("Multi Spawn Choice 1:", type1);
+                incMaxAndSpawn(type1);
+
+                const type2 = eligible[Math.floor(Math.random() * eligible.length)];
+                console.log("Multi Spawn Choice 2:", type2);
+                incMaxAndSpawn(type2); 
+            } else {
+                 console.log("Multi Spawn: No eligible non-counter types unlocked to spawn/increment.");
+            }
             
-            // Multi pickup does not respawn itself directly
             return true;
         }
     } return false;
@@ -772,29 +779,37 @@ function checkAIMultiSpawnPickupCollision() {
             scene.remove(pickup); multiSpawnPickups.splice(i, 1); logTotalPickupCount("Collected AI Multi");
             handleAICounterUpdate(); // Use new helper
             
-            let eligible = [];
-             // Eligibility based on player score?
-            if (topScore >= 0 && zoomPickups.length < maxZoomPickups) eligible.push("zoom");
-            if (topScore >= 50 && scorePickups.length < maxScorePickups) eligible.push("score");
-            if (topScore >= 200 && sparseTrailPickups.length < maxSparseTrailPickups) eligible.push("sparse");
+             // Determine eligible types based ONLY on topScore unlock
+             let eligible = [];
+            if (topScore >= 0) eligible.push("zoom");    // Zoom unlocked at 0
+            if (topScore >= 50) eligible.push("score");   // Score (Speed Up) unlocked at 50
+            if (topScore >= 200) eligible.push("sparse"); // Sparse unlocked at 200
             
-            const spawnAndInc = (type) => { 
-                console.log(`AI Multi Spawn: Spawning random type: ${type}`);
-                spawnPickup(type); 
-                // Use setters
+            // Function to increment max and spawn
+            const incMaxAndSpawn = (type) => {
+                 console.log(`AI Multi Spawn: Incrementing max and attempting spawn for: ${type}`);
+                // Increment Max FIRST
                 switch (type) { 
                     case "score": setMaxScorePickups(maxScorePickups + 1); break; 
-                    case "expansion": setMaxExpansionPickups(maxExpansionPickups + 1); break; 
-                    case "clear": setMaxClearPickups(maxClearPickups + 1); break; 
                     case "zoom": setMaxZoomPickups(maxZoomPickups + 1); break; 
                     case "sparse": setMaxSparseTrailPickups(maxSparseTrailPickups + 1); break; 
-                    case "add_ai": setMaxAddAiPickups(maxAddAiPickups + 1); break; 
-                    case "ammo": setMaxAmmoPickups(maxAmmoPickups + 1); break; 
+                    default: console.warn(`AI Multi Spawn: Tried to increment max for unsupported type: ${type}`); return;
                 } 
-            }; 
-            if (eligible.length > 0) spawnAndInc(eligible[Math.floor(Math.random() * eligible.length)]);
-            if (eligible.length > 0) spawnAndInc(eligible[Math.floor(Math.random() * eligible.length)]);
-            // Multi pickup does not respawn itself
+                // Then attempt spawn
+                spawnPickup(type);
+            };
+
+             // Select and spawn two types
+            if (eligible.length > 0) {
+                const type1 = eligible[Math.floor(Math.random() * eligible.length)];
+                incMaxAndSpawn(type1);
+
+                const type2 = eligible[Math.floor(Math.random() * eligible.length)];
+                incMaxAndSpawn(type2); 
+            } else {
+                 console.log("AI Multi Spawn: No eligible non-counter types unlocked to spawn/increment.");
+            }
+
             return true;
         }
     } return false;

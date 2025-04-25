@@ -52,6 +52,7 @@ export function getUnlockStatusText(currentTopScore) {
         `<h4 style="font-size: 18px; margin-bottom: 8px; color: #cccccc;">Controls:</h4>` +
         `<p style="font-size: 16px; margin-bottom: 5px;">Arrows: Left/Right (Turn), Down (Look Back)</p>` +
         `<p style="font-size: 16px; margin-bottom: 5px;">Touch: Left/Right Side (Turn), Bottom (Look Back)</p>` +
+        `<p style="font-size: 16px; margin-bottom: 5px;">Shoot: Spacebar / Top Touch Zone</p>` +
         `</div>`;
 
     return { unlockedHTML, nextUnlockMsg, controlsText };
