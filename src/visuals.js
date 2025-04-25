@@ -5,6 +5,7 @@ import {
     explosionParticles, floatingTexts, textFont, camera, snakeHead1, snakeHead2, ammoIndicatorP1, ammoIndicatorAI,
     headMaterial1, headMaterial2, setAmmoIndicatorP1, setAmmoIndicatorAI, setPlaneMesh, setGridMesh,
     planeMesh, gridMesh, setSparseTrailPickupTemplate, setAmmoPickupTemplate, trailSegments1, trailSegments2,
+    ammoCountP1, ammoCountAI, isSpeedBoostActiveP1, isSpeedBoostActiveAI
 } from './state.js';
 import {
     segmentSize, P1_TRAIL_COLOR_BOOST, P1_TRAIL_COLOR_NORMAL, AI_TRAIL_COLOR_BOOST, AI_TRAIL_COLOR_NORMAL,
@@ -143,37 +144,56 @@ export function initializePickupTemplates() {
 }
 
 export function updateAmmoIndicatorP1() {
-    if (!snakeHead1) return;
+    // console.log("[updateAmmoIndicatorP1] Called."); // Log entry
+    if (!snakeHead1) {
+        // console.log("[updateAmmoIndicatorP1] snakeHead1 not found, exiting.");
+        return;
+    }
 
     let indicatorGroup = ammoIndicatorP1;
     if (!indicatorGroup) {
+        // console.log("[updateAmmoIndicatorP1] ammoIndicatorP1 group not found in state, creating new group.");
         indicatorGroup = new THREE.Group();
-        setAmmoIndicatorP1(indicatorGroup); // Use setter
-        scene.add(indicatorGroup);
+        if (setAmmoIndicatorP1) setAmmoIndicatorP1(indicatorGroup); // Use setter
+        else console.error("[updateAmmoIndicatorP1] setAmmoIndicatorP1 setter not found!"); // Keep error log
+        if (scene) scene.add(indicatorGroup);
+        else console.error("[updateAmmoIndicatorP1] scene not found!"); // Keep error log
     }
 
-    while (indicatorGroup.children.length) {
-        indicatorGroup.remove(indicatorGroup.children[0]);
+    // Check if group exists after potential creation
+    if (!indicatorGroup) {
+         console.error("[updateAmmoIndicatorP1] Failed to get or create indicatorGroup!"); // Keep error log
+         return;
     }
 
-    // Need ammoCountP1 from state
-    // Assume accessible for now (will fix imports later)
+    // Clear existing indicators
+    let childrenToRemove = [...indicatorGroup.children]; 
+    // console.log(`[updateAmmoIndicatorP1] Clearing ${childrenToRemove.length} existing indicator meshes.`);
+    childrenToRemove.forEach(child => indicatorGroup.remove(child));
+
+    // Get current ammo count
     const count = ammoCountP1; 
+    // console.log(`[updateAmmoIndicatorP1] Current ammoCountP1 from state: ${count}`);
+
     const indicatorSize = 0.2;
     const indicatorSpacing = 0.25;
     const indicatorGeometry = new THREE.BoxGeometry(indicatorSize, indicatorSize, indicatorSize);
     const indicatorMaterial = new THREE.MeshPhongMaterial({ color: AMMO_COLOR });
 
+    // Add new indicators
+    // console.log(`[updateAmmoIndicatorP1] Adding ${count} new indicator meshes.`);
     for (let i = 0; i < count; i++) {
         const indicatorMesh = new THREE.Mesh(indicatorGeometry, indicatorMaterial);
         indicatorMesh.position.x = (i - (count - 1) / 2) * indicatorSpacing;
         indicatorGroup.add(indicatorMesh);
     }
 
-    if (indicatorGroup) {
-        indicatorGroup.position.copy(snakeHead1.position);
-        indicatorGroup.position.y += segmentSize * 0.7;
-    }
+    // Position the group
+    indicatorGroup.position.copy(snakeHead1.position);
+    indicatorGroup.position.y += segmentSize * 0.7;
+    // console.log(`[updateAmmoIndicatorP1] Set group position to (${indicatorGroup.position.x.toFixed(1)}, ${indicatorGroup.position.y.toFixed(1)}, ${indicatorGroup.position.z.toFixed(1)})`);
+    
+    // Rotation is handled in gameLoop
 }
 
 export function updateAmmoIndicatorAI() {
@@ -298,7 +318,7 @@ export function clearExplosionParticles() {
 // --- Need to fix state access --- 
 // Temporary placeholders for state needed inside functions above
 // These will be properly imported once state.js is fully populated
-let isSpeedBoostActiveP1 = false;
-let isSpeedBoostActiveAI = false;
-let ammoCountP1 = 0;
-let ammoCountAI = 0; 
+// let isSpeedBoostActiveP1 = false; // REMOVED - Should use imported state
+// let isSpeedBoostActiveAI = false; // REMOVED - Should use imported state
+// let ammoCountP1 = 0; // REMOVED - Should use imported state
+// let ammoCountAI = 0; // REMOVED - Should use imported state 

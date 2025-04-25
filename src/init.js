@@ -24,10 +24,15 @@ import {
     setPickupsCollectedCounter, setBoundaryXMin, setBoundaryXMax, setBoundaryZMin, setBoundaryZMax,
     setLastTrailSegment1, setLastTrailSegment2, setAmmoCountP1, setAmmoCountAI,
     setMaxScorePickups, setMaxExpansionPickups, setMaxClearPickups, setMaxZoomPickups, setMaxSparseTrailPickups, setMaxMultiSpawnPickups, setMaxAddAiPickups, setMaxAmmoPickups,
-    setGameActive, setTextFont, setOpeningDialogElement, setGameOverTextElement, setVersionTextElement, setScoreTextElement, setTopScoreTextElement
+    setGameActive, setTextFont, setOpeningDialogElement, setGameOverTextElement, setVersionTextElement, setScoreTextElement, setTopScoreTextElement,
+    // Import setters for new counters
+    setNextAmmoSpawnCount, setNextClearSpawnCount, setNextAddAiSpawnCount, setNextExpansionSpawnCount, setNextMultiSpawnCount,
+    // Make sure pickup arrays are imported
+    scorePickups, expansionPickups, clearPickups, zoomPickups, sparseTrailPickups, multiSpawnPickups, addAiPickups, ammoPickups,
 } from './state.js';
 import {
-    initialBoundaryHalfSize, segmentSize, cameraHeight, cameraDistanceBehind, P1_HEAD_COLOR_NORMAL, AI_HEAD_COLOR_NORMAL
+    initialBoundaryHalfSize, segmentSize, cameraHeight, cameraDistanceBehind, P1_HEAD_COLOR_NORMAL, AI_HEAD_COLOR_NORMAL,
+    AMMO_PICKUP_THRESHOLD, CLEAR_WALL_PICKUP_THRESHOLD, ADD_AI_PICKUP_THRESHOLD, EXPAND_PICKUP_THRESHOLD, MULTI_PICKUP_THRESHOLD
 } from './constants.js';
 import { snapToGridCenter } from './utils.js';
 import { onKeyDown, onKeyUp, onTouchStart, onTouchEnd, handleFirstClick, startGame } from './playerControls.js';
@@ -89,8 +94,22 @@ export function resetGame() {
     clearAllProjectiles();
     revertHeadColors(); // Reset head colors to normal
 
-    // Reset Pickups
-    // spawnInitialPickups(); // <-- REMOVED FROM resetGame
+    // --> ADD CLEARING FOR PICKUPS <--
+    console.log("[resetGame] Clearing existing pickup objects...");
+    [scorePickups, expansionPickups, clearPickups, zoomPickups, sparseTrailPickups, multiSpawnPickups, addAiPickups, ammoPickups].forEach(arr => {
+        if (arr) { // Ensure array exists
+            arr.forEach(p => {
+                if (p && scene) { // Ensure pickup and scene exist
+                    scene.remove(p);
+                }
+            });
+            arr.length = 0; // Clear the array
+        }
+    });
+    // --> END PICKUP CLEARING <--
+
+    // Reset Pickups & Counters
+    // spawnInitialPickups(); // Keep removed - initial spawn happens in init only // <-- Comment is now wrong
     // Reset Max Pickup Counts
     if(setMaxScorePickups) setMaxScorePickups(1);
     if(setMaxExpansionPickups) setMaxExpansionPickups(1);
@@ -100,6 +119,15 @@ export function resetGame() {
     if(setMaxMultiSpawnPickups) setMaxMultiSpawnPickups(1);
     if(setMaxAddAiPickups) setMaxAddAiPickups(1);
     if(setMaxAmmoPickups) setMaxAmmoPickups(1);
+    // Reset counter pickup thresholds
+    if(setNextAmmoSpawnCount) setNextAmmoSpawnCount(AMMO_PICKUP_THRESHOLD);
+    if(setNextClearSpawnCount) setNextClearSpawnCount(CLEAR_WALL_PICKUP_THRESHOLD);
+    if(setNextAddAiSpawnCount) setNextAddAiSpawnCount(ADD_AI_PICKUP_THRESHOLD);
+    if(setNextExpansionSpawnCount) setNextExpansionSpawnCount(EXPAND_PICKUP_THRESHOLD);
+    if(setNextMultiSpawnCount) setNextMultiSpawnCount(MULTI_PICKUP_THRESHOLD);
+
+    // Spawn a fresh set of initial pickups AFTER clearing and resetting counters
+    spawnInitialPickups(); // <-- RE-ADD call here
 
     // Reset snake positions
     const startPos1X = snapToGridCenter(bXMin + segmentSize, 'x');
@@ -143,6 +171,9 @@ export function resetGame() {
 
     // Reset unlock tracking for the new game
     unlockedScoresThisGame.clear();
+
+    // Log final state before exiting resetGame
+    // console.log(`[resetGame] Exiting. P1 Pos: (${snakeTargetPosition1.x.toFixed(1)}, ${snakeTargetPosition1.z.toFixed(1)}) Dir: (${snakeDirection1.x.toFixed(1)}, ${snakeDirection1.z.toFixed(1)})`);
 }
 
 function onWindowResize() {
@@ -247,27 +278,29 @@ export function init() {
             
             // Load Top Score
             const storedTopScore = localStorage.getItem('tronSnakeTopScore');
+            let loadedScore = 0; // Use a temporary variable
             if (storedTopScore) {
                 const parsedScore = parseInt(storedTopScore, 10);
                 if (!isNaN(parsedScore)) {
-                    if(setTopScore) setTopScore(parsedScore);
-                    console.log(`[Init] Loaded top score: ${parsedScore}`);
+                    loadedScore = parsedScore;
+                    console.log(`[Init] Loaded top score: ${loadedScore}`);
                 } else {
                     console.warn(`[Init] Invalid top score in localStorage: ${storedTopScore}`);
-                    if(setTopScore) setTopScore(0);
                 }            
-            } else {
-                if(setTopScore) setTopScore(0);
             }
+            // Set both topScore and topScoreAtGameStart from the loaded value
+            if(setTopScore) setTopScore(loadedScore);
+            if(setTopScoreAtGameStart) setTopScoreAtGameStart(loadedScore);
+            console.log(`[Init] Set topScore=${topScore}, topScoreAtGameStart=${topScoreAtGameStart}`);
 
             // Now create UI elements that depend on top score
-            createTopScoreText(); // Uses state.topScore
-            createOpeningDialog(); // Displays initial top score
-            initializePickupTemplates(); // Initialize templates first
-            updateAmmoIndicatorP1(); // Create initial indicator
-            updateAmmoIndicatorAI(); // Create initial indicator
+            createTopScoreText(); 
+            createOpeningDialog(); 
+            initializePickupTemplates(); 
+            updateAmmoIndicatorP1(); 
+            updateAmmoIndicatorAI();
             
-            spawnInitialPickups(); // <-- CALL spawnInitialPickups HERE, after templates are ready
+            spawnInitialPickups(); 
 
             // Start the animation loop AFTER font, score, UI, and initial pickups are ready
             animate(performance.now());

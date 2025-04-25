@@ -117,6 +117,13 @@ export let pickupsCollectedCounter = 0;
 // Projectile State
 export const projectiles = []; 
 
+// --- Counter-based Pickup Spawn Tracking ---
+export let nextAmmoSpawnCount = 10; // AMMO_PICKUP_THRESHOLD (Import needed? No, use constant directly in init/reset)
+export let nextClearSpawnCount = 5;  // CLEAR_WALL_PICKUP_THRESHOLD
+export let nextAddAiSpawnCount = 20; // ADD_AI_PICKUP_THRESHOLD
+export let nextExpansionSpawnCount = 15; // EXPAND_PICKUP_THRESHOLD
+export let nextMultiSpawnCount = 15; // MULTI_PICKUP_THRESHOLD (Matches Expand? Check constants)
+
 // Pickup Templates (initialized later, but state needs to be accessible)
 export let sparseTrailPickupTemplate;
 export let ammoPickupTemplate;
@@ -181,6 +188,13 @@ export function setTrailCounterAI(count) { trailCounterAI = count; }
 export function setSparseLevelAI(level) { sparseLevelAI = level; }
 export function setLastUpdateTimeAI(time) { lastUpdateTimeAI = time; }
 export function setAmmoCountAI(count) { ammoCountAI = count; }
+
+// Setters for counter pickup tracking
+export function setNextAmmoSpawnCount(count) { nextAmmoSpawnCount = count; }
+export function setNextClearSpawnCount(count) { nextClearSpawnCount = count; }
+export function setNextAddAiSpawnCount(count) { nextAddAiSpawnCount = count; }
+export function setNextExpansionSpawnCount(count) { nextExpansionSpawnCount = count; }
+export function setNextMultiSpawnCount(count) { nextMultiSpawnCount = count; }
 
 // Function to update score and text element
 export function setScoreP1(newScore) {
