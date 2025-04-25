@@ -7,7 +7,7 @@ import * as THREE from 'three';
 // import { FontLoader } from 'three/addons/loaders/FontLoader.js';
 // import { TextGeometry } from 'three/addons/geometries/TextGeometry.js';
 
-const GAME_VERSION = "v1.0.20"; // Updated version
+const GAME_VERSION = "v1.0.24"; // Updated version
 
 let scene, camera, renderer;
 let planeMesh, gridMesh;
@@ -37,6 +37,7 @@ let isSpeedBoostActiveP1 = false;
 let speedBoostEndTimeP1 = 0;
 let isZoomedOutP1 = false; // Player zoom state
 let zoomOutEndTimeP1 = 0;
+let zoomLevelP1 = 0; // Zoom intensity level
 let isSparseTrailActiveP1 = false; // Sparse trail state
 let sparseTrailEndTimeP1 = 0;
 let trailCounterP1 = 0; // Counter for sparse trail placement
@@ -146,6 +147,11 @@ let isGameOver = false;
 let gameActive = false; // New state: controls if game logic runs
 let winner = 0; // 0 = ongoing, 1 = Player 1 wins, 2 = AI wins, 3 = Draw
 const yAxis = new THREE.Vector3(0, 1, 0); // Define Y axis for rotation
+
+// --- AI Specific Constants ---
+const AI_LOOK_AHEAD_STEPS = 3; 
+const AI_PICKUP_SCAN_RADIUS_SQ = 7 * 7; // Use squared for efficiency
+const AI_STRAIGHT_BIAS = 0.9; // 90% chance to go straight if safe and not pursuing pickup
 
 // DOM Elements
 let gameOverTextElement;
@@ -301,6 +307,7 @@ function init() {
 
     // Spawn initial pickup(s) AFTER topScore is loaded
     spawnInitialPickups();
+    logTotalPickupCount("After Initial Spawn"); // Log initial count
 
     animate();
 }
@@ -423,153 +430,166 @@ function isPositionSafe(pos, checkOwnTrail = true, checkHeads = true) {
 function updateAIPlayer() {
     const currentPos = snakeTargetPosition2;
     const currentDir = snakeDirection2;
-    const lookAheadSteps = 3; // Keep lookahead at 3
+    
+    // --- Pre-calculate potential turns ---
+    const leftDir = currentDir.clone().applyAxisAngle(yAxis, Math.PI / 2);
+    const rightDir = currentDir.clone().applyAxisAngle(yAxis, -Math.PI / 2);
 
-    // --- Identify Target Pickup --- 
+    // --- 1. Check Forward Safety --- 
+    let safeForwardSteps = 0;
+    for (let i = 1; i <= AI_LOOK_AHEAD_STEPS; i++) {
+        const checkPos = currentPos.clone().addScaledVector(currentDir, segmentSize * i);
+        if (!isPositionSafe(checkPos, true, true)) {
+            break; // Obstacle found
+        }
+        safeForwardSteps++;
+    }
+    const isForwardSafe = safeForwardSteps > 0; // Is even one step forward safe?
+    const isForwardClear = safeForwardSteps === AI_LOOK_AHEAD_STEPS; // Is the full lookahead path clear?
+
+    // --- 2. Survival Mode (If Forward is Immediately Unsafe) ---
+    if (!isForwardSafe) {
+        // console.log("AI: Forward unsafe, entering SURVIVAL mode.");
+        const bestTurnDir = findBestTurn(currentPos, leftDir, rightDir); // Find best escape
+        if (bestTurnDir) {
+             // console.log("  -> Taking best escape turn.");
+            snakeDirection2.copy(bestTurnDir);
+        } else {
+            // console.log("  -> No safe escape turn, crashing forward.");
+            // No direction change, continue forward into obstacle
+        }
+        return; // Decision made (escape or crash)
+    }
+
+    // --- 3. Pickup Pursuit (If Forward is Safe) ---
+    let targetPickupPos = findTargetPickup(currentPos);
+    if (targetPickupPos) {
+        const bestMove = findBestMoveTowards(currentPos, currentDir, leftDir, rightDir, targetPickupPos);
+        if (bestMove) {
+            // console.log("AI: Pursuing pickup via safe move.");
+            snakeDirection2.copy(bestMove.dir);
+            return; // Decision made (pursue pickup)
+        }
+        // console.log("AI: Target pickup identified, but no safe move closer.");
+    }
+
+    // --- 4. Default Movement (If Forward is Safe and Not Pursuing Pickup) ---
+    // High probability to go straight if the path is clear
+    if (isForwardClear && Math.random() < AI_STRAIGHT_BIAS) { 
+        // console.log("AI: Forward clear, continuing straight (bias).");
+        return; // Decision made (continue straight)
+    }
+    
+    // If not going straight (either path not fully clear or random chance), find the best turn
+    // console.log(`AI: Forward safe (clear: ${isForwardClear}), evaluating turns.`);
+    const bestTurnDir = findBestTurn(currentPos, leftDir, rightDir);
+    if (bestTurnDir) {
+        // console.log("  -> Taking best available turn.");
+        snakeDirection2.copy(bestTurnDir);
+    } else {
+        // console.log("  -> Forward safe, but no good turns available, continuing straight.");
+        // No direction change, continue straight
+    }
+    // Decision made (turn or continue straight if turns unsafe)
+}
+
+// --- AI Helper: Find Closest Pickup ---
+function findTargetPickup(currentPos) {
     let targetPickupPos = null;
-    let closestDistSq = aiPickupScanRadius * aiPickupScanRadius;
+    let closestDistSq = AI_PICKUP_SCAN_RADIUS_SQ;
     const allPickups = [
-        ...scorePickups, 
-        ...expansionPickups, 
-        ...clearPickups, 
-        ...zoomPickups,
-        ...sparseTrailPickups,
-        ...multiSpawnPickups, 
-        ...addAiPickups // Scan for Add AI pickup
+        ...scorePickups, ...expansionPickups, ...clearPickups, 
+        ...zoomPickups, ...sparseTrailPickups, ...multiSpawnPickups, 
+        ...addAiPickups
     ]; 
     for (const pickup of allPickups) {
         const distSq = currentPos.distanceToSquared(pickup.position);
         if (distSq < closestDistSq) {
             closestDistSq = distSq;
-            targetPickupPos = pickup.position;
+            targetPickupPos = pickup.position; // Store position directly
         }
     }
-
-    // --- Evaluate Immediate Safe Moves (for Pickup Pursuit) --- 
-    const safeMovesForPickup = []; // Stores safe directions { dir: Vector3, pos: Vector3 }
-    const potentialDirections = {
-        forward: currentDir,
-        left: currentDir.clone().applyAxisAngle(yAxis, Math.PI / 2),
-        right: currentDir.clone().applyAxisAngle(yAxis, -Math.PI / 2)
-    };
-    
-    // Check initial safety for pickup pursuit
-    for (const moveName in potentialDirections) {
-        const dir = potentialDirections[moveName];
-        const nextPos = currentPos.clone().addScaledVector(dir, segmentSize);
-        if (isPositionSafe(nextPos, true, true)) {
-            safeMovesForPickup.push({ dir: dir.clone(), pos: nextPos });
-        }
-    }
-
-    // --- Pickup Pursuit Logic --- 
-    if (targetPickupPos && safeMovesForPickup.length > 0) {
-        let bestMove = null;
-        let minPickupDistSq = currentPos.distanceToSquared(targetPickupPos);
-
-        for (const move of safeMovesForPickup) {
-            const distSq = move.pos.distanceToSquared(targetPickupPos);
-            if (distSq < minPickupDistSq) {
-                minPickupDistSq = distSq;
-                bestMove = move;
-            }
-        }
-        // If a safe move gets us closer to the pickup, take it
-        if (bestMove) {
-             // console.log("AI pursuing pickup via safe move.");
-             snakeDirection2.copy(bestMove.dir);
-             return; 
-        }
-    }
-    
-    // --- Fallback: Obstacle Avoidance --- 
-    
-    // Check Forward safety (using lookahead)
-    let safeForward = true;
-    for (let i = 1; i <= lookAheadSteps; i++) {
-        const checkPos = currentPos.clone().addScaledVector(currentDir, segmentSize * i);
-        if (!isPositionSafe(checkPos, true, true)) {
-            safeForward = false;
-            break;
-        }
-    }
-    
-    // Strong bias to continue straight if safe
-    if (safeForward && Math.random() < 0.9) { // 90% chance to go straight if safe
-        return; // Go straight
-    }
-
-    // --- Turn Evaluation (Context-Dependent) --- 
-    const safeTurns = [];
-    const leftDir = potentialDirections.left;
-    const rightDir = potentialDirections.right;
-
-    if (safeForward) {
-        // If forward is safe, use multi-step lookahead for smoother turns
-        let leftSafe = true;
-        for (let i = 1; i <= lookAheadSteps; i++) {
-            if (!isPositionSafe(currentPos.clone().addScaledVector(leftDir, segmentSize * i), true, true)) {
-                leftSafe = false;
-                break;
-            }
-        }
-        if (leftSafe) safeTurns.push(leftDir);
-        
-        let rightSafe = true;
-        for (let i = 1; i <= lookAheadSteps; i++) {
-            if (!isPositionSafe(currentPos.clone().addScaledVector(rightDir, segmentSize * i), true, true)) {
-                rightSafe = false;
-                break;
-            }
-        }
-        if (rightSafe) safeTurns.push(rightDir);
-
-        // Decision Making (Forward is Safe - prioritize smooth turns)
-        if (safeTurns.length > 0) {
-            // Basic random choice if multiple safe turns exist and forward is also safe
-            const chosenTurnIndex = Math.floor(Math.random() * safeTurns.length);
-            snakeDirection2.copy(safeTurns[chosenTurnIndex]);
-            // console.log("AI: Forward safe, choosing smooth turn randomly.");
-        } else {
-            // Forward is safe, but no multi-step turns are safe - must go straight
-             // console.log("AI: Forward safe, no smooth turns, forcing straight.");
-            // No direction change needed, just return
-        }
-        return; // Exit after making decision when forward is safe
-
-    } else {
-        // If forward is NOT safe, prioritize immediate survival turns (1-step lookahead)
-        // console.log("AI: Forward NOT safe, checking immediate turns...");
-        const immediateSafeTurns = [];
-        const immediateLeftPos = currentPos.clone().addScaledVector(leftDir, segmentSize);
-        const immediateRightPos = currentPos.clone().addScaledVector(rightDir, segmentSize);
-        
-        if (isPositionSafe(immediateLeftPos, true, true)) {
-            immediateSafeTurns.push(leftDir);
-            // console.log("  -> Immediate Left is SAFE.");
-        }
-        if (isPositionSafe(immediateRightPos, true, true)) {
-            immediateSafeTurns.push(rightDir);
-            // console.log("  -> Immediate Right is SAFE.");
-        }
-
-        // Decision Making (Forward is Unsafe - prioritize immediate survival)
-        if (immediateSafeTurns.length > 0) {
-            // Choose a random immediately available turn to escape
-            const chosenTurnIndex = Math.floor(Math.random() * immediateSafeTurns.length);
-            snakeDirection2.copy(immediateSafeTurns[chosenTurnIndex]);
-            // console.log(`AI: Forward unsafe, taking immediate safe turn.`);
-        } else {
-            // Forward is unsafe AND no immediate turns are safe - TRAPPED!
-            // console.log("AI: Forward unsafe, no immediate turns safe - TRAPPED! Crashing forward.");
-            // No direction change needed, just return to crash forward
-        }
-        return; // Exit after making decision when forward is unsafe
-    }
-
-    // This part should ideally not be reached if the logic above is exhaustive
-    // console.warn("AI: Reached end of avoidance logic unexpectedly."); 
+    return targetPickupPos;
 }
+
+// --- AI Helper: Find Best Safe Move Towards Target ---
+function findBestMoveTowards(currentPos, currentDir, leftDir, rightDir, targetPos) {
+    let bestMove = null;
+    let minTargetDistSq = currentPos.distanceToSquared(targetPos); // Start with current distance
+
+    const potentialMoves = [
+        { dir: currentDir, name: "forward" },
+        { dir: leftDir,    name: "left" },
+        { dir: rightDir,   name: "right" }
+    ];
+
+    for (const move of potentialMoves) {
+        const nextPos = currentPos.clone().addScaledVector(move.dir, segmentSize);
+        // Check if the immediate next step is safe
+        if (isPositionSafe(nextPos, true, true)) {
+            const distSq = nextPos.distanceToSquared(targetPos);
+            // Must be *strictly* closer than the current minimum
+            if (distSq < minTargetDistSq) { 
+                minTargetDistSq = distSq;
+                bestMove = move; // Update best move found so far
+            }
+        }
+    }
+    return bestMove; // Returns {dir, name} or null
+}
+
+
+// --- AI Helper: Evaluate and Choose Best Turn ---
+function findBestTurn(currentPos, leftDir, rightDir) {
+    let leftSafeSteps = 0;
+    let rightSafeSteps = 0;
+    let isLeftImmediatelySafe = false;
+    let isRightImmediatelySafe = false;
+
+    // Check Left Turn
+    const leftCheckPos = currentPos.clone().addScaledVector(leftDir, segmentSize);
+    if (isPositionSafe(leftCheckPos, true, true)) {
+        isLeftImmediatelySafe = true;
+        leftSafeSteps = 1; // At least one step is safe
+        for (let i = 2; i <= AI_LOOK_AHEAD_STEPS; i++) {
+            const nextLeftPos = leftCheckPos.clone().addScaledVector(leftDir, segmentSize * (i - 1));
+            if (!isPositionSafe(nextLeftPos, true, true)) break;
+            leftSafeSteps++;
+        }
+    }
+
+    // Check Right Turn
+    const rightCheckPos = currentPos.clone().addScaledVector(rightDir, segmentSize);
+    if (isPositionSafe(rightCheckPos, true, true)) {
+        isRightImmediatelySafe = true;
+        rightSafeSteps = 1; // At least one step is safe
+        for (let i = 2; i <= AI_LOOK_AHEAD_STEPS; i++) {
+            const nextRightPos = rightCheckPos.clone().addScaledVector(rightDir, segmentSize * (i - 1));
+            if (!isPositionSafe(nextRightPos, true, true)) break;
+            rightSafeSteps++;
+        }
+    }
+
+    // Decision Logic:
+    if (isLeftImmediatelySafe && isRightImmediatelySafe) {
+        // Both turns are initially safe, choose the one with more lookahead steps
+        if (leftSafeSteps > rightSafeSteps) {
+            return leftDir;
+        } else if (rightSafeSteps > leftSafeSteps) {
+            return rightDir;
+        } else {
+            // Equal steps, choose randomly
+            return (Math.random() < 0.5) ? leftDir : rightDir;
+        }
+    } else if (isLeftImmediatelySafe) {
+        return leftDir; // Only left is safe
+    } else if (isRightImmediatelySafe) {
+        return rightDir; // Only right is safe
+    } else {
+        return null; // Neither turn is immediately safe
+    }
+}
+
 
 function checkCollisions(head1Pos, head2Pos, trail1, trail2) {
     let p1Lost = false;
@@ -845,6 +865,7 @@ function resetGame() {
     speedBoostEndTimeP1 = 0;
     isZoomedOutP1 = false; // Reset zoom state
     zoomOutEndTimeP1 = 0;
+    zoomLevelP1 = 0; // Reset zoom level
     isSparseTrailActiveP1 = false; // Reset sparse trail state
     sparseTrailEndTimeP1 = 0;
     trailCounterP1 = 0;
@@ -910,6 +931,10 @@ function resetGame() {
     floatingTexts.forEach(t => scene.remove(t.mesh));
     floatingTexts.length = 0;
 
+    // Clear explosion particles (debris)
+    explosionParticles.forEach(p => scene.remove(p.mesh));
+    explosionParticles.length = 0;
+
     // Reset Max Pickup Counts
     maxScorePickups = 1;
     maxExpansionPickups = 1;
@@ -948,112 +973,154 @@ function spawnInitialPickups() {
 
 // Updated Spawn Logic for 6 Types
 function spawnPickup(forceType = null) {
+    console.log(`--- spawnPickup called with forceType: ${forceType} ---`); // <<< NEW LOG
     let pickupType = forceType;
-    const CLEAR_WALL_PICKUP_THRESHOLD = 5; // Updated threshold to 5
-    const ADD_AI_PICKUP_THRESHOLD = 50; // Counter for new AI pickup
-    const EXPAND_PICKUP_THRESHOLD = 100; // Counter for expansion pickup
-    
-    if (!pickupType) { 
-        // --- Log counter value --- 
-        console.log(`Spawn attempt: pickupsCollectedCounter = ${pickupsCollectedCounter}, topScore = ${topScore}`);
+    const CLEAR_WALL_PICKUP_THRESHOLD = 5; // Rule: Spawns every 5 pickups
+    const ADD_AI_PICKUP_THRESHOLD = 10; // Rule: Spawns every 10 pickups
+    const EXPAND_PICKUP_THRESHOLD = 15; // Rule: Spawns every 15 pickups (Updated from 100)
+    let attemptExtraClearSpawn = false; // Flag to attempt spawning extra clear wall
+
+    // Check for extra clear wall spawn *before* determining the main spawn type
+    // Rule: When counter hits multiple of threshold (5), attempt extra clear spawn
+    if (topScore >= 300 && pickupsCollectedCounter > 0 && pickupsCollectedCounter % CLEAR_WALL_PICKUP_THRESHOLD === 0 && clearPickups.length < maxClearPickups) {
+        console.log(`  -> EXTRA SPAWN CHECK: Counter is ${pickupsCollectedCounter} (Multiple of ${CLEAR_WALL_PICKUP_THRESHOLD}), Eligible for extra Clear Walls.`);
+        attemptExtraClearSpawn = true; // Set flag to try spawning an extra one later
+    }
+
+    if (!pickupType) {
+        console.log("  -> No forceType, determining eligible types..."); // <<< NEW LOG
+        // --- Log counter value ---
+        // console.log(`Spawn attempt: pickupsCollectedCounter = ${pickupsCollectedCounter}, topScore = ${topScore}`); // Commented out
         // -------------------------
-        // --- Score/Counter-based Unlock Logic --- 
+        // --- Score/Counter-based Unlock Logic ---
         let eligibleTypes = [];
         // Always check if below max count
-        
+
         // Score Unlocks:
         if (zoomPickups.length < maxZoomPickups) eligibleTypes.push({ type: "zoom"});
-        if (topScore >= 50 && scorePickups.length < maxScorePickups) eligibleTypes.push({ type: "score"});
-        if (topScore >= 200 && sparseTrailPickups.length < maxSparseTrailPickups) eligibleTypes.push({ type: "sparse"});
-        if (topScore >= 2000 && multiSpawnPickups.length < maxMultiSpawnPickups) eligibleTypes.push({ type: "multi"});
-        
+        if (topScore >= 50 && scorePickups.length < maxScorePickups) eligibleTypes.push({ type: "score"}); // Speed Up
+        if (topScore >= 200 && sparseTrailPickups.length < maxSparseTrailPickups) eligibleTypes.push({ type: "sparse"}); // Sparse Trail
+        if (topScore >= 2000 && multiSpawnPickups.length < maxMultiSpawnPickups) eligibleTypes.push({ type: "multi"}); // More
+
         // Counter Unlocks (also check score unlock condition):
         // Log check for Clear Walls specifically
         const clearEligible = topScore >= 300 && pickupsCollectedCounter >= CLEAR_WALL_PICKUP_THRESHOLD && clearPickups.length < maxClearPickups;
-        // console.log(`Checking Clear Walls: topScore=${topScore}>=300 (${topScore >= 300}), counter=${pickupsCollectedCounter}>=${CLEAR_WALL_PICKUP_THRESHOLD} (${pickupsCollectedCounter >= CLEAR_WALL_PICKUP_THRESHOLD}), length=${clearPickups.length}<${maxClearPickups} (${clearPickups.length < maxClearPickups}) => Eligible: ${clearEligible}`);
-        // More detailed log including maxClearPickups value
-        console.log(`Check Clear: score ${topScore}>=300 (${topScore >= 300}), count ${pickupsCollectedCounter}>=${CLEAR_WALL_PICKUP_THRESHOLD} (${pickupsCollectedCounter >= CLEAR_WALL_PICKUP_THRESHOLD}), len ${clearPickups.length}<${maxClearPickups} (${clearPickups.length < maxClearPickups}) -> ${clearEligible}`);
-        
-        if (clearEligible) eligibleTypes.push({ type: "clear"}); 
-        if (topScore >= 1000 && pickupsCollectedCounter >= ADD_AI_PICKUP_THRESHOLD && addAiPickups.length < maxAddAiPickups) eligibleTypes.push({ type: "add_ai"}); // Placeholder type
-        if (topScore >= 1500 && pickupsCollectedCounter >= EXPAND_PICKUP_THRESHOLD && expansionPickups.length < maxExpansionPickups) eligibleTypes.push({ type: "expansion"}); 
+        // console.log(`Check Clear: score ${topScore}>=300 (${topScore >= 300}), count ${pickupsCollectedCounter}>=${CLEAR_WALL_PICKUP_THRESHOLD} (${pickupsCollectedCounter >= CLEAR_WALL_PICKUP_THRESHOLD}), len ${clearPickups.length}<${maxClearPickups} (${clearPickups.length < maxClearPickups}) -> ${clearEligible}`); // Commented out
 
-        // --- REMOVED TEMPORARY DEBUG --- 
-        // if (topScore >= 300 && pickupsCollectedCounter === 5 && clearPickups.length < maxClearPickups) { ... }
-        
-        // --- Original Random Selection --- 
+        if (clearEligible) eligibleTypes.push({ type: "clear"});
+        if (topScore >= 1000 && pickupsCollectedCounter >= ADD_AI_PICKUP_THRESHOLD && addAiPickups.length < maxAddAiPickups) eligibleTypes.push({ type: "add_ai"}); // Placeholder type
+        if (topScore >= 1500 && pickupsCollectedCounter >= EXPAND_PICKUP_THRESHOLD && expansionPickups.length < maxExpansionPickups) eligibleTypes.push({ type: "expansion"});
+
+
+        // --- Original Random Selection ---
         // If no types are eligible, do nothing
         if (eligibleTypes.length === 0) {
             // console.log("No eligible pickup types to spawn.");
-            return; 
+            return;
         }
 
         // --- Debug Log ---
         // More detailed log including maxClearPickups value
-        // console.log(`Eligible pickup types: ${JSON.stringify(eligibleTypes.map(t => t.type))}`); // Show type names
+        // console.log(`Eligible pickup types: ${JSON.stringify(eligibleTypes.map(t => t.type))}`); // Commented out
         // -----------------
 
         // Randomly select from the eligible types
         const randomIndex = Math.floor(Math.random() * eligibleTypes.length);
         pickupType = eligibleTypes[randomIndex].type;
-        // --- End Original Random Selection --- 
+        console.log(`  -> Randomly selected pickupType: ${pickupType}`); // <<< NEW LOG
+        // --- End Original Random Selection ---
 
-        // --- GUARANTEED SPAWN LOGIC (Overrides random selection if conditions met) ---
-        if (topScore >= 300 && pickupsCollectedCounter === CLEAR_WALL_PICKUP_THRESHOLD && clearPickups.length < maxClearPickups) {
-            console.log(`GUARANTEED SPAWN: Conditions met for Clear Walls (Counter = ${CLEAR_WALL_PICKUP_THRESHOLD}). Forcing type.`);
-            pickupType = "clear"; // Force spawn Clear Walls
-        }
-        // --- End GUARANTEED SPAWN LOGIC ---
-        
+        // --- Removed GUARANTEED SPAWN LOGIC ---
+        // This logic is now handled by the counter checks within eligibility and the extra spawn check above.
     }
-    
+
+    console.log(`  -> Final pickupType determined: ${pickupType}`); // <<< NEW LOG
+    console.log(`  -> Extra clear spawn flag: ${attemptExtraClearSpawn}`); // <<< NEW LOG
+
     // Ensure a pickupType was determined (either forced or selected)
     if (!pickupType) {
-        console.warn("SpawnPickup: No pickup type could be determined.");
-        return;
+        console.warn("  -> No pickup type could be determined. Exiting spawnPickup."); // <<< NEW LOG
+        return; // Return if no primary type determined
     }
 
+    // --- Primary Spawn Attempt ---
+    console.log(`  -> Attempting primary spawn: ${pickupType}`); // <<< NEW LOG
+    trySpawn(pickupType);
+
+    // --- Attempt Extra Clear Spawn if Flagged ---
+    if (attemptExtraClearSpawn) {
+        console.log("  -> Checking conditions for extra clear spawn attempt..."); // <<< NEW LOG
+        // Only attempt if the max hasn't been reached *after* the primary spawn might have occurred
+        if (clearPickups.length < maxClearPickups) {
+            console.log(`    -> Proceeding with extra Clear Walls spawn.`); // <<< NEW LOG
+            trySpawn("clear"); // Attempt to spawn the extra clear wall
+        } else {
+            console.log(`    -> Skipping extra Clear Walls spawn (max reached: ${clearPickups.length}/${maxClearPickups}).`); // <<< UPDATED LOG
+        }
+    }
+    console.log(`--- spawnPickup finished for forceType: ${forceType} ---`); // <<< NEW LOG
+}
+
+// Helper function to contain the actual spawning logic to avoid duplication
+function trySpawn(typeToSpawn) {
+    if (!typeToSpawn) {
+        console.warn("trySpawn: Called with no type.");
+        return;
+    }
+    // console.log(`Attempting to spawn type: ${typeToSpawn}`); // Debug Log
+
     let geometry, material, targetArray, pickupHeight;
-    // Use 'pickupVisual' to hold the Mesh/Group template
     let pickupVisual;
-    switch (pickupType) {
+    let spawnTypeName = typeToSpawn; // Use the passed-in type name
+
+    switch (typeToSpawn) {
         case "multi":
             pickupVisual = new THREE.Mesh(multiSpawnGeometry, multiSpawnMaterial);
             targetArray = multiSpawnPickups;
-            pickupHeight = segmentSize * 0.45 * 2; // Approx height for Icosahedron radius 0.45
+            pickupHeight = segmentSize * 0.45 * 2;
             break;
-        case "sparse": 
-            pickupVisual = sparseTrailPickupTemplate; 
-            targetArray = sparseTrailPickups; 
-            pickupHeight = (segmentSize * 0.45 * 2) + 0.1; 
+        case "sparse":
+            pickupVisual = sparseTrailPickupTemplate;
+            targetArray = sparseTrailPickups;
+            pickupHeight = (segmentSize * 0.27 * 2) + 0.3; // Use updated height/gap
             break;
-        case "zoom": 
-            pickupVisual = new THREE.Mesh(zoomPickupGeometry, zoomPickupMaterial); 
-            targetArray = zoomPickups; 
+        case "zoom":
+            pickupVisual = new THREE.Mesh(zoomPickupGeometry, zoomPickupMaterial);
+            targetArray = zoomPickups;
             pickupHeight = segmentSize * 0.5;
             break;
-        case "clear": 
+        case "clear":
             pickupVisual = new THREE.Mesh(clearPickupGeometry, clearPickupMaterial);
-            targetArray = clearPickups; 
+            targetArray = clearPickups;
             pickupHeight = segmentSize * 0.5;
             break;
-        case "expansion": 
+        case "expansion":
             pickupVisual = new THREE.Mesh(expansionPickupGeometry, expansionPickupMaterial);
-            targetArray = expansionPickups; 
+            targetArray = expansionPickups;
             pickupHeight = segmentSize * 0.7;
             break;
-        case "score": default: 
+        case "score": // Combined original default and score case
             pickupVisual = new THREE.Mesh(scorePickupGeometry, scorePickupMaterial);
-            targetArray = scorePickups; 
+            targetArray = scorePickups;
             pickupHeight = segmentSize * 0.6;
+            spawnTypeName = "score"; // Ensure sets name
             break;
-        case "add_ai": 
-            // TODO: Implement actual AI spawning logic
-            console.warn("Add AI Pickup spawned (Placeholder - No effect yet)");
+        case "add_ai":
+            // console.warn("Add AI Pickup spawned (Placeholder - No effect yet)"); // Commented out
             pickupVisual = new THREE.Mesh(addAiPickupGeometry, addAiPickupMaterial);
             targetArray = addAiPickups;
-            pickupHeight = segmentSize * 0.6 * 2; // Approx height for Octahedron radius 0.6
+            pickupHeight = segmentSize * 0.6 * 2;
             break;
+        // REMOVED duplicate default case
+        default:
+             console.error(`trySpawn: Unknown pickup type requested: ${typeToSpawn}`);
+             return; // Don't proceed if type is unknown
+    }
+
+    // Check if the target array is already full
+    if (targetArray.length >= getMaxForType(typeToSpawn)) {
+        // console.log(`Skipping spawn for ${spawnTypeName} - max count reached (${targetArray.length}/${getMaxForType(typeToSpawn)}).`);
+        return;
     }
 
     const maxAttempts = 50;
@@ -1061,31 +1128,46 @@ function spawnPickup(forceType = null) {
     for (let attempt = 0; attempt < maxAttempts; attempt++) {
         const gridX = Math.floor(Math.random() * divisionsX);
         const gridZ = Math.floor(Math.random() * divisionsZ);
+        // Get the center of the random grid cell
         const worldX = snapToGridCenter(boundaryXMin + gridX * segmentSize, 'x');
         const worldZ = snapToGridCenter(boundaryZMin + gridZ * segmentSize, 'z');
         // Calculate Y so the bottom rests on the ground plane
         const worldY = GROUND_Y + (pickupHeight / 2.0);
         const potentialPos = new THREE.Vector3(worldX, worldY, worldZ);
-        const collisionThreshold = segmentSize * 0.1;
+        const collisionThreshold = segmentSize * 0.1; // Threshold for occupied check
         
         // Step 1: Check if the target cell itself is occupied (by heads, targets, other pickups)
         if (!isPositionOccupied(potentialPos, collisionThreshold)) {
             
             // Step 2: Check if any adjacent cell has a wall
             if (!isCellAdjacentToWall(gridX, gridZ)) { 
-                // If cell is not occupied AND no adjacent walls, SP receptacles
+                // If cell is not occupied AND no adjacent walls, spawn the pickup
                 const pickup = pickupVisual.clone(); 
                 pickup.position.copy(potentialPos);
                 scene.add(pickup);
                 targetArray.push(pickup);
-                // console.log(`Spawned ${pickupType} at grid (${gridX}, ${gridZ})`);
-                return; // Successfully spawned
+                logTotalPickupCount(`Spawned ${spawnTypeName} (Replacement)`); // Log count after successful spawn
+                
+                return; // Successfully spawned replacement
             } 
-            // else { console.log(`Spawn Rejected: Adjacent wall check failed for grid (${gridX}, ${gridZ})`); }
         } 
-        // else { console.log(`Spawn Rejected: isPositionOccupied failed for grid (${gridX}, ${gridZ})`); }
     }
-    console.warn("Could not find empty space for pickup (after checking occupancy and adjacent walls).");
+    console.warn(`Could not find empty space for pickup type ${spawnTypeName}.`);
+    logTotalPickupCount(`Failed spawn ${spawnTypeName}`); // Log count after failed spawn
+}
+
+// Helper to get max count for a type (needed for trySpawn check)
+function getMaxForType(pickupType) {
+    switch (pickupType) {
+        case "multi": return maxMultiSpawnPickups;
+        case "sparse": return maxSparseTrailPickups;
+        case "zoom": return maxZoomPickups;
+        case "clear": return maxClearPickups;
+        case "expansion": return maxExpansionPickups;
+        case "score": return maxScorePickups;
+        case "add_ai": return maxAddAiPickups;
+        default: return Infinity; // Should not happen
+    }
 }
 
 // Combined check for if a position is occupied by anything
@@ -1145,13 +1227,15 @@ function checkScorePickupCollision() {
             createFloatingText("+40 Speed Up!", pos, col); // Updated text
             scoreP1 += 40; // Pink Cube: 40 points
             scene.remove(pickup); scorePickups.splice(i, 1);
-            if (!isSpeedBoostActiveP1) { 
+            logTotalPickupCount("Collected Player SpeedUp"); // Log count after removal
+            if (!isSpeedBoostActiveP1) {
                 snakeHead1.material.color.setHex(P1_HEAD_COLOR_BOOST);
             }
             isSpeedBoostActiveP1 = true; speedBoostEndTimeP1 = performance.now() + boostDuration;
             pickupsCollectedCounter++; // Increment counter
-            console.log(`Counter incremented to: ${pickupsCollectedCounter} (by Player SpeedUp)`); // Log new count
-            spawnPickup(); // Respawn based on eligibility (allows guaranteed spawns)
+
+            // Spawn replacement: Spawn the *same type* back
+            spawnPickup("score"); // Ensure specific type is passed
             return true;
         }
     }
@@ -1170,45 +1254,40 @@ function checkExpansionPickupCollision() {
             createFloatingText("+150 Expand!", pos, col); // Updated text
             scoreP1 += 150; // Green Cube: 150 points (Updated)
             scene.remove(pickup); expansionPickups.splice(i, 1);
+            logTotalPickupCount("Collected Player Expand"); // Log count after removal
 
-            // Use threshold checks for direction
             const dirX = snakeDirection1.x;
             const dirZ = snakeDirection1.z;
-            console.log(`  Player Expansion Check: Raw Direction (${dirX.toFixed(3)}, ${dirZ.toFixed(3)})`);
-
             let expanded = false;
             if (dirX > 0.5) {
-                console.log("  -> Player Branch Entered: dirX > 0.5"); // LOGGING
                 boundaryXMax += expansionAmount;
-                console.log(`  Expanding boundaryXMax`);
                 expanded = true;
             } else if (dirX < -0.5) {
-                 console.log("  -> Player Branch Entered: dirX < -0.5"); // LOGGING
                 boundaryXMin -= expansionAmount;
-                console.log(`  Expanding boundaryXMin`);
                 expanded = true;
             } else if (dirZ > 0.5) {
-                 console.log("  -> Player Branch Entered: dirZ > 0.5"); // LOGGING
                 boundaryZMax += expansionAmount;
-                console.log(`  Expanding boundaryZMax`);
                 expanded = true;
             } else if (dirZ < -0.5) {
-                 console.log("  -> Player Branch Entered: dirZ < -0.5"); // LOGGING
                 boundaryZMin -= expansionAmount;
-                console.log(`  Expanding boundaryZMin`);
                 expanded = true;
             }
-            
             if (!expanded) {
-                 console.log(`  WARNING: Player expansion direction unclear - not expanding.`);
+                 // console.log(`  WARNING: Player expansion direction unclear - not expanding.`);
             }
-            
-            console.log("  New bounds:", boundaryXMin, boundaryXMax, boundaryZMin, boundaryZMax);
             createPlayAreaVisuals(boundaryXMin, boundaryXMax, boundaryZMin, boundaryZMax);
 
             pickupsCollectedCounter++; // Increment counter
-            console.log(`Counter incremented to: ${pickupsCollectedCounter} (by Player Expand)`); // Log new count
-            spawnPickup("expansion"); // Respawn same type
+
+            // Spawn extra clear wall pickup if conditions met
+            const CLEAR_WALL_SPAWN_THRESHOLD = 10; // Changed to 10
+            if (topScore >= 300 && pickupsCollectedCounter > 0 && pickupsCollectedCounter % CLEAR_WALL_SPAWN_THRESHOLD === 0 && clearPickups.length < maxClearPickups) {
+                console.log(`SPAWN CHECK (Player Expand): Counter is ${pickupsCollectedCounter}, spawning extra Clear Walls.`);
+                spawnPickup("clear");
+            }
+
+            // DO NOT spawn standard replacement for counter-based pickup
+            // spawnPickup();
             return true;
         }
     }
@@ -1225,33 +1304,27 @@ function checkClearPickupCollision() {
             const pos = pickup.position.clone(); const col = pickup.material.color.clone();
             createExplosionEffect(pos, col); // Effect for pickup itself
             createFloatingText("+80 Clear Walls!", pos, col); // Updated text
-            
-            // --- Wall Clear Effects --- 
-            const effectFrequency = 4; // Create effect every N segments
-            for(let j=0; j < trailSegments1.length; j++) {
-                if (j % effectFrequency === 0) {
-                    const seg = trailSegments1[j];
-                    createExplosionEffect(seg.position.clone(), seg.material.color.clone());
-                }
-            }
-            for(let j=0; j < trailSegments2.length; j++) {
-                if (j % effectFrequency === 0) {
-                    const seg = trailSegments2[j];
-                    createExplosionEffect(seg.position.clone(), seg.material.color.clone());
-                }
-            }
-            // --------------------------
 
             scoreP1 += 80; // White Cube: 80 points (Updated)
             scene.remove(pickup); clearPickups.splice(i, 1);
+            logTotalPickupCount("Collected Player Clear"); // Log count after removal
             // Clear walls AFTER adding effects
             trailSegments1.forEach(seg => scene.remove(seg)); trailSegments1.length = 0;
             trailSegments2.forEach(seg => scene.remove(seg)); trailSegments2.length = 0;
-            lastTrailSegment1 = null; 
-            lastTrailSegment2 = null; 
-            console.log("  Walls cleared!");
-            // pickupsCollectedCounter = 0; // REMOVED Incorrect reset
-            // Do NOT respawn clear pickup immediately
+            lastTrailSegment1 = null;
+            lastTrailSegment2 = null;
+
+            pickupsCollectedCounter++;
+
+            // Spawn extra clear wall pickup if conditions met
+            const CLEAR_WALL_SPAWN_THRESHOLD = 10; // Changed to 10
+            if (topScore >= 300 && pickupsCollectedCounter > 0 && pickupsCollectedCounter % CLEAR_WALL_SPAWN_THRESHOLD === 0 && clearPickups.length < maxClearPickups) {
+                console.log(`SPAWN CHECK (Player Clear): Counter is ${pickupsCollectedCounter}, spawning extra Clear Walls.`);
+                spawnPickup("clear");
+            }
+
+            // DO NOT spawn standard replacement for clear wall pickup
+            // spawnPickup();
             return true;
         }
     }
@@ -1267,28 +1340,29 @@ function checkZoomPickupCollision() {
         if ((dx * dx + dz * dz) < PICKUP_COLLISION_THRESHOLD_SQ) { // Use larger threshold
             const pos = pickup.position.clone(); const col = pickup.material.color.clone();
             createExplosionEffect(pos, col);
-            createFloatingText("+20 Zoom Out!", pos, col); // Updated text
-            console.log("Player collected Zoom Out pickup!");
             scoreP1 += 20; // Blue Cube: 20 points
             scene.remove(pickup); zoomPickups.splice(i, 1);
-            
-            // --- Stacking Logic --- 
+            logTotalPickupCount("Collected Player Zoom"); // Log count after removal
+
             const currentTime = performance.now();
+            let newLevelP1;
             if (isZoomedOutP1 && zoomOutEndTimeP1 > currentTime) {
-                // If already zoomed and timer hasn't expired, add duration to existing end time
-                zoomOutEndTimeP1 += zoomOutDuration;
-                console.log(`Zoom Out Stacked! New end time: ${zoomOutEndTimeP1.toFixed(0)}`);
+                zoomLevelP1++;
+                newLevelP1 = zoomLevelP1;
+                console.log(`Zoom Out Stacked! New Level=${zoomLevelP1}`);
             } else {
-                // Otherwise, start a new zoom timer
-                isZoomedOutP1 = true; 
-                zoomOutEndTimeP1 = currentTime + zoomOutDuration;
-                console.log(`Zoom Out Activated! End time: ${zoomOutEndTimeP1.toFixed(0)}`);
+                isZoomedOutP1 = true;
+                zoomLevelP1 = 1;
+                newLevelP1 = zoomLevelP1;
+                console.log(`Zoom Out Activated! Level=${zoomLevelP1}`);
             }
-            // ---------------------
-            
+            zoomOutEndTimeP1 = currentTime + zoomOutDuration;
+            createFloatingText(`+20 Zoom Out! (Lv ${newLevelP1})`, pos, col);
+
             pickupsCollectedCounter++; // Increment counter
-            console.log(`Counter incremented to: ${pickupsCollectedCounter} (by Player Zoom)`); // Log new count
-            spawnPickup(); // Respawn based on eligibility (allows guaranteed spawns)
+
+            // Spawn replacement: Spawn the *same type* back
+            spawnPickup("zoom"); // Ensure specific type is passed
             return true;
         }
     }
@@ -1301,42 +1375,33 @@ function checkSparseTrailPickupCollision() {
         const pickup = sparseTrailPickups[i];
         const dx = snakeTargetPosition1.x - pickup.position.x;
         const dz = snakeTargetPosition1.z - pickup.position.z;
-        if ((dx * dx + dz * dz) < PICKUP_COLLISION_THRESHOLD_SQ) { 
-            const pos = pickup.position.clone(); 
+        if ((dx * dx + dz * dz) < PICKUP_COLLISION_THRESHOLD_SQ) {
+            const pos = pickup.position.clone();
             const col = sparseTrailMaterial.color.clone();
             createExplosionEffect(pos, col);
-            
+
             const currentTime = performance.now();
             let newLevelP1;
-
-            // --- Stacking Logic (Conditional) --- 
             if (isSparseTrailActiveP1 && sparseTrailEndTimeP1 > currentTime) {
-                // STACKS: Increment level if already active
                 sparseLevelP1++;
                 newLevelP1 = sparseLevelP1;
-                console.log(`Sparse Trail P1 Stacked! New Level=${sparseLevelP1}`);
             } else {
-                // FRESH START: Reset level to 1 if inactive
-                isSparseTrailActiveP1 = true; // Activate it
+                isSparseTrailActiveP1 = true;
                 sparseLevelP1 = 1;
                 newLevelP1 = sparseLevelP1;
-                console.log(`Sparse Trail P1 Activated! Level=${sparseLevelP1}`);
             }
-            // Always reset the timer on pickup
             sparseTrailEndTimeP1 = currentTime + sparseTrailDuration;
-            // Reset trail counter to potentially place a segment immediately
-            trailCounterP1 = 0; 
-            // -----------------------------------
-
-            // Create text based on the new level calculated above
-            createFloatingText(`+60 Sparse Trail! (Lv ${newLevelP1})`, pos, col); 
+            trailCounterP1 = 0;
+            createFloatingText(`+60 Sparse Trail! (Lv ${newLevelP1})`, pos, col);
             scoreP1 += 60; // Yellow Blocks: 60 points (Updated)
-            scene.remove(pickup); 
+            scene.remove(pickup);
             sparseTrailPickups.splice(i, 1);
-            
+            logTotalPickupCount("Collected Player Sparse"); // Log count after removal
+
             pickupsCollectedCounter++; // Increment counter
-            console.log(`Counter incremented to: ${pickupsCollectedCounter} (by Player Sparse)`); // Log new count
-            spawnPickup(); // Respawn based on eligibility (allows guaranteed spawns)
+
+            // Spawn replacement: Spawn the *same type* back
+            spawnPickup("sparse"); // Ensure specific type is passed
             return true;
         }
     }
@@ -1344,45 +1409,74 @@ function checkSparseTrailPickupCollision() {
 }
 
 function checkMultiSpawnPickupCollision() {
-    // Use the larger threshold 
+    // Use the larger threshold
     for (let i = multiSpawnPickups.length - 1; i >= 0; i--) {
         const pickup = multiSpawnPickups[i];
         const dx = snakeTargetPosition1.x - pickup.position.x;
         const dz = snakeTargetPosition1.z - pickup.position.z;
-        if ((dx * dx + dz * dz) < PICKUP_COLLISION_THRESHOLD_SQ) { 
+        if ((dx * dx + dz * dz) < PICKUP_COLLISION_THRESHOLD_SQ) {
             const pos = pickup.position.clone(); const col = multiSpawnMaterial.color.clone();
             createExplosionEffect(pos, col);
             createFloatingText("+200 Max ++!", pos, col); // Updated text with points
             scoreP1 += 200; // Purple Gems: 200 points (Updated)
-            console.log("Player collected Multi-Spawn powerup! Increasing max limits.");
             scene.remove(pickup); multiSpawnPickups.splice(i, 1);
-            
-            // --- Updated Multi-Spawn Logic ---
-            // 1. Determine a random type to spawn (excluding multi itself for the random spawn part)
-            const availableSpawnTypes = ["score", "expansion", "clear", "zoom", "sparse"];
-            const randomTypeIndex = Math.floor(Math.random() * availableSpawnTypes.length);
-            const typeToSpawn = availableSpawnTypes[randomTypeIndex];
-            
-            // 2. Increase the max count for THAT type
-            let maxIncreased = false;
-            switch(typeToSpawn) {
-                case "score": maxScorePickups++; maxIncreased = true; break;
-                case "expansion": maxExpansionPickups++; maxIncreased = true; break;
-                case "clear": maxClearPickups++; maxIncreased = true; break;
-                case "zoom": maxZoomPickups++; maxIncreased = true; break;
-                case "sparse": maxSparseTrailPickups++; maxIncreased = true; break;
+            logTotalPickupCount("Collected Player Multi"); // Log count after removal
+            pickupsCollectedCounter++; // Increment main counter BEFORE spawning replacements
+
+            // --- Spawn Replacements According to Rules --- 
+            // Rule: Spawns 2 powerups of random type.
+            const availableSpawnTypes = ["score", "expansion", "clear", "zoom", "sparse", "add_ai"]; // Include Add AI as potential spawn
+            let typesToSpawn = [];
+            // Determine eligible types based on current unlocks and counts
+            let eligibleRandomTypes = [];
+            if (zoomPickups.length < maxZoomPickups) eligibleRandomTypes.push("zoom");
+            if (topScore >= 50 && scorePickups.length < maxScorePickups) eligibleRandomTypes.push("score");
+            if (topScore >= 200 && sparseTrailPickups.length < maxSparseTrailPickups) eligibleRandomTypes.push("sparse");
+            if (topScore >= 300 && clearPickups.length < maxClearPickups) eligibleRandomTypes.push("clear"); // Only if unlocked
+            if (topScore >= 1000 && addAiPickups.length < maxAddAiPickups) eligibleRandomTypes.push("add_ai"); // Only if unlocked
+            if (topScore >= 1500 && expansionPickups.length < maxExpansionPickups) eligibleRandomTypes.push("expansion"); // Only if unlocked
+            // Note: Don't randomly spawn another 'multi' from here
+
+            // Spawn first random type (if any are eligible)
+            if (eligibleRandomTypes.length > 0) {
+                const randomTypeIndex1 = Math.floor(Math.random() * eligibleRandomTypes.length);
+                const typeToSpawn1 = eligibleRandomTypes[randomTypeIndex1];
+                console.log(`Multi Spawn: Spawning random type 1: ${typeToSpawn1}`);
+                spawnPickup(typeToSpawn1); 
+                // Increase max count for the spawned type
+                switch(typeToSpawn1) {
+                    case "score": maxScorePickups++; break;
+                    case "expansion": maxExpansionPickups++; break;
+                    case "clear": maxClearPickups++; break;
+                    case "zoom": maxZoomPickups++; break;
+                    case "sparse": maxSparseTrailPickups++; break;
+                    case "add_ai": maxAddAiPickups++; break;
+                }
             }
-            if(maxIncreased) console.log(` -> Increased max for ${typeToSpawn}`);
-            else console.warn(` -> Could not increase max for selected type: ${typeToSpawn}`);
-
-            // 3. Spawn ONE of that type
-            spawnPickup(typeToSpawn);
-
-            // 4. Spawn a new "multi" pickup (respawn self)
-            spawnPickup("multi");
             
-            pickupsCollectedCounter++; // Increment main counter
-            console.log(`Counter incremented to: ${pickupsCollectedCounter} (by Player Multi)`); // Log new count
+            // Spawn second random type (if any are eligible)
+             if (eligibleRandomTypes.length > 0) {
+                const randomTypeIndex2 = Math.floor(Math.random() * eligibleRandomTypes.length);
+                const typeToSpawn2 = eligibleRandomTypes[randomTypeIndex2];
+                console.log(`Multi Spawn: Spawning random type 2: ${typeToSpawn2}`);
+                spawnPickup(typeToSpawn2);
+                 // Increase max count for the spawned type
+                 switch(typeToSpawn2) {
+                    case "score": maxScorePickups++; break;
+                    case "expansion": maxExpansionPickups++; break;
+                    case "clear": maxClearPickups++; break;
+                    case "zoom": maxZoomPickups++; break;
+                    case "sparse": maxSparseTrailPickups++; break;
+                    case "add_ai": maxAddAiPickups++; break;
+                }
+            }
+
+            // Rule: Spawns a new powerup with the same type.
+            console.log("Multi Spawn: Spawning self-replacement.");
+            spawnPickup("multi"); 
+
+            // REMOVED extra clear wall spawn check from here
+            
             return true;
         }
     }
@@ -1400,16 +1494,25 @@ function checkAIScorePickupCollision() {
         if ((dx * dx + dz * dz) < PICKUP_COLLISION_THRESHOLD_SQ) { // Use larger threshold
             const pos = pickup.position.clone(); const col = pickup.material.color.clone();
             createExplosionEffect(pos, col);
-            createFloatingText("Speed Up!", pos, col);
-            console.log("AI collected score pickup!");
+            // AI doesn't get points or floating text like player
+            // createFloatingText("Speed Up!", pos, col); 
             scene.remove(pickup); scorePickups.splice(i, 1);
+            logTotalPickupCount("Collected AI SpeedUp"); // Log count after removal
             if (!isSpeedBoostActiveAI) { 
                  snakeHead2.material.color.setHex(AI_HEAD_COLOR_BOOST);
             }
             isSpeedBoostActiveAI = true; speedBoostEndTimeAI = performance.now() + boostDuration;
             pickupsCollectedCounter++; // Increment counter
-            console.log(`Counter incremented to: ${pickupsCollectedCounter} (by AI SpeedUp)`); // Log new count
-            spawnPickup(); // Respawn based on eligibility (allows guaranteed spawns)
+
+            // Spawn extra clear wall pickup if conditions met
+            const CLEAR_WALL_SPAWN_THRESHOLD = 10; // Changed to 10
+            if (topScore >= 300 && pickupsCollectedCounter > 0 && pickupsCollectedCounter % CLEAR_WALL_SPAWN_THRESHOLD === 0 && clearPickups.length < maxClearPickups) {
+                console.log(`SPAWN CHECK (AI SpeedUp): Counter is ${pickupsCollectedCounter}, spawning extra Clear Walls.`);
+                spawnPickup("clear");
+            }
+
+            // Spawn replacement for non-counter based pickups
+            spawnPickup("score");
             return true;
         }
     }
@@ -1425,49 +1528,43 @@ function checkAIExpansionPickupCollision() {
         if ((dx * dx + dz * dz) < PICKUP_COLLISION_THRESHOLD_SQ) { // Use larger threshold
             const pos = pickup.position.clone(); const col = pickup.material.color.clone();
             createExplosionEffect(pos, col);
-            createFloatingText("Expand!", pos, col);
-            console.log("AI collected expansion powerup!");
-            // scoreP1 += 150; // AI does not grant score for this powerup
+            // AI doesn't get points or floating text like player
+            // createFloatingText("Expand!", pos, col);
             scene.remove(pickup); expansionPickups.splice(i, 1);
+            logTotalPickupCount("Collected AI Expand"); // Log count after removal
 
-            // Use threshold checks for direction
             const dirX = snakeDirection2.x;
             const dirZ = snakeDirection2.z;
-             console.log(`  AI Expansion Check: Raw Direction (${dirX.toFixed(3)}, ${dirZ.toFixed(3)})`);
-
             let expanded = false;
             if (dirX > 0.5) {
-                console.log("  -> AI Branch Entered: dirX > 0.5"); // LOGGING
                 boundaryXMax += expansionAmount;
-                console.log(`  Expanding boundaryXMax (AI)`);
                 expanded = true;
             } else if (dirX < -0.5) {
-                 console.log("  -> AI Branch Entered: dirX < -0.5"); // LOGGING
                 boundaryXMin -= expansionAmount;
-                console.log(`  Expanding boundaryXMin (AI)`);
                 expanded = true;
             } else if (dirZ > 0.5) {
-                 console.log("  -> AI Branch Entered: dirZ > 0.5"); // LOGGING
                 boundaryZMax += expansionAmount;
-                console.log(`  Expanding boundaryZMax (AI)`);
                 expanded = true;
             } else if (dirZ < -0.5) {
-                 console.log("  -> AI Branch Entered: dirZ < -0.5"); // LOGGING
                 boundaryZMin -= expansionAmount;
-                console.log(`  Expanding boundaryZMin (AI)`);
                 expanded = true;
             }
-
              if (!expanded) {
-                 console.log(`  WARNING: AI expansion direction unclear - not expanding.`);
+                 // console.log(`  WARNING: AI expansion direction unclear - not expanding.`);
             }
-
-            console.log("  New bounds:", boundaryXMin, boundaryXMax, boundaryZMin, boundaryZMax);
             createPlayAreaVisuals(boundaryXMin, boundaryXMax, boundaryZMin, boundaryZMax);
 
             pickupsCollectedCounter++; // Increment counter
-            console.log(`Counter incremented to: ${pickupsCollectedCounter} (by AI Expand)`); // Log new count
-            spawnPickup(); // Respawn RANDOM type
+
+            // Spawn extra clear wall pickup if conditions met
+            const CLEAR_WALL_SPAWN_THRESHOLD = 10; // Changed to 10
+            if (topScore >= 300 && pickupsCollectedCounter > 0 && pickupsCollectedCounter % CLEAR_WALL_SPAWN_THRESHOLD === 0 && clearPickups.length < maxClearPickups) {
+                console.log(`SPAWN CHECK (AI Expand): Counter is ${pickupsCollectedCounter}, spawning extra Clear Walls.`);
+                spawnPickup("clear");
+            }
+
+            // DO NOT spawn standard replacement for counter-based pickup
+            // spawnPickup();
             return true;
         }
     }
@@ -1483,34 +1580,28 @@ function checkAIClearPickupCollision() {
         if ((dx * dx + dz * dz) < PICKUP_COLLISION_THRESHOLD_SQ) { // Use larger threshold
             const pos = pickup.position.clone(); const col = pickup.material.color.clone();
             createExplosionEffect(pos, col); // Effect for pickup itself
-            createFloatingText("Clear Walls!", pos, col);
+            // AI doesn't get points or floating text like player
+            // createFloatingText("Clear Walls!", pos, col);
 
-            // --- Wall Clear Effects --- 
-            const effectFrequency = 4; // Create effect every N segments
-            for(let j=0; j < trailSegments1.length; j++) {
-                if (j % effectFrequency === 0) {
-                    const seg = trailSegments1[j];
-                    createExplosionEffect(seg.position.clone(), seg.material.color.clone());
-                }
-            }
-            for(let j=0; j < trailSegments2.length; j++) {
-                if (j % effectFrequency === 0) {
-                    const seg = trailSegments2[j];
-                    createExplosionEffect(seg.position.clone(), seg.material.color.clone());
-                }
-            }
-            // --------------------------
-
-            // scoreP1 += 80; // AI doesn't increase player 1 score
             scene.remove(pickup); clearPickups.splice(i, 1);
+            logTotalPickupCount("Collected AI Clear"); // Log count after removal
             // Clear walls AFTER adding effects
             trailSegments1.forEach(seg => scene.remove(seg)); trailSegments1.length = 0;
             trailSegments2.forEach(seg => scene.remove(seg)); trailSegments2.length = 0;
-            lastTrailSegment1 = null; 
-            lastTrailSegment2 = null; 
-            console.log("  Walls cleared by AI!");
-            // pickupsCollectedCounter = 0; // REMOVED Incorrect reset
-            // Do NOT respawn clear pickup immediately
+            lastTrailSegment1 = null;
+            lastTrailSegment2 = null;
+
+            pickupsCollectedCounter++;
+
+            // Spawn extra clear wall pickup if conditions met
+            const CLEAR_WALL_SPAWN_THRESHOLD = 10; // Changed to 10
+            if (topScore >= 300 && pickupsCollectedCounter > 0 && pickupsCollectedCounter % CLEAR_WALL_SPAWN_THRESHOLD === 0 && clearPickups.length < maxClearPickups) {
+                console.log(`SPAWN CHECK (AI Clear): Counter is ${pickupsCollectedCounter}, spawning extra Clear Walls.`);
+                spawnPickup("clear");
+            }
+
+            // DO NOT spawn standard replacement for clear wall pickup
+            // spawnPickup();
             return true;
         }
     }
@@ -1526,12 +1617,20 @@ function checkAIZoomPickupCollision() {
         if ((dx * dx + dz * dz) < PICKUP_COLLISION_THRESHOLD_SQ) { // Use larger threshold
             const pos = pickup.position.clone(); const col = pickup.material.color.clone();
             createExplosionEffect(pos, col);
-            // createFloatingText("AI Zoom!", pos, col); // Optional
-            console.log("AI collected Zoom Out pickup!");
+             // AI doesn't get points or floating text like player
             scene.remove(pickup); zoomPickups.splice(i, 1);
+            logTotalPickupCount("Collected AI Zoom"); // Log count after removal
             pickupsCollectedCounter++; // Increment counter
-            console.log(`Counter incremented to: ${pickupsCollectedCounter} (by AI Zoom)`); // Log new count
-            spawnPickup(); // Respawn based on eligibility (allows guaranteed spawns)
+
+            // Spawn extra clear wall pickup if conditions met
+            const CLEAR_WALL_SPAWN_THRESHOLD = 10; // Changed to 10
+            if (topScore >= 300 && pickupsCollectedCounter > 0 && pickupsCollectedCounter % CLEAR_WALL_SPAWN_THRESHOLD === 0 && clearPickups.length < maxClearPickups) {
+                console.log(`SPAWN CHECK (AI Zoom): Counter is ${pickupsCollectedCounter}, spawning extra Clear Walls.`);
+                spawnPickup("clear");
+            }
+
+            // Spawn replacement for non-counter based pickups
+            spawnPickup("zoom");
             return true;
         }
     }
@@ -1545,40 +1644,39 @@ function checkAISparseTrailPickupCollision() {
         const dx = snakeTargetPosition2.x - pickup.position.x;
         const dz = snakeTargetPosition2.z - pickup.position.z;
         if ((dx * dx + dz * dz) < PICKUP_COLLISION_THRESHOLD_SQ) {
-            const pos = pickup.position.clone(); 
-            const col = sparseTrailMaterial.color.clone(); 
+            const pos = pickup.position.clone();
+            const col = sparseTrailMaterial.color.clone();
             createExplosionEffect(pos, col);
 
             const currentTime = performance.now();
             let newLevelAI;
-            
-            // --- Stacking Logic (Conditional for AI) --- 
             if (isSparseTrailActiveAI && sparseTrailEndTimeAI > currentTime) {
-                // STACKS: Increment level if already active
                 sparseLevelAI++;
                 newLevelAI = sparseLevelAI;
-                console.log(`Sparse Trail AI Stacked! New Level=${sparseLevelAI}`);
             } else {
-                // FRESH START: Reset level to 1 if inactive
-                isSparseTrailActiveAI = true; // Activate it
+                isSparseTrailActiveAI = true;
                 sparseLevelAI = 1;
                 newLevelAI = sparseLevelAI;
-                console.log(`Sparse Trail AI Activated! Level=${sparseLevelAI}`);
             }
-            // Always reset the timer on pickup
-            sparseTrailEndTimeAI = currentTime + sparseTrailDuration; 
-            // Reset trail counter
-            trailCounterAI = 0; 
-            // -------------------------------------------
+            sparseTrailEndTimeAI = currentTime + sparseTrailDuration;
+            trailCounterAI = 0;
 
-            // Create text based on the new level calculated above (even though AI collects)
-            createFloatingText(`Sparse Trail! (Lv ${newLevelAI})`, pos, col); // Updated text (No score for AI)
-            scene.remove(pickup); 
+            createFloatingText(`Sparse Trail! (Lv ${newLevelAI})`, pos, col);
+            scene.remove(pickup);
             sparseTrailPickups.splice(i, 1);
+            logTotalPickupCount("Collected AI Sparse"); // Log count after removal
 
             pickupsCollectedCounter++; // Increment counter
-            console.log(`Counter incremented to: ${pickupsCollectedCounter} (by AI Sparse)`); // Log new count
-            spawnPickup(); // Respawn based on eligibility (allows guaranteed spawns)
+
+            // Spawn extra clear wall pickup if conditions met
+            const CLEAR_WALL_SPAWN_THRESHOLD = 10; // Changed to 10
+            if (topScore >= 300 && pickupsCollectedCounter > 0 && pickupsCollectedCounter % CLEAR_WALL_SPAWN_THRESHOLD === 0 && clearPickups.length < maxClearPickups) {
+                console.log(`SPAWN CHECK (AI Sparse): Counter is ${pickupsCollectedCounter}, spawning extra Clear Walls.`);
+                spawnPickup("clear");
+            }
+
+            // Spawn replacement for non-counter based pickups
+            spawnPickup("sparse");
             return true;
         }
     }
@@ -1586,7 +1684,7 @@ function checkAISparseTrailPickupCollision() {
 }
 
 function checkAIMultiSpawnPickupCollision() {
-    // Use the larger threshold 
+    // Use the larger threshold
     for (let i = multiSpawnPickups.length - 1; i >= 0; i--) {
         const pickup = multiSpawnPickups[i];
         const dx = snakeTargetPosition2.x - pickup.position.x;
@@ -1594,44 +1692,73 @@ function checkAIMultiSpawnPickupCollision() {
         if ((dx * dx + dz * dz) < PICKUP_COLLISION_THRESHOLD_SQ) {
             const pos = pickup.position.clone(); const col = multiSpawnMaterial.color.clone();
             createExplosionEffect(pos, col);
-            createFloatingText("Max ++!", pos, col); // Updated text
-            // scoreP1 += 200; // AI does not grant score for this powerup
-            console.log("AI collected Multi-Spawn powerup! Increasing max limits.");
+            // AI doesn't get points or floating text like player
+            // createFloatingText("Max ++!", pos, col); 
             scene.remove(pickup); multiSpawnPickups.splice(i, 1);
-            
-            // --- Updated Multi-Spawn Logic (AI) ---
-            // 1. Determine a random type to spawn (excluding multi itself)
-            const availableSpawnTypes = ["score", "expansion", "clear", "zoom", "sparse"];
-            const randomTypeIndex = Math.floor(Math.random() * availableSpawnTypes.length);
-            const typeToSpawn = availableSpawnTypes[randomTypeIndex];
-            
-            // 2. Increase the max count for THAT type
-            let maxIncreased = false;
-            switch(typeToSpawn) {
-                case "score": maxScorePickups++; maxIncreased = true; break;
-                case "expansion": maxExpansionPickups++; maxIncreased = true; break;
-                case "clear": maxClearPickups++; maxIncreased = true; break;
-                case "zoom": maxZoomPickups++; maxIncreased = true; break;
-                case "sparse": maxSparseTrailPickups++; maxIncreased = true; break;
+            logTotalPickupCount("Collected AI Multi"); // Log count after removal
+            pickupsCollectedCounter++; // Increment main counter BEFORE spawning replacements
+
+            // --- Spawn Replacements According to Rules --- 
+            // Rule: Spawns 2 powerups of random type.
+            const availableSpawnTypes = ["score", "expansion", "clear", "zoom", "sparse", "add_ai"]; // Include Add AI
+            let typesToSpawn = [];
+            // Determine eligible types based on current unlocks and counts
+            let eligibleRandomTypes = [];
+            if (zoomPickups.length < maxZoomPickups) eligibleRandomTypes.push("zoom");
+            if (topScore >= 50 && scorePickups.length < maxScorePickups) eligibleRandomTypes.push("score");
+            if (topScore >= 200 && sparseTrailPickups.length < maxSparseTrailPickups) eligibleRandomTypes.push("sparse");
+            if (topScore >= 300 && clearPickups.length < maxClearPickups) eligibleRandomTypes.push("clear"); // Only if unlocked
+            if (topScore >= 1000 && addAiPickups.length < maxAddAiPickups) eligibleRandomTypes.push("add_ai"); // Only if unlocked
+            if (topScore >= 1500 && expansionPickups.length < maxExpansionPickups) eligibleRandomTypes.push("expansion"); // Only if unlocked
+            // Note: Don't randomly spawn another 'multi' from here
+
+            // Spawn first random type (if any are eligible)
+            if (eligibleRandomTypes.length > 0) {
+                const randomTypeIndex1 = Math.floor(Math.random() * eligibleRandomTypes.length);
+                const typeToSpawn1 = eligibleRandomTypes[randomTypeIndex1];
+                console.log(`AI Multi Spawn: Spawning random type 1: ${typeToSpawn1}`);
+                spawnPickup(typeToSpawn1); 
+                // Increase max count for the spawned type
+                switch(typeToSpawn1) {
+                    case "score": maxScorePickups++; break;
+                    case "expansion": maxExpansionPickups++; break;
+                    case "clear": maxClearPickups++; break;
+                    case "zoom": maxZoomPickups++; break;
+                    case "sparse": maxSparseTrailPickups++; break;
+                    case "add_ai": maxAddAiPickups++; break;
+                }
             }
-            if(maxIncreased) console.log(` -> AI Increased max for ${typeToSpawn}`);
-            else console.warn(` -> AI Could not increase max for selected type: ${typeToSpawn}`);
+            
+            // Spawn second random type (if any are eligible)
+             if (eligibleRandomTypes.length > 0) {
+                const randomTypeIndex2 = Math.floor(Math.random() * eligibleRandomTypes.length);
+                const typeToSpawn2 = eligibleRandomTypes[randomTypeIndex2];
+                console.log(`AI Multi Spawn: Spawning random type 2: ${typeToSpawn2}`);
+                spawnPickup(typeToSpawn2);
+                 // Increase max count for the spawned type
+                 switch(typeToSpawn2) {
+                    case "score": maxScorePickups++; break;
+                    case "expansion": maxExpansionPickups++; break;
+                    case "clear": maxClearPickups++; break;
+                    case "zoom": maxZoomPickups++; break;
+                    case "sparse": maxSparseTrailPickups++; break;
+                    case "add_ai": maxAddAiPickups++; break;
+                }
+            }
 
-            // 3. Spawn ONE of that type
-            spawnPickup(typeToSpawn);
+            // Rule: Spawns a new powerup with the same type.
+            console.log("AI Multi Spawn: Spawning self-replacement.");
+            spawnPickup("multi"); 
 
-            // 4. Spawn a new "multi" pickup (respawn self)
-            spawnPickup("multi");
+            // REMOVED extra clear wall spawn check from here
 
-            pickupsCollectedCounter++; // Increment main counter
-            console.log(`Counter incremented to: ${pickupsCollectedCounter} (by AI Multi)`); // Log new count
             return true;
         }
     }
     return false;
 }
 
-function checkAddAiPickupCollision() {
+function checkAddAiPickupCollision() { // Player version
     for (let i = addAiPickups.length - 1; i >= 0; i--) {
         const pickup = addAiPickups[i];
         const dx = snakeTargetPosition1.x - pickup.position.x;
@@ -1639,22 +1766,29 @@ function checkAddAiPickupCollision() {
         if ((dx * dx + dz * dz) < PICKUP_COLLISION_THRESHOLD_SQ) {
             const pos = pickup.position.clone(); const col = addAiPickupMaterial.color.clone();
             createExplosionEffect(pos, col);
-            createFloatingText("+100 More Players! (TODO)", pos, col); // Updated text with points
+            createFloatingText("+100 More Players!", pos, col); // Updated text with points, removed TODO
             scoreP1 += 100; // Add AI Placeholder: 100 points
-            console.log("Player collected Add AI powerup! (Placeholder)");
             scene.remove(pickup); addAiPickups.splice(i, 1);
+            logTotalPickupCount("Collected Player AddAI"); // Log count after removal
             // TODO: Implement actual AI spawning!
-            // pickupsCollectedCounter = 0; // REMOVED Incorrect reset
-            // Do not respawn immediately
             pickupsCollectedCounter++; // Increment counter
-            console.log(`Counter incremented to: ${pickupsCollectedCounter} (by Player AddAI)`); // Log new count
+
+            // Spawn extra clear wall pickup if conditions met
+            const CLEAR_WALL_SPAWN_THRESHOLD = 10; // Changed to 10
+            if (topScore >= 300 && pickupsCollectedCounter > 0 && pickupsCollectedCounter % CLEAR_WALL_SPAWN_THRESHOLD === 0 && clearPickups.length < maxClearPickups) {
+                console.log(`SPAWN CHECK (Player AddAI): Counter is ${pickupsCollectedCounter}, spawning extra Clear Walls.`);
+                spawnPickup("clear");
+            }
+
+            // DO NOT spawn standard replacement for counter-based pickup
+            // spawnPickup();
             return true;
         }
     }
     return false;
 }
 
-function checkAIAddAiPickupCollision() {
+function checkAIAddAiPickupCollision() { // AI version
      for (let i = addAiPickups.length - 1; i >= 0; i--) {
         const pickup = addAiPickups[i];
         const dx = snakeTargetPosition2.x - pickup.position.x;
@@ -1662,15 +1796,21 @@ function checkAIAddAiPickupCollision() {
         if ((dx * dx + dz * dz) < PICKUP_COLLISION_THRESHOLD_SQ) {
             const pos = pickup.position.clone(); const col = addAiPickupMaterial.color.clone();
             createExplosionEffect(pos, col);
-            // createFloatingText("AI More Players!", pos, col); // Optional text for AI
-            // scoreP1 += 100; // AI doesn't increase player 1 score
-            console.log("AI collected Add AI powerup! (Placeholder)");
+            // AI doesn't get points or floating text like player
             scene.remove(pickup); addAiPickups.splice(i, 1);
+            logTotalPickupCount("Collected AI AddAI"); // Log count after removal
             // TODO: Implement actual AI spawning!
-            // pickupsCollectedCounter = 0; // REMOVED Incorrect reset
-            // Do not respawn immediately
             pickupsCollectedCounter++; // Increment counter
-            console.log(`Counter incremented to: ${pickupsCollectedCounter} (by AI AddAI)`); // Log new count
+
+            // Spawn extra clear wall pickup if conditions met
+            const CLEAR_WALL_SPAWN_THRESHOLD = 10; // Changed to 10
+            if (topScore >= 300 && pickupsCollectedCounter > 0 && pickupsCollectedCounter % CLEAR_WALL_SPAWN_THRESHOLD === 0 && clearPickups.length < maxClearPickups) {
+                console.log(`SPAWN CHECK (AI AddAI): Counter is ${pickupsCollectedCounter}, spawning extra Clear Walls.`);
+                spawnPickup("clear");
+            }
+
+            // DO NOT spawn standard replacement for counter-based pickup
+            // spawnPickup();
             return true;
         }
     }
@@ -1741,7 +1881,12 @@ function animate(currentTime) {
             isSpeedBoostActiveP1 = false;
             snakeHead1.material.color.setHex(P1_HEAD_COLOR_NORMAL); // Revert head color
         }
-        if (isZoomedOutP1 && currentTime > zoomOutEndTimeP1) isZoomedOutP1 = false; 
+        // Check zoom expiry and reset level
+        if (isZoomedOutP1 && currentTime > zoomOutEndTimeP1) {
+            isZoomedOutP1 = false; 
+            zoomLevelP1 = 0; // Reset level when timer expires
+            console.log("Zoom Out P1 Expired.");
+        }
         // Check sparse expiry and reset level
         if (isSparseTrailActiveP1 && currentTime > sparseTrailEndTimeP1) { 
             isSparseTrailActiveP1 = false;
@@ -1963,10 +2108,14 @@ function animate(currentTime) {
 
     // Update camera
     if (!isGameOver && snakeHead1 && gameActive) { 
-        // Determine current camera parameters based on zoom state
-        const currentHeight = isZoomedOutP1 ? zoomedOutCameraHeight : cameraHeight;
-        const currentDistance = isZoomedOutP1 ? zoomedOutCameraDistanceBehind : cameraDistanceBehind;
-        // const currentLookBackDistance = lookBackDistance; // Not currently used for positioning
+        // Determine current camera parameters based on zoom state and level
+        // const currentHeight_old = isZoomedOutP1 ? zoomedOutCameraHeight : cameraHeight;
+        // const currentDistance_old = isZoomedOutP1 ? zoomedOutCameraDistanceBehind : cameraDistanceBehind;
+        
+        // Dynamic zoom based on level
+        const zoomMultiplier = 1 + (zoomLevelP1 * 0.8); // Base + 80% per level (Can adjust 0.8)
+        const currentHeight = isZoomedOutP1 ? cameraHeight * zoomMultiplier : cameraHeight;
+        const currentDistance = isZoomedOutP1 ? cameraDistanceBehind * zoomMultiplier : cameraDistanceBehind;
 
         let camTargetPos; // Target position for the camera
         let lookAtTargetForLerp; // Target point for the look-at lerp
@@ -2217,6 +2366,19 @@ function isCellAdjacentToWall(gridX, gridZ) {
         }
     }
     return false; // No adjacent walls found
+}
+
+// --- Helper Function to Log Total Pickups ---
+function logTotalPickupCount(contextMessage) {
+    const totalPickups = 
+        zoomPickups.length + 
+        scorePickups.length + 
+        sparseTrailPickups.length + 
+        clearPickups.length + 
+        addAiPickups.length + 
+        expansionPickups.length + 
+        multiSpawnPickups.length;
+    console.log(`PICKUP COUNT (${contextMessage}): ${totalPickups}`);
 }
 
 init(); 

@@ -34,32 +34,43 @@ Triggers particle explosion + text effect.
 Spawns a new powerup with the same type.
 This effect should stack.
 
-White Cube: ("Clear Walls!")
+
+[new unused color] Blocks ("Ammo!")
 Unlocked at when the high score of 300 is reached.
 Grants 80 points to Players when one is picked up.
+Activates a "can shoot" effect for the collecting snake until it uses the picked up ammo. While the snake has ammo, it can shoot with space key a projectile forward that will blow up one trail wall block when it hits it. No other type of wall should be effected.
+Triggers particle explosion + text effect.
+Spawns a new powerup with the same type.
+This effect (the number of ammo held by a snake) should stack. The stacking should be visible with small stacking ammo cubes above the snakes head
+
+
+White Cube: ("Clear Walls!")
+Unlocked at when the high score of 500 is reached.
+Grants 100 points to Players when one is picked up.
 Instantly removes all existing snake trails (walls) from the arena for both players.
 Triggers particle explosion + text effect on the powerup location.
 Triggers additional particle effects along some of the removed wall segments.
-Spawns whith each 10 other powerups have been picked up.
+Spawns whith each 5 other powerups have been picked up.
+When the spawn counter hits %[the number in the previous line] there should be a spawn of the one just hit and an extra clear spawn
 
-[Color] Cube: ("More players!") 
+Grey Cube: ("More players!") 
 Unlocked at when the high score of 1000 is reached.
-Grants 100 points to Players when one is picked up.
+Grants 125 points to Players when one is picked up.
 Spawns a new AI player with a new unused color.
 Triggers particle explosion + text effect on the powerup location.
-Spawns whith each 50 other powerups have been picked up.
+Spawns whith each 10 other powerups have been picked up.
 
 Green Cube: ("Expand!")
 Unlocked at when the high score of 1500 is reached.
 Grants 150 points to Players when one is picked up.
 Expands the play area boundary outwards by 10 units in the direction the collecting snake was moving.
 Triggers particle explosion + text effect.
-Spawns whith each 100 other powerups have been picked up.
+Spawns whith each 15 other powerups have been picked up.
 
 Purple Gems: ("More!")
 Unlocked at when the high score of 2000 is reached.
 Grants 200 points to Players when one is picked up.
-Spawns 1 of a random powerup type.
+Spawns 2 powerups of random type.
 Increases the max number of the powerup type that was spawned.
 Spawns a new powerup with the same type.
 
