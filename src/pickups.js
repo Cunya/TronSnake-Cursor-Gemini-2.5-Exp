@@ -196,63 +196,89 @@ function trySpawn(typeToSpawn) {
 function checkAndSpawnCounterPickups(currentPickupCount) {
     console.log(`Checking counter spawns. Current count: ${currentPickupCount}`);
     
+    // Helper to check unlock status
+    const isUnlocked = (type) => {
+        const unlockInfo = UNLOCK_THRESHOLDS.find(u => u.type === type);
+        return unlockInfo ? topScore >= unlockInfo.score : false; // Check against global topScore
+    };
+
     // Ammo Check
     if (currentPickupCount >= nextAmmoSpawnCount && ammoPickups.length < maxAmmoPickups) {
         console.log(` -> Counter threshold met for AMMO (${currentPickupCount} >= ${nextAmmoSpawnCount})`);
-        if (trySpawn("ammo")) {
-            const nextCount = nextAmmoSpawnCount + AMMO_PICKUP_THRESHOLD;
-            if (setNextAmmoSpawnCount) setNextAmmoSpawnCount(nextCount);
-            console.log(`    -> Spawned Ammo, next check at ${nextCount}`);
+        if (isUnlocked('ammo')) {
+            if (trySpawn("ammo")) {
+                const nextCount = nextAmmoSpawnCount + AMMO_PICKUP_THRESHOLD;
+                if (setNextAmmoSpawnCount) setNextAmmoSpawnCount(nextCount);
+                console.log(`    -> Spawned Ammo, next check at ${nextCount}`);
+            } else {
+                console.log(`    -> Failed to spawn Ammo (max reached or no space?)`);
+            }
         } else {
-            console.log(`    -> Failed to spawn Ammo (max reached or no space?)`);
+            console.log(`    -> Ammo not unlocked yet (Top Score: ${topScore})`);
         }
     }
 
     // Clear Walls Check
     if (currentPickupCount >= nextClearSpawnCount && clearPickups.length < maxClearPickups) {
          console.log(` -> Counter threshold met for CLEAR (${currentPickupCount} >= ${nextClearSpawnCount})`);
-        if (trySpawn("clear")) {
-            const nextCount = nextClearSpawnCount + CLEAR_WALL_PICKUP_THRESHOLD;
-            if (setNextClearSpawnCount) setNextClearSpawnCount(nextCount);
-             console.log(`    -> Spawned Clear, next check at ${nextCount}`);
+         if (isUnlocked('clear')) {
+            if (trySpawn("clear")) {
+                const nextCount = nextClearSpawnCount + CLEAR_WALL_PICKUP_THRESHOLD;
+                if (setNextClearSpawnCount) setNextClearSpawnCount(nextCount);
+                 console.log(`    -> Spawned Clear, next check at ${nextCount}`);
+            } else {
+                console.log(`    -> Failed to spawn Clear`);
+            }
         } else {
-            console.log(`    -> Failed to spawn Clear`);
+             console.log(`    -> Clear Walls not unlocked yet (Top Score: ${topScore})`);
         }
     }
 
     // Add AI Check
     if (currentPickupCount >= nextAddAiSpawnCount && addAiPickups.length < maxAddAiPickups) {
         console.log(` -> Counter threshold met for ADD_AI (${currentPickupCount} >= ${nextAddAiSpawnCount})`);
-        if (trySpawn("add_ai")) {
-            const nextCount = nextAddAiSpawnCount + ADD_AI_PICKUP_THRESHOLD;
-            if (setNextAddAiSpawnCount) setNextAddAiSpawnCount(nextCount);
-             console.log(`    -> Spawned AddAI, next check at ${nextCount}`);
+        if (isUnlocked('add_ai')) {
+            if (trySpawn("add_ai")) {
+                const nextCount = nextAddAiSpawnCount + ADD_AI_PICKUP_THRESHOLD;
+                if (setNextAddAiSpawnCount) setNextAddAiSpawnCount(nextCount);
+                 console.log(`    -> Spawned AddAI, next check at ${nextCount}`);
+            } else {
+                console.log(`    -> Failed to spawn AddAI`);
+            }
         } else {
-            console.log(`    -> Failed to spawn AddAI`);
+             console.log(`    -> Add AI not unlocked yet (Top Score: ${topScore})`);
         }
     }
 
     // Expansion Check
     if (currentPickupCount >= nextExpansionSpawnCount && expansionPickups.length < maxExpansionPickups) {
         console.log(` -> Counter threshold met for EXPANSION (${currentPickupCount} >= ${nextExpansionSpawnCount})`);
-        if (trySpawn("expansion")) {
-            const nextCount = nextExpansionSpawnCount + EXPAND_PICKUP_THRESHOLD;
-            if (setNextExpansionSpawnCount) setNextExpansionSpawnCount(nextCount);
-             console.log(`    -> Spawned Expansion, next check at ${nextCount}`);
+        if (isUnlocked('expansion')) {
+            if (trySpawn("expansion")) {
+                const nextCount = nextExpansionSpawnCount + EXPAND_PICKUP_THRESHOLD;
+                if (setNextExpansionSpawnCount) setNextExpansionSpawnCount(nextCount);
+                 console.log(`    -> Spawned Expansion, next check at ${nextCount}`);
+            } else {
+                 console.log(`    -> Failed to spawn Expansion`);
+            }
         } else {
-             console.log(`    -> Failed to spawn Expansion`);
+            console.log(`    -> Expansion not unlocked yet (Top Score: ${topScore})`);
         }
     }
 
     // Multi-Spawn Check (Note: Threshold might need adjustment)
     if (currentPickupCount >= nextMultiSpawnCount && multiSpawnPickups.length < maxMultiSpawnPickups) {
         console.log(` -> Counter threshold met for MULTI (${currentPickupCount} >= ${nextMultiSpawnCount})`);
-        if (trySpawn("multi")) {
-            const nextCount = nextMultiSpawnCount + MULTI_PICKUP_THRESHOLD;
-            if (setNextMultiSpawnCount) setNextMultiSpawnCount(nextCount);
-            console.log(`    -> Spawned Multi, next check at ${nextCount}`);
+        if (isUnlocked('multi')) {
+            if (trySpawn("multi")) {
+                const nextCount = nextMultiSpawnCount + MULTI_PICKUP_THRESHOLD;
+                if (setNextMultiSpawnCount) setNextMultiSpawnCount(nextCount);
+                 console.log(`    -> Spawned Multi, next check at ${nextCount}`);
+            } else {
+                console.log(`    -> Failed to spawn Multi`);
+            }
         } else {
-            console.log(`    -> Failed to spawn Multi`);
+             console.log(`    -> Multi-Spawn not unlocked yet (Top Score: ${topScore})`);
         }
     }
 }

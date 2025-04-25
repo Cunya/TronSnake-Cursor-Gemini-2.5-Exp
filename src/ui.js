@@ -177,17 +177,25 @@ export function createTopScoreText() {
     let element = topScoreTextElement;
     if (!element) {
         element = document.createElement('div');
+        const originalFontSize = '18px'; // Store original style
+        const originalColor = 'rgba(255, 255, 255, 0.9)';
+
         element.style.position = 'absolute';
         element.style.bottom = '10px';
         element.style.left = '10px';
         element.style.right = 'unset';
-        element.style.color = 'rgba(255, 255, 255, 0.9)';
+        element.style.color = originalColor;
         element.style.backgroundColor = 'rgba(0, 0, 0, 0.5)';
         element.style.padding = '5px 10px';
         element.style.borderRadius = '5px';
-        element.style.fontSize = '18px';
+        element.style.fontSize = originalFontSize;
         element.style.fontFamily = 'Arial, sans-serif';
         element.textContent = `Top Score: ${topScore}`;
+
+        // Store original styles for later reset
+        element.dataset.originalFontSize = originalFontSize;
+        element.dataset.originalColor = originalColor;
+
         document.body.appendChild(element);
         // Need state.setTopScoreTextElement(element);
         setTopScoreTextElement(element);
@@ -207,7 +215,6 @@ export function showGameOverMessage(winnerArg) {
     let scoreMessage = `Final Score: ${scoreP1}`;
     if (scoreP1 > topScore && (winnerArg === 2 || winnerArg === 3)) {
         scoreMessage += ` (NEW TOP SCORE!)`;
-        if (topScoreTextElement) topScoreTextElement.textContent = `Top Score: ${scoreP1}`; // Update display directly
     }
 
     const unlockStatus = getUnlockStatusText(topScore);
@@ -229,13 +236,22 @@ export function updateScoreDisplay() {
     if (scoreTextElement) {
         scoreTextElement.textContent = `Score: ${scoreP1}`;
     }
-}
 
-// Update Top Score Display (Called on new top score)
-// Note: Also updated in showGameOverMessage, this might be redundant
-// Keeping it for potential direct calls if needed elsewhere
-export function updateTopScoreDisplay() {
-     if (topScoreTextElement) {
-        topScoreTextElement.textContent = `Top Score: ${topScore}`;
+    // Update Top Score Display & Style
+    if (topScoreTextElement) {
+        const originalSize = topScoreTextElement.dataset.originalFontSize || '18px'; // Fallback
+        const originalColor = topScoreTextElement.dataset.originalColor || 'rgba(255, 255, 255, 0.9)'; // Fallback
+
+        // Check if current score exceeds the top score recorded AT THE START of this game
+        if (scoreP1 > topScoreAtGameStart) {
+            topScoreTextElement.textContent = `Top Score: ${scoreP1}`; // Show current score as potential new top
+            topScoreTextElement.style.fontSize = '36px'; // Make it bigger
+            topScoreTextElement.style.color = '#ffd700'; // Make it gold
+        } else {
+            // Otherwise, display the actual current top score and use normal style
+            topScoreTextElement.textContent = `Top Score: ${topScore}`; // Show the actual top score
+            topScoreTextElement.style.fontSize = originalSize;
+            topScoreTextElement.style.color = originalColor;
+        }
     }
 } 

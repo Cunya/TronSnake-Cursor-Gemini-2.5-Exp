@@ -1,15 +1,20 @@
 import * as THREE from 'three';
 import {
-    snakeTargetPosition2, snakeDirection2, snakeHead1, snakeHead2,
-    ammoCountAI, trailSegments1, trailSegments2,
-    scorePickups, expansionPickups, clearPickups, zoomPickups, sparseTrailPickups, multiSpawnPickups, addAiPickups
+    snakeTargetPosition1, snakeTargetPosition2, snakeDirection2,
+    boundaryXMin, boundaryXMax, boundaryZMin, boundaryZMax,
+    trailSegments1, trailSegments2,
+    scorePickups, expansionPickups, clearPickups, zoomPickups, sparseTrailPickups, multiSpawnPickups, addAiPickups, ammoPickups,
+    ammoCountAI, // AI needs its ammo count
+    setSnakeDirection2, setAmmoCountAI // AI needs setters for its direction and ammo
 } from './state.js';
-import { yAxis, AI_LOOK_AHEAD_STEPS, segmentSize, epsilon, AI_PICKUP_SCAN_RADIUS_SQ, AI_STRAIGHT_BIAS } from './constants.js';
+import {
+    AI_LOOK_AHEAD_STEPS, segmentSize, AI_PICKUP_SCAN_RADIUS_SQ, AI_STRAIGHT_BIAS, yAxis, epsilon
+} from './constants.js';
 import { snapToGridCenter } from './utils.js';
-// Need aiShootProjectile from projectile.js
+import { aiShootProjectile } from './projectile.js';
 
-// Placeholder
-let aiShootProjectile = () => console.warn('aiShootProjectile not imported yet');
+// Placeholder for projectile shooting function (needs proper import)
+// let aiShootProjectile = () => console.warn('aiShootProjectile not imported yet');
 
 // Function to check if a position is safe (moved from script.js)
 export function isPositionSafe(pos, checkOwnTrail = true, checkHeads = true) {

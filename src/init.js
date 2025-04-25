@@ -15,6 +15,8 @@ import {
     maxScorePickups, maxExpansionPickups, maxClearPickups, maxZoomPickups, maxSparseTrailPickups, maxAmmoPickups, maxMultiSpawnPickups, maxAddAiPickups, // Max pickups
     floatingTexts, explosionParticles, projectiles, // Effect arrays
     targetLookAt, cameraOffset, // Camera helpers
+    // Import UI Elements needed in resetGame
+    topScoreTextElement,
     // State Setters
     setScene, setCamera, setRenderer, setSnakeHead1, setSnakeHead2, setTopScore, setTopScoreAtGameStart,
     setLastUpdateTimeP1, setLastUpdateTimeAI, setLastFrameTime,
@@ -171,6 +173,17 @@ export function resetGame() {
 
     // Reset unlock tracking for the new game
     unlockedScoresThisGame.clear();
+
+    // --- Reset UI Styles --- 
+    // Ensure top score text starts with default style
+    if (topScoreTextElement) {
+        const originalSize = topScoreTextElement.dataset.originalFontSize || '18px';
+        const originalColor = topScoreTextElement.dataset.originalColor || 'rgba(255, 255, 255, 0.9)';
+        topScoreTextElement.textContent = `Top Score: ${topScore}`; // Update text content just in case
+        topScoreTextElement.style.fontSize = originalSize;
+        topScoreTextElement.style.color = originalColor;
+    }
+    // Optionally reset other dynamic UI styles here if needed
 
     // Log final state before exiting resetGame
     // console.log(`[resetGame] Exiting. P1 Pos: (${snakeTargetPosition1.x.toFixed(1)}, ${snakeTargetPosition1.z.toFixed(1)}) Dir: (${snakeDirection1.x.toFixed(1)}, ${snakeDirection1.z.toFixed(1)})`);
