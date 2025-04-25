@@ -1,0 +1,512 @@
+Loaded Top Score: 1075
+script.js:998 Attempting to spawn up to 3 initial pickups based on topScore: 1075
+script.js:1006 --- spawnPickup called with forceType: null ---
+script.js:1031   -> No forceType, determining eligible types...
+script.js:1078   -> Randomly selected pickupType: sparse
+script.js:1082   -> Final pickupType determined: sparse
+script.js:1083   -> Extra clear spawn flag: false
+script.js:1084   -> Extra ammo spawn flag: false
+script.js:1093   -> Attempting primary spawn: sparse
+script.js:2565 PICKUP COUNT (Spawned sparse (Replacement)): 1
+script.js:1116 --- spawnPickup finished for forceType: null ---
+script.js:1006 --- spawnPickup called with forceType: null ---
+script.js:1031   -> No forceType, determining eligible types...
+script.js:1078   -> Randomly selected pickupType: score
+script.js:1082   -> Final pickupType determined: score
+script.js:1083   -> Extra clear spawn flag: false
+script.js:1084   -> Extra ammo spawn flag: false
+script.js:1093   -> Attempting primary spawn: score
+script.js:2565 PICKUP COUNT (Spawned score (Replacement)): 2
+script.js:1116 --- spawnPickup finished for forceType: null ---
+script.js:1006 --- spawnPickup called with forceType: null ---
+script.js:1031   -> No forceType, determining eligible types...
+script.js:1078   -> Randomly selected pickupType: zoom
+script.js:1082   -> Final pickupType determined: zoom
+script.js:1083   -> Extra clear spawn flag: false
+script.js:1084   -> Extra ammo spawn flag: false
+script.js:1093   -> Attempting primary spawn: zoom
+script.js:2565 PICKUP COUNT (Spawned zoom (Replacement)): 3
+script.js:1116 --- spawnPickup finished for forceType: null ---
+script.js:2565 PICKUP COUNT (After Initial Spawn): 3
+main.js:64 Uncaught (in promise) RegisterClientLocalizationsError {message: "Cannot read properties of undefined (reading 'translations')", name: 'RegisterClientLocalizationsError'}
+rejected @ main.js:64
+Promise.then
+step @ main.js:67
+(anonymous) @ main.js:68
+__async @ main.js:52
+start @ main.js:37028
+(anonymous) @ main.js:37042
+(anonymous) @ main.js:37043Understand this error
+script.js:2364 Font loaded successfully from URL.
+script.js:2565 PICKUP COUNT (Collected Player Sparse): 2
+script.js:1006 --- spawnPickup called with forceType: sparse ---
+script.js:1082   -> Final pickupType determined: sparse
+script.js:1083   -> Extra clear spawn flag: false
+script.js:1084   -> Extra ammo spawn flag: false
+script.js:1093   -> Attempting primary spawn: sparse
+script.js:2565 PICKUP COUNT (Spawned sparse (Replacement)): 3
+script.js:1116 --- spawnPickup finished for forceType: sparse ---
+script.js:2565 PICKUP COUNT (Collected Player Sparse): 2
+script.js:1006 --- spawnPickup called with forceType: sparse ---
+script.js:1082   -> Final pickupType determined: sparse
+script.js:1083   -> Extra clear spawn flag: false
+script.js:1084   -> Extra ammo spawn flag: false
+script.js:1093   -> Attempting primary spawn: sparse
+script.js:2565 PICKUP COUNT (Spawned sparse (Replacement)): 3
+script.js:1116 --- spawnPickup finished for forceType: sparse ---
+script.js:2565 PICKUP COUNT (Collected Player Zoom): 2
+script.js:1418 Zoom Out Activated! Level=1
+script.js:1006 --- spawnPickup called with forceType: zoom ---
+script.js:1082   -> Final pickupType determined: zoom
+script.js:1083   -> Extra clear spawn flag: false
+script.js:1084   -> Extra ammo spawn flag: false
+script.js:1093   -> Attempting primary spawn: zoom
+script.js:2565 PICKUP COUNT (Spawned zoom (Replacement)): 3
+script.js:1116 --- spawnPickup finished for forceType: zoom ---
+script.js:2565 PICKUP COUNT (Collected AI SpeedUp): 2
+script.js:1576 Uncaught ReferenceError: CLEAR_WALL_PICKUP_THRESHOLD is not defined
+    at checkAIScorePickupCollision (script.js:1576:93)
+    at animate (script.js:2012:13)
+checkAIScorePickupCollision @ script.js:1576
+animate @ script.js:2012
+requestAnimationFrame
+animate @ script.js:1932
+requestAnimationFrame
+animate @ script.js:1932
+requestAnimationFrame
+animate @ script.js:1932
+requestAnimationFrame
+animate @ script.js:1932
+requestAnimationFrame
+animate @ script.js:1932
+requestAnimationFrame
+animate @ script.js:1932
+requestAnimationFrame
+animate @ script.js:1932
+requestAnimationFrame
+animate @ script.js:1932
+requestAnimationFrame
+animate @ script.js:1932
+requestAnimationFrame
+animate @ script.js:1932
+requestAnimationFrame
+animate @ script.js:1932
+requestAnimationFrame
+animate @ script.js:1932
+requestAnimationFrame
+animate @ script.js:1932
+requestAnimationFrame
+animate @ script.js:1932
+requestAnimationFrame
+animate @ script.js:1932
+requestAnimationFrame
+animate @ script.js:1932
+requestAnimationFrame
+animate @ script.js:1932
+requestAnimationFrame
+animate @ script.js:1932
+requestAnimationFrame
+animate @ script.js:1932
+requestAnimationFrame
+animate @ script.js:1932
+requestAnimationFrame
+animate @ script.js:1932
+requestAnimationFrame
+animate @ script.js:1932
+requestAnimationFrame
+animate @ script.js:1932
+requestAnimationFrame
+animate @ script.js:1932
+requestAnimationFrame
+animate @ script.js:1932
+requestAnimationFrame
+animate @ script.js:1932
+requestAnimationFrame
+animate @ script.js:1932
+requestAnimationFrame
+animate @ script.js:1932
+requestAnimationFrame
+animate @ script.js:1932
+requestAnimationFrame
+animate @ script.js:1932
+requestAnimationFrame
+animate @ script.js:1932
+requestAnimationFrame
+animate @ script.js:1932Understand this error
+script.js:2565 PICKUP COUNT (Collected AI Sparse): 1
+script.js:1006 --- spawnPickup called with forceType: sparse ---
+script.js:1020   -> EXTRA SPAWN CHECK: Counter is 5 (Multiple of 5), Eligible for extra Clear Walls.
+script.js:1082   -> Final pickupType determined: sparse
+script.js:1083   -> Extra clear spawn flag: true
+script.js:1084   -> Extra ammo spawn flag: false
+script.js:1093   -> Attempting primary spawn: sparse
+script.js:2565 PICKUP COUNT (Spawned sparse (Replacement)): 2
+script.js:1098   -> Checking conditions for extra clear spawn attempt...
+script.js:1100     -> Proceeding with extra Clear Walls spawn.
+script.js:2565 PICKUP COUNT (Spawned clear (Replacement)): 3
+script.js:1116 --- spawnPickup finished for forceType: sparse ---
+script.js:1960 Sparse Trail P1 Expired.
+script.js:2565 PICKUP COUNT (Collected Player Clear): 2
+script.js:1382 Uncaught ReferenceError: CLEAR_WALL_PICKUP_THRESHOLD is not defined
+    at checkClearPickupCollision (script.js:1382:93)
+    at animate (script.js:1978:13)
+checkClearPickupCollision @ script.js:1382
+animate @ script.js:1978
+requestAnimationFrame
+animate @ script.js:1932
+requestAnimationFrame
+animate @ script.js:1932
+requestAnimationFrame
+animate @ script.js:1932
+requestAnimationFrame
+animate @ script.js:1932
+requestAnimationFrame
+animate @ script.js:1932
+requestAnimationFrame
+animate @ script.js:1932
+requestAnimationFrame
+animate @ script.js:1932
+requestAnimationFrame
+animate @ script.js:1932
+requestAnimationFrame
+animate @ script.js:1932
+requestAnimationFrame
+animate @ script.js:1932
+requestAnimationFrame
+animate @ script.js:1932
+requestAnimationFrame
+animate @ script.js:1932
+requestAnimationFrame
+animate @ script.js:1932
+requestAnimationFrame
+animate @ script.js:1932
+requestAnimationFrame
+animate @ script.js:1932
+requestAnimationFrame
+animate @ script.js:1932
+requestAnimationFrame
+animate @ script.js:1932
+requestAnimationFrame
+animate @ script.js:1932
+requestAnimationFrame
+animate @ script.js:1932
+requestAnimationFrame
+animate @ script.js:1932
+requestAnimationFrame
+animate @ script.js:1932
+requestAnimationFrame
+animate @ script.js:1932
+requestAnimationFrame
+animate @ script.js:1932
+requestAnimationFrame
+animate @ script.js:1932
+requestAnimationFrame
+animate @ script.js:1932
+requestAnimationFrame
+animate @ script.js:1932
+requestAnimationFrame
+animate @ script.js:1932
+requestAnimationFrame
+animate @ script.js:1932
+requestAnimationFrame
+animate @ script.js:1932
+requestAnimationFrame
+animate @ script.js:1932
+requestAnimationFrame
+animate @ script.js:1932
+requestAnimationFrame
+animate @ script.js:1932Understand this error
+script.js:1954 Zoom Out P1 Expired.
+script.js:1995 Sparse Trail AI Expired.
+script.js:2565 PICKUP COUNT (Collected Player Sparse): 1
+script.js:1006 --- spawnPickup called with forceType: sparse ---
+script.js:1082   -> Final pickupType determined: sparse
+script.js:1083   -> Extra clear spawn flag: false
+script.js:1084   -> Extra ammo spawn flag: false
+script.js:1093   -> Attempting primary spawn: sparse
+script.js:2565 PICKUP COUNT (Spawned sparse (Replacement)): 2
+script.js:1116 --- spawnPickup finished for forceType: sparse ---
+script.js:2565 PICKUP COUNT (Collected Player Sparse): 1
+script.js:1006 --- spawnPickup called with forceType: sparse ---
+script.js:1082   -> Final pickupType determined: sparse
+script.js:1083   -> Extra clear spawn flag: false
+script.js:1084   -> Extra ammo spawn flag: false
+script.js:1093   -> Attempting primary spawn: sparse
+script.js:2565 PICKUP COUNT (Spawned sparse (Replacement)): 2
+script.js:1116 --- spawnPickup finished for forceType: sparse ---
+script.js:2565 PICKUP COUNT (Collected AI Zoom): 1
+script.js:1694 Uncaught ReferenceError: CLEAR_WALL_PICKUP_THRESHOLD is not defined
+    at checkAIZoomPickupCollision (script.js:1694:93)
+    at animate (script.js:2015:13)
+checkAIZoomPickupCollision @ script.js:1694
+animate @ script.js:2015
+requestAnimationFrame
+animate @ script.js:1932
+requestAnimationFrame
+animate @ script.js:1932
+requestAnimationFrame
+animate @ script.js:1932
+requestAnimationFrame
+animate @ script.js:1932
+requestAnimationFrame
+animate @ script.js:1932
+requestAnimationFrame
+animate @ script.js:1932
+requestAnimationFrame
+animate @ script.js:1932
+requestAnimationFrame
+animate @ script.js:1932
+requestAnimationFrame
+animate @ script.js:1932
+requestAnimationFrame
+animate @ script.js:1932
+requestAnimationFrame
+animate @ script.js:1932
+requestAnimationFrame
+animate @ script.js:1932
+requestAnimationFrame
+animate @ script.js:1932
+requestAnimationFrame
+animate @ script.js:1932
+requestAnimationFrame
+animate @ script.js:1932
+requestAnimationFrame
+animate @ script.js:1932
+requestAnimationFrame
+animate @ script.js:1932
+requestAnimationFrame
+animate @ script.js:1932
+requestAnimationFrame
+animate @ script.js:1932
+requestAnimationFrame
+animate @ script.js:1932
+requestAnimationFrame
+animate @ script.js:1932
+requestAnimationFrame
+animate @ script.js:1932
+requestAnimationFrame
+animate @ script.js:1932
+requestAnimationFrame
+animate @ script.js:1932
+requestAnimationFrame
+animate @ script.js:1932
+requestAnimationFrame
+animate @ script.js:1932
+requestAnimationFrame
+animate @ script.js:1932
+requestAnimationFrame
+animate @ script.js:1932
+requestAnimationFrame
+animate @ script.js:1932
+requestAnimationFrame
+animate @ script.js:1932
+requestAnimationFrame
+animate @ script.js:1932
+requestAnimationFrame
+animate @ script.js:1932Understand this error
+script.js:1960 Sparse Trail P1 Expired.
+script.js:2565 PICKUP COUNT (Collected AI Sparse): 0
+script.js:1006 --- spawnPickup called with forceType: sparse ---
+script.js:1020   -> EXTRA SPAWN CHECK: Counter is 10 (Multiple of 5), Eligible for extra Clear Walls.
+script.js:1025   -> EXTRA SPAWN CHECK: Counter is 10 (Multiple of 10), Eligible for extra Ammo.
+script.js:1082   -> Final pickupType determined: sparse
+script.js:1083   -> Extra clear spawn flag: true
+script.js:1084   -> Extra ammo spawn flag: true
+script.js:1093   -> Attempting primary spawn: sparse
+script.js:2565 PICKUP COUNT (Spawned sparse (Replacement)): 1
+script.js:1098   -> Checking conditions for extra clear spawn attempt...
+script.js:1100     -> Proceeding with extra Clear Walls spawn.
+script.js:2565 PICKUP COUNT (Spawned clear (Replacement)): 2
+script.js:1107   -> Checking conditions for extra ammo spawn attempt...
+script.js:1109     -> Proceeding with extra Ammo spawn.
+script.js:2565 PICKUP COUNT (Spawned ammo (Replacement)): 2
+script.js:1116 --- spawnPickup finished for forceType: sparse ---
+script.js:2565 PICKUP COUNT (Collected Player Sparse): 1
+script.js:1006 --- spawnPickup called with forceType: sparse ---
+script.js:1082   -> Final pickupType determined: sparse
+script.js:1083   -> Extra clear spawn flag: false
+script.js:1084   -> Extra ammo spawn flag: false
+script.js:1093   -> Attempting primary spawn: sparse
+script.js:2565 PICKUP COUNT (Spawned sparse (Replacement)): 2
+script.js:1116 --- spawnPickup finished for forceType: sparse ---
+script.js:2565 PICKUP COUNT (Collected Player Ammo): 2
+script.js:1995 Sparse Trail AI Expired.
+script.js:2565 PICKUP COUNT (Collected Player Clear): 1
+script.js:1382 Uncaught ReferenceError: CLEAR_WALL_PICKUP_THRESHOLD is not defined
+    at checkClearPickupCollision (script.js:1382:93)
+    at animate (script.js:1978:13)
+checkClearPickupCollision @ script.js:1382
+animate @ script.js:1978
+requestAnimationFrame
+animate @ script.js:1932
+requestAnimationFrame
+animate @ script.js:1932
+requestAnimationFrame
+animate @ script.js:1932
+requestAnimationFrame
+animate @ script.js:1932
+requestAnimationFrame
+animate @ script.js:1932
+requestAnimationFrame
+animate @ script.js:1932
+requestAnimationFrame
+animate @ script.js:1932
+requestAnimationFrame
+animate @ script.js:1932
+requestAnimationFrame
+animate @ script.js:1932
+requestAnimationFrame
+animate @ script.js:1932
+requestAnimationFrame
+animate @ script.js:1932
+requestAnimationFrame
+animate @ script.js:1932
+requestAnimationFrame
+animate @ script.js:1932
+requestAnimationFrame
+animate @ script.js:1932
+requestAnimationFrame
+animate @ script.js:1932
+requestAnimationFrame
+animate @ script.js:1932
+requestAnimationFrame
+animate @ script.js:1932
+requestAnimationFrame
+animate @ script.js:1932
+requestAnimationFrame
+animate @ script.js:1932
+requestAnimationFrame
+animate @ script.js:1932
+requestAnimationFrame
+animate @ script.js:1932
+requestAnimationFrame
+animate @ script.js:1932
+requestAnimationFrame
+animate @ script.js:1932
+requestAnimationFrame
+animate @ script.js:1932
+requestAnimationFrame
+animate @ script.js:1932
+requestAnimationFrame
+animate @ script.js:1932
+requestAnimationFrame
+animate @ script.js:1932
+requestAnimationFrame
+animate @ script.js:1932
+requestAnimationFrame
+animate @ script.js:1932
+requestAnimationFrame
+animate @ script.js:1932
+requestAnimationFrame
+animate @ script.js:1932
+requestAnimationFrame
+animate @ script.js:1932Understand this error
+script.js:1960 Sparse Trail P1 Expired.
+script.js:2565 PICKUP COUNT (Collected Player Sparse): 0
+script.js:1006 --- spawnPickup called with forceType: sparse ---
+script.js:1082   -> Final pickupType determined: sparse
+script.js:1083   -> Extra clear spawn flag: false
+script.js:1084   -> Extra ammo spawn flag: false
+script.js:1093   -> Attempting primary spawn: sparse
+script.js:2565 PICKUP COUNT (Spawned sparse (Replacement)): 1
+script.js:1116 --- spawnPickup finished for forceType: sparse ---
+script.js:2565 PICKUP COUNT (Collected Player Sparse): 0
+script.js:1006 --- spawnPickup called with forceType: sparse ---
+script.js:1020   -> EXTRA SPAWN CHECK: Counter is 15 (Multiple of 5), Eligible for extra Clear Walls.
+script.js:1082   -> Final pickupType determined: sparse
+script.js:1083   -> Extra clear spawn flag: true
+script.js:1084   -> Extra ammo spawn flag: false
+script.js:1093   -> Attempting primary spawn: sparse
+script.js:2565 PICKUP COUNT (Spawned sparse (Replacement)): 1
+script.js:1098   -> Checking conditions for extra clear spawn attempt...
+script.js:1100     -> Proceeding with extra Clear Walls spawn.
+script.js:2565 PICKUP COUNT (Spawned clear (Replacement)): 2
+script.js:1116 --- spawnPickup finished for forceType: sparse ---
+script.js:2565 PICKUP COUNT (Collected Player Clear): 1
+script.js:1382 Uncaught ReferenceError: CLEAR_WALL_PICKUP_THRESHOLD is not defined
+    at checkClearPickupCollision (script.js:1382:93)
+    at animate (script.js:1978:13)
+checkClearPickupCollision @ script.js:1382
+animate @ script.js:1978
+requestAnimationFrame
+animate @ script.js:1932
+requestAnimationFrame
+animate @ script.js:1932
+requestAnimationFrame
+animate @ script.js:1932
+requestAnimationFrame
+animate @ script.js:1932
+requestAnimationFrame
+animate @ script.js:1932
+requestAnimationFrame
+animate @ script.js:1932
+requestAnimationFrame
+animate @ script.js:1932
+requestAnimationFrame
+animate @ script.js:1932
+requestAnimationFrame
+animate @ script.js:1932
+requestAnimationFrame
+animate @ script.js:1932
+requestAnimationFrame
+animate @ script.js:1932
+requestAnimationFrame
+animate @ script.js:1932
+requestAnimationFrame
+animate @ script.js:1932
+requestAnimationFrame
+animate @ script.js:1932
+requestAnimationFrame
+animate @ script.js:1932
+requestAnimationFrame
+animate @ script.js:1932
+requestAnimationFrame
+animate @ script.js:1932
+requestAnimationFrame
+animate @ script.js:1932
+requestAnimationFrame
+animate @ script.js:1932
+requestAnimationFrame
+animate @ script.js:1932
+requestAnimationFrame
+animate @ script.js:1932
+requestAnimationFrame
+animate @ script.js:1932
+requestAnimationFrame
+animate @ script.js:1932
+requestAnimationFrame
+animate @ script.js:1932
+requestAnimationFrame
+animate @ script.js:1932
+requestAnimationFrame
+animate @ script.js:1932
+requestAnimationFrame
+animate @ script.js:1932
+requestAnimationFrame
+animate @ script.js:1932
+requestAnimationFrame
+animate @ script.js:1932
+requestAnimationFrame
+animate @ script.js:1932
+requestAnimationFrame
+animate @ script.js:1932
+requestAnimationFrame
+animate @ script.js:1932Understand this error
+script.js:2565 PICKUP COUNT (Collected Player Sparse): 0
+script.js:1006 --- spawnPickup called with forceType: sparse ---
+script.js:1082   -> Final pickupType determined: sparse
+script.js:1083   -> Extra clear spawn flag: false
+script.js:1084   -> Extra ammo spawn flag: false
+script.js:1093   -> Attempting primary spawn: sparse
+script.js:2565 PICKUP COUNT (Spawned sparse (Replacement)): 1
+script.js:1116 --- spawnPickup finished for forceType: sparse ---
+script.js:2565 PICKUP COUNT (Collected Player Sparse): 0
+script.js:1006 --- spawnPickup called with forceType: sparse ---
+script.js:1082   -> Final pickupType determined: sparse
+script.js:1083   -> Extra clear spawn flag: false
+script.js:1084   -> Extra ammo spawn flag: false
+script.js:1093   -> Attempting primary spawn: sparse
+script.js:2565 PICKUP COUNT (Spawned sparse (Replacement)): 1
+script.js:1116 --- spawnPickup finished for forceType: sparse ---
+script.js:2072 New Top Score! 1209 (Previous: 1075)
+script.js:2080 Game Over! Result: AI Wins. Final Score: 1209

@@ -34,15 +34,15 @@ Triggers particle explosion + text effect.
 Spawns a new powerup with the same type.
 This effect should stack.
 
-
-[new unused color] Blocks ("Ammo!")
+Orange Blocks ("Ammo!")
 Unlocked at when the high score of 300 is reached.
 Grants 80 points to Players when one is picked up.
 Activates a "can shoot" effect for the collecting snake until it uses the picked up ammo. While the snake has ammo, it can shoot with space key a projectile forward that will blow up one trail wall block when it hits it. No other type of wall should be effected.
 Triggers particle explosion + text effect.
 Spawns a new powerup with the same type.
 This effect (the number of ammo held by a snake) should stack. The stacking should be visible with small stacking ammo cubes above the snakes head
-
+Spawns whith each 10 other powerups have been picked up.
+When the spawn counter hits %[the number in the previous line] there should be a spawn of the one just hit and an extra clear spawn
 
 White Cube: ("Clear Walls!")
 Unlocked at when the high score of 500 is reached.
@@ -58,7 +58,7 @@ Unlocked at when the high score of 1000 is reached.
 Grants 125 points to Players when one is picked up.
 Spawns a new AI player with a new unused color.
 Triggers particle explosion + text effect on the powerup location.
-Spawns whith each 10 other powerups have been picked up.
+Spawns whith each 20 other powerups have been picked up.
 
 Green Cube: ("Expand!")
 Unlocked at when the high score of 1500 is reached.
@@ -73,6 +73,7 @@ Grants 200 points to Players when one is picked up.
 Spawns 2 powerups of random type.
 Increases the max number of the powerup type that was spawned.
 Spawns a new powerup with the same type.
+Spawns whith each 15 other powerups have been picked up.
 
 Only the Zoom Out is unlocked at first.
 The intro text should only mention unlocked powerups.
