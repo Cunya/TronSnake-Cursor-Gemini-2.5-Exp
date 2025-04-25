@@ -31,6 +31,9 @@ import {
     setNextAmmoSpawnCount, setNextClearSpawnCount, setNextAddAiSpawnCount, setNextExpansionSpawnCount, setNextMultiSpawnCount,
     // Make sure pickup arrays are imported
     scorePickups, expansionPickups, clearPickups, zoomPickups, sparseTrailPickups, multiSpawnPickups, addAiPickups, ammoPickups,
+    // Import necessary state for visibility change handler
+    gameActive, isGameOver, setIsPaused,
+    setSpeedLevelP1, setSpeedLevelAI
 } from './state.js';
 import {
     initialBoundaryHalfSize, segmentSize, cameraHeight, cameraDistanceBehind, P1_HEAD_COLOR_NORMAL, AI_HEAD_COLOR_NORMAL,
@@ -40,9 +43,27 @@ import { snapToGridCenter } from './utils.js';
 import { onKeyDown, onKeyUp, onTouchStart, onTouchEnd, handleFirstClick, startGame } from './playerControls.js';
 import { spawnInitialPickups } from './pickups.js';
 import { createPlayAreaVisuals, initializePickupTemplates, updateAmmoIndicatorP1, updateAmmoIndicatorAI, clearAllTrails, clearFloatingTexts, clearExplosionParticles, revertHeadColors } from './visuals.js';
-import { createOpeningDialog, createGameOverText, createVersionText, createScoreText, createTopScoreText } from './ui.js';
+import { createOpeningDialog, createGameOverText, createVersionText, createScoreText, createTopScoreText, createPauseIndicator } from './ui.js';
 import { clearAllProjectiles } from './projectile.js';
 import { animate } from './gameLoop.js';
+
+// Visibility Change Handler
+function handleVisibilityChange() {
+    if (document.hidden) {
+        // Pause the game if it's active and not over when the tab becomes hidden
+        if (gameActive && !isGameOver) {
+            setIsPaused(true);
+            console.log("Game paused due to visibility change.");
+        }
+    } else {
+        // Optional: Automatically unpause when tab becomes visible?
+        // For now, let's require manual unpause (Escape key)
+        // if (gameActive && !isGameOver && isPaused) {
+        //     setIsPaused(false);
+        //     console.log("Game unpaused due to visibility change.");
+        // }
+    }
+}
 
 export function resetGame() {
     console.log(`--- Entering resetGame ---`);
@@ -53,10 +74,12 @@ export function resetGame() {
 
     // Reset flags and scores
     if(setIsGameOver) setIsGameOver(false);
+    if(setIsPaused) setIsPaused(false);
     if(setWinner) setWinner(0);
     if(setScoreP1) setScoreP1(0);
     if(setSpeedBoostActiveP1) setSpeedBoostActiveP1(false);
     if(setSpeedBoostEndTimeP1) setSpeedBoostEndTimeP1(0);
+    if(setSpeedLevelP1) setSpeedLevelP1(0);
     if(setIsZoomedOutP1) setIsZoomedOutP1(false);
     if(setZoomOutEndTimeP1) setZoomOutEndTimeP1(0);
     if(setZoomLevelP1) setZoomLevelP1(0);
@@ -66,6 +89,7 @@ export function resetGame() {
     if(setSparseLevelP1) setSparseLevelP1(1);
     if(setSpeedBoostActiveAI) setSpeedBoostActiveAI(false);
     if(setSpeedBoostEndTimeAI) setSpeedBoostEndTimeAI(0);
+    if(setSpeedLevelAI) setSpeedLevelAI(0);
     if(setIsSparseTrailActiveAI) setIsSparseTrailActiveAI(false);
     if(setSparseTrailEndTimeAI) setSparseTrailEndTimeAI(0);
     if(setTrailCounterAI) setTrailCounterAI(0);
@@ -268,11 +292,13 @@ export function init() {
     window.addEventListener('click', handleFirstClick);
     window.addEventListener('touchstart', onTouchStart, { passive: false });
     window.addEventListener('touchend', onTouchEnd, { passive: false });
+    document.addEventListener('visibilitychange', handleVisibilityChange, false);
 
     // Create UI Elements
-    createGameOverText(); // Creates element, stores in state via setter
+    createGameOverText(); 
     createVersionText();
     createScoreText();
+    createPauseIndicator();
     // Top score text created after loading score
 
     // Timing Init

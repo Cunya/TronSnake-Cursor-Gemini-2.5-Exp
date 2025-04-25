@@ -17,6 +17,7 @@ export let lastTrailSegment1 = null; // Track the last added segment for visibil
 export const headMaterial1 = new THREE.MeshPhongMaterial({ color: P1_HEAD_COLOR_NORMAL }); 
 export let isSpeedBoostActiveP1 = false;
 export let speedBoostEndTimeP1 = 0;
+export let speedLevelP1 = 0; // Added speed boost level
 export let isZoomedOutP1 = false; 
 export let zoomOutEndTimeP1 = 0;
 export let zoomLevelP1 = 0; 
@@ -39,6 +40,7 @@ export let lastTrailSegment2 = null;
 export const headMaterial2 = new THREE.MeshPhongMaterial({ color: AI_HEAD_COLOR_NORMAL });
 export let isSpeedBoostActiveAI = false;
 export let speedBoostEndTimeAI = 0;
+export let speedLevelAI = 0; // Added AI speed boost level
 export let isSparseTrailActiveAI = false; 
 export let sparseTrailEndTimeAI = 0;
 export let trailCounterAI = 0; 
@@ -81,6 +83,7 @@ export let maxAddAiPickups = 1;
 // Game State Flags & Variables
 export let isGameOver = false;
 export let gameActive = false; 
+export let isPaused = false; // Added pause state
 export let winner = 0; // 0 = ongoing, 1 = P1 lost, 2 = AI lost, 3 = Draw
 
 // DOM Elements (Initialized in ui.js/init.js)
@@ -89,6 +92,7 @@ export let versionTextElement;
 export let openingDialogElement; 
 export let scoreTextElement; 
 export let topScoreTextElement; 
+export let pauseIndicatorElement; // Added pause indicator element reference
 
 // Temporary vectors for camera calculations (Mutable state used in loop)
 export const cameraTargetPosition = new THREE.Vector3();
@@ -154,12 +158,14 @@ export function setMaxMultiSpawnPickups(value) { maxMultiSpawnPickups = value; }
 export function setMaxAddAiPickups(value) { maxAddAiPickups = value; }
 export function setIsGameOver(value) { isGameOver = value; }
 export function setGameActive(value) { gameActive = value; }
+export function setIsPaused(value) { isPaused = value; } // Added pause state setter
 export function setWinner(value) { winner = value; }
 export function setGameOverTextElement(elem) { gameOverTextElement = elem; }
 export function setVersionTextElement(elem) { versionTextElement = elem; }
 export function setOpeningDialogElement(elem) { openingDialogElement = elem; }
 export function setScoreTextElement(elem) { scoreTextElement = elem; }
 export function setTopScoreTextElement(elem) { topScoreTextElement = elem; }
+export function setPauseIndicatorElement(elem) { pauseIndicatorElement = elem; } // Added pause indicator setter
 export function setTextFont(font) { textFont = font; }
 export function setLastFrameTime(time) { lastFrameTime = time; }
 export function setTopScore(score) { topScore = score; }
@@ -171,6 +177,7 @@ export function setLastTrailSegment1(segment) { lastTrailSegment1 = segment; }
 export function setLastTrailSegment2(segment) { lastTrailSegment2 = segment; }
 export function setSpeedBoostActiveP1(value) { isSpeedBoostActiveP1 = value; }
 export function setSpeedBoostEndTimeP1(time) { speedBoostEndTimeP1 = time; }
+export function setSpeedLevelP1(level) { speedLevelP1 = level; } // Added setter
 export function setIsZoomedOutP1(value) { isZoomedOutP1 = value; }
 export function setZoomOutEndTimeP1(time) { zoomOutEndTimeP1 = time; }
 export function setZoomLevelP1(level) { zoomLevelP1 = level; }
@@ -182,6 +189,7 @@ export function setLastUpdateTimeP1(time) { lastUpdateTimeP1 = time; }
 export function setAmmoCountP1(count) { ammoCountP1 = count; }
 export function setSpeedBoostActiveAI(value) { isSpeedBoostActiveAI = value; }
 export function setSpeedBoostEndTimeAI(time) { speedBoostEndTimeAI = time; }
+export function setSpeedLevelAI(level) { speedLevelAI = level; } // Added setter
 export function setIsSparseTrailActiveAI(value) { isSparseTrailActiveAI = value; }
 export function setSparseTrailEndTimeAI(time) { sparseTrailEndTimeAI = time; }
 export function setTrailCounterAI(count) { trailCounterAI = count; }

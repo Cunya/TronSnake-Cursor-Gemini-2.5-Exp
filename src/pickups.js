@@ -3,6 +3,7 @@ import {
     scene, scoreP1, topScore, pickupsCollectedCounter, snakeTargetPosition1, snakeTargetPosition2, 
     snakeDirection1, snakeDirection2, isSpeedBoostActiveP1, isZoomedOutP1, isSparseTrailActiveP1, 
     isSpeedBoostActiveAI, isSparseTrailActiveAI, ammoCountP1, ammoCountAI, 
+    speedLevelP1, speedLevelAI, // <-- IMPORT speed levels
     scorePickups, expansionPickups, clearPickups, zoomPickups, sparseTrailPickups, multiSpawnPickups, addAiPickups, ammoPickups, 
     maxScorePickups, maxExpansionPickups, maxClearPickups, maxZoomPickups, maxSparseTrailPickups, maxAmmoPickups, maxMultiSpawnPickups, maxAddAiPickups, 
     topScoreAtGameStart, unlockedScoresThisGame, snakeHead1, snakeHead2, boundaryXMin, boundaryXMax, boundaryZMin, boundaryZMax, zoomLevelP1, zoomOutEndTimeP1, sparseLevelP1, sparseTrailEndTimeP1, sparseLevelAI, sparseTrailEndTimeAI,
@@ -15,7 +16,7 @@ import {
     setSpeedBoostActiveAI, setSpeedBoostEndTimeAI, setIsSparseTrailActiveAI, setSparseTrailEndTimeAI, setTrailCounterAI, setSparseLevelAI,
     setPickupsCollectedCounter, setBoundaryXMax, setBoundaryXMin, setBoundaryZMax, setBoundaryZMin,
     setMaxScorePickups, setMaxExpansionPickups, setMaxClearPickups, setMaxZoomPickups, setMaxSparseTrailPickups, setMaxMultiSpawnPickups, setMaxAddAiPickups, setMaxAmmoPickups,
-    setAmmoCountP1, setAmmoCountAI, setScoreP1,
+    setAmmoCountP1, setAmmoCountAI, setScoreP1, setSpeedLevelP1, setSpeedLevelAI, // <-- IMPORT setter
     // Import new state vars and setters for counter tracking
     nextAmmoSpawnCount, nextClearSpawnCount, nextAddAiSpawnCount, nextExpansionSpawnCount, nextMultiSpawnCount, 
     setNextAmmoSpawnCount, setNextClearSpawnCount, setNextAddAiSpawnCount, setNextExpansionSpawnCount, setNextMultiSpawnCount
@@ -29,7 +30,8 @@ import {
     clearPickupGeometry, clearPickupMaterial, zoomPickupGeometry, zoomPickupMaterial, 
     sparseTrailMaterial, ammoPickupMaterial,
     multiSpawnGeometry, multiSpawnMaterial, addAiPickupGeometry, addAiPickupMaterial,
-    AMMO_PICKUP_RADIUS, P1_HEAD_COLOR_BOOST, AI_HEAD_COLOR_BOOST
+    AMMO_PICKUP_RADIUS, P1_HEAD_COLOR_BOOST, AI_HEAD_COLOR_BOOST,
+    SPEED_BOOST_SCORE_MULTIPLIER
 } from './constants.js';
 import { snapToGridCenter, logTotalPickupCount, getGridDimensions } from './utils.js';
 import { createExplosionEffect, createFloatingText, updateAmmoIndicatorP1, updateAmmoIndicatorAI, clearAllTrails, createPlayAreaVisuals } from './visuals.js';
@@ -409,8 +411,16 @@ export function checkUnlocks(currentScore) {
 }
 
 // Helper to update score, pickups collected, and check counter spawns
-function handleScoreUpdateAndCounters(scoreAmount) {
-    const newScore = scoreP1 + scoreAmount;
+function handleScoreUpdateAndCounters(baseScoreAmount) {
+    let finalScoreAmount = baseScoreAmount;
+    // Apply speed boost multiplier if active
+    if (isSpeedBoostActiveP1 && speedLevelP1 > 0) {
+        const multiplier = 1 + (speedLevelP1 * SPEED_BOOST_SCORE_MULTIPLIER);
+        finalScoreAmount = Math.round(baseScoreAmount * multiplier);
+        console.log(`Score Multiplier Applied: Level ${speedLevelP1}, Multiplier ${multiplier.toFixed(2)}, Base ${baseScoreAmount}, Final ${finalScoreAmount}`);
+    }
+
+    const newScore = scoreP1 + finalScoreAmount; // Use final amount
     if (setScoreP1) {
         setScoreP1(newScore);
     } else {
@@ -446,12 +456,24 @@ function checkScorePickupCollision() {
         const pickup = scorePickups[i];
         if (snakeTargetPosition1.distanceToSquared(pickup.position) < PICKUP_COLLISION_THRESHOLD_SQ * 1.1) {
             const pos = pickup.position.clone(); const col = pickup.material.color.clone();
-            createExplosionEffect(pos, col); createFloatingText("+40 Speed Up!", pos, col);
+            createExplosionEffect(pos, col);
             scene.remove(pickup); scorePickups.splice(i, 1); logTotalPickupCount("Collected Player SpeedUp");
+            
+            const newLevelP1 = speedLevelP1 + 1;
+            setSpeedLevelP1(newLevelP1);
             if (!isSpeedBoostActiveP1 && snakeHead1) snakeHead1.material.color.setHex(P1_HEAD_COLOR_BOOST);
-            setSpeedBoostActiveP1(true); setSpeedBoostEndTimeP1(performance.now() + boostDuration);
-            handleScoreUpdateAndCounters(40); // Use new helper
-            spawnPickup("score"); return true;
+            setSpeedBoostActiveP1(true);
+            setSpeedBoostEndTimeP1(performance.now() + boostDuration);
+            
+            // Calculate boosted score for text
+            const baseScore = 40;
+            const scoreMultiplier = isSpeedBoostActiveP1 ? (1 + speedLevelP1 * SPEED_BOOST_SCORE_MULTIPLIER) : 1;
+            const actualScoreAwarded = Math.round(baseScore * scoreMultiplier);
+            createFloatingText(`+${actualScoreAwarded} Speed Up! (Lv ${newLevelP1})`, pos, col); // Show level & boosted score
+            
+            handleScoreUpdateAndCounters(baseScore); // Pass BASE score
+            spawnPickup("score"); 
+            return true;
         }
     } return false;
 }
@@ -461,7 +483,13 @@ function checkExpansionPickupCollision() {
         const pickup = expansionPickups[i];
         if (snakeTargetPosition1.distanceToSquared(pickup.position) < PICKUP_COLLISION_THRESHOLD_SQ * 1.1) {
              const pos = pickup.position.clone(); const col = pickup.material.color.clone();
-            createExplosionEffect(pos, col); createFloatingText("+150 Expand!", pos, col);
+            createExplosionEffect(pos, col); 
+             // Calculate boosted score for text
+            const baseScore = 150;
+            const scoreMultiplier = isSpeedBoostActiveP1 ? (1 + speedLevelP1 * SPEED_BOOST_SCORE_MULTIPLIER) : 1;
+            const actualScoreAwarded = Math.round(baseScore * scoreMultiplier);
+            createFloatingText(`+${actualScoreAwarded} Expand!`, pos, col);
+            
             scene.remove(pickup); expansionPickups.splice(i, 1); logTotalPickupCount("Collected Player Expand");
             const dirX = snakeDirection1.x, dirZ = snakeDirection1.z;
             let expanded = false, bx_min = boundaryXMin, bx_max = boundaryXMax, bz_min = boundaryZMin, bz_max = boundaryZMax;
@@ -470,8 +498,7 @@ function checkExpansionPickupCollision() {
             else if (dirZ > 0.5) { bz_max += expansionAmount; setBoundaryZMax(bz_max); expanded = true; }
             else if (dirZ < -0.5) { bz_min -= expansionAmount; setBoundaryZMin(bz_min); expanded = true; }
             if(expanded) createPlayAreaVisuals(bx_min, bx_max, bz_min, bz_max);
-            handleScoreUpdateAndCounters(150); // Use new helper
-            // Expansion pickup does not respawn itself
+            handleScoreUpdateAndCounters(baseScore); // Pass BASE score
             return true;
         }
     } return false;
@@ -482,11 +509,16 @@ function checkClearPickupCollision() {
         const pickup = clearPickups[i];
         if (snakeTargetPosition1.distanceToSquared(pickup.position) < PICKUP_COLLISION_THRESHOLD_SQ * 1.1) {
             const pos = pickup.position.clone(); const col = pickup.material.color.clone();
-            createExplosionEffect(pos, col); createFloatingText("+100 Clear Walls!", pos, col);
+            createExplosionEffect(pos, col); 
+             // Calculate boosted score for text
+            const baseScore = 100;
+            const scoreMultiplier = isSpeedBoostActiveP1 ? (1 + speedLevelP1 * SPEED_BOOST_SCORE_MULTIPLIER) : 1;
+            const actualScoreAwarded = Math.round(baseScore * scoreMultiplier);
+            createFloatingText(`+${actualScoreAwarded} Clear Walls!`, pos, col);
+            
             scene.remove(pickup); clearPickups.splice(i, 1); logTotalPickupCount("Collected Player Clear");
             clearAllTrails(); 
-            handleScoreUpdateAndCounters(100); // Use new helper
-            // Clear pickup does not respawn itself
+            handleScoreUpdateAndCounters(baseScore); // Pass BASE score
             return true;
         }
     } return false;
@@ -503,8 +535,14 @@ function checkZoomPickupCollision() {
             if (isZoomedOutP1 && zoomOutEndTimeP1 > currentTime) { currentZoomLevel++; newLevelP1 = currentZoomLevel; }
             else { setIsZoomedOutP1(true); currentZoomLevel = 1; newLevelP1 = 1; }
             setZoomLevelP1(currentZoomLevel); setZoomOutEndTimeP1(currentTime + zoomOutDuration);
-            createFloatingText(`+20 Zoom Out! (Lv ${newLevelP1})`, pos, col);
-            handleScoreUpdateAndCounters(20); // Use new helper
+            
+            // Calculate boosted score for text
+            const baseScore = 20;
+            const scoreMultiplier = isSpeedBoostActiveP1 ? (1 + speedLevelP1 * SPEED_BOOST_SCORE_MULTIPLIER) : 1;
+            const actualScoreAwarded = Math.round(baseScore * scoreMultiplier);
+            createFloatingText(`+${actualScoreAwarded} Zoom Out! (Lv ${newLevelP1})`, pos, col);
+            
+            handleScoreUpdateAndCounters(baseScore); // Pass BASE score
             spawnPickup("zoom"); 
             return true;
         }
@@ -522,8 +560,15 @@ function checkSparseTrailPickupCollision() {
             if (isSparseTrailActiveP1 && sparseTrailEndTimeP1 > currentTime) { currentSparseLevel++; newLevelP1 = currentSparseLevel; }
             else { setIsSparseTrailActiveP1(true); currentSparseLevel = 1; newLevelP1 = 1; }
             setSparseLevelP1(currentSparseLevel); setSparseTrailEndTimeP1(currentTime + sparseTrailDuration);
-            setTrailCounterP1(0); createFloatingText(`+60 Sparse Trail! (Lv ${newLevelP1})`, pos, col);
-            handleScoreUpdateAndCounters(60); // Use new helper
+            setTrailCounterP1(0);
+            
+            // Calculate boosted score for text
+            const baseScore = 60;
+            const scoreMultiplier = isSpeedBoostActiveP1 ? (1 + speedLevelP1 * SPEED_BOOST_SCORE_MULTIPLIER) : 1;
+            const actualScoreAwarded = Math.round(baseScore * scoreMultiplier);
+            createFloatingText(`+${actualScoreAwarded} Sparse Trail! (Lv ${newLevelP1})`, pos, col);
+            
+            handleScoreUpdateAndCounters(baseScore); // Pass BASE score
             spawnPickup("sparse"); 
             return true;
         }
@@ -535,9 +580,15 @@ function checkMultiSpawnPickupCollision() {
         const pickup = multiSpawnPickups[i];
          if (snakeTargetPosition1.distanceToSquared(pickup.position) < PICKUP_COLLISION_THRESHOLD_SQ * 1.1) {
             const pos = pickup.position.clone(); const col = multiSpawnMaterial.color.clone();
-            createExplosionEffect(pos, col); createFloatingText("+200 Max ++!", pos, col);
+            createExplosionEffect(pos, col); 
+            // Calculate boosted score for text
+            const baseScore = 200;
+            const scoreMultiplier = isSpeedBoostActiveP1 ? (1 + speedLevelP1 * SPEED_BOOST_SCORE_MULTIPLIER) : 1;
+            const actualScoreAwarded = Math.round(baseScore * scoreMultiplier);
+            createFloatingText(`+${actualScoreAwarded} Max ++!`, pos, col);
+            
             scene.remove(pickup); multiSpawnPickups.splice(i, 1); logTotalPickupCount("Collected Player Multi");
-            handleScoreUpdateAndCounters(200); // Use new helper
+            handleScoreUpdateAndCounters(baseScore); // Pass BASE score
             
             let eligible = [];
             // Eligibility uses topScore now?
@@ -573,11 +624,16 @@ function checkAddAiPickupCollision() {
         const pickup = addAiPickups[i];
         if (snakeTargetPosition1.distanceToSquared(pickup.position) < PICKUP_COLLISION_THRESHOLD_SQ * 1.1) {
             const pos = pickup.position.clone(); const col = addAiPickupMaterial.color.clone();
-            createExplosionEffect(pos, col); createFloatingText("+125 More Players!", pos, col);
+            createExplosionEffect(pos, col); 
+            // Calculate boosted score for text
+            const baseScore = 125;
+            const scoreMultiplier = isSpeedBoostActiveP1 ? (1 + speedLevelP1 * SPEED_BOOST_SCORE_MULTIPLIER) : 1;
+            const actualScoreAwarded = Math.round(baseScore * scoreMultiplier);
+            createFloatingText(`+${actualScoreAwarded} More Players!`, pos, col);
+            
             scene.remove(pickup); addAiPickups.splice(i, 1); logTotalPickupCount("Collected Player AddAI");
             // TODO: Implement actual AI spawning!
-            handleScoreUpdateAndCounters(125); // Use new helper
-            // Add AI pickup does not respawn itself
+            handleScoreUpdateAndCounters(baseScore); // Pass BASE score
             return true;
         }
     } return false;
@@ -588,11 +644,16 @@ function checkAmmoPickupCollision() {
         const pickup = ammoPickups[i];
         if (snakeTargetPosition1.distanceToSquared(pickup.position) < PICKUP_COLLISION_THRESHOLD_SQ * 1.1) {
             const pos = pickup.position.clone(); const col = ammoPickupMaterial.color.clone();
-            createExplosionEffect(pos, col); createFloatingText("+80 Ammo!", pos, col);
+            createExplosionEffect(pos, col); 
+            // Calculate boosted score for text
+            const baseScore = 80;
+            const scoreMultiplier = isSpeedBoostActiveP1 ? (1 + speedLevelP1 * SPEED_BOOST_SCORE_MULTIPLIER) : 1;
+            const actualScoreAwarded = Math.round(baseScore * scoreMultiplier);
+            createFloatingText(`+${actualScoreAwarded} Ammo!`, pos, col);
+            
             scene.remove(pickup); ammoPickups.splice(i, 1); logTotalPickupCount("Collected Player Ammo");
             setAmmoCountP1(ammoCountP1 + 1); updateAmmoIndicatorP1();
-            handleScoreUpdateAndCounters(80); // Use new helper
-            // Ammo pickup does not respawn itself
+            handleScoreUpdateAndCounters(baseScore); // Pass BASE score
             return true;
         }
     } return false;
@@ -626,9 +687,15 @@ function checkAIScorePickupCollision() {
         if (snakeTargetPosition2.distanceToSquared(pickup.position) < PICKUP_COLLISION_THRESHOLD_SQ * 1.1) {
             createExplosionEffect(pickup.position.clone(), pickup.material.color.clone());
             scene.remove(pickup); scorePickups.splice(i, 1); logTotalPickupCount("Collected AI SpeedUp");
+            
+            const newLevelAI = speedLevelAI + 1;
+            setSpeedLevelAI(newLevelAI);
             if (!isSpeedBoostActiveAI && snakeHead2) snakeHead2.material.color.setHex(AI_HEAD_COLOR_BOOST);
-            setSpeedBoostActiveAI(true); setSpeedBoostEndTimeAI(performance.now() + boostDuration);
-            handleAICounterUpdate(); // Use new helper
+            setSpeedBoostActiveAI(true); 
+            setSpeedBoostEndTimeAI(performance.now() + boostDuration);
+            // AI doesn't need floating text
+            
+            handleAICounterUpdate(); 
             spawnPickup("score"); 
             return true;
         }

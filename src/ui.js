@@ -1,7 +1,9 @@
 import { 
     topScore, topScoreAtGameStart, gameActive, isGameOver, winner, scoreP1, unlockedScoresThisGame, 
     gameOverTextElement, versionTextElement, openingDialogElement, scoreTextElement, topScoreTextElement,
-    setOpeningDialogElement, setGameOverTextElement, setVersionTextElement, setScoreTextElement, setTopScoreTextElement 
+    pauseIndicatorElement,
+    setOpeningDialogElement, setGameOverTextElement, setVersionTextElement, setScoreTextElement, setTopScoreTextElement,
+    setPauseIndicatorElement
 } from './state.js';
 import { GAME_VERSION } from './constants.js';
 
@@ -199,6 +201,30 @@ export function createTopScoreText() {
         document.body.appendChild(element);
         // Need state.setTopScoreTextElement(element);
         setTopScoreTextElement(element);
+    }
+}
+
+// Create Pause Indicator (Called from init)
+export function createPauseIndicator() {
+    let element = pauseIndicatorElement;
+    if (!element) {
+        element = document.createElement('div');
+        element.style.position = 'absolute';
+        element.style.top = '50%';
+        element.style.left = '50%';
+        element.style.transform = 'translate(-50%, -50%)';
+        element.style.color = 'rgba(255, 255, 255, 0.8)';
+        element.style.backgroundColor = 'rgba(0, 0, 0, 0.6)';
+        element.style.padding = '20px 40px';
+        element.style.borderRadius = '8px';
+        element.style.fontSize = '48px';
+        element.style.fontFamily = 'Arial, sans-serif';
+        element.style.textShadow = '2px 2px 4px #000000';
+        element.style.textAlign = 'center';
+        element.style.display = 'none'; // Initially hidden
+        element.textContent = 'Paused';
+        document.body.appendChild(element);
+        setPauseIndicatorElement(element); // Store reference in state
     }
 }
 

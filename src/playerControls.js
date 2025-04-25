@@ -1,4 +1,4 @@
-import { isGameOver, gameActive, snakeDirection1, setLookingBack, setLookBackTouchId, lookBackTouchId, setGameActive, openingDialogElement, lastUpdateTimeP1, lastUpdateTimeAI } from './state.js';
+import { isGameOver, gameActive, snakeDirection1, setLookingBack, setLookBackTouchId, lookBackTouchId, setGameActive, openingDialogElement, lastUpdateTimeP1, lastUpdateTimeAI, isPaused, setIsPaused } from './state.js';
 import { yAxis } from './constants.js';
 import { resetGame } from './init.js';         // <-- Import resetGame from init.js
 import { shootProjectile } from './projectile.js'; // <-- Import shootProjectile from projectile.js
@@ -27,9 +27,22 @@ export function handleFirstClick() {
 export function onKeyDown(event) {
     if (isGameOver) {
         resetGame();
-        return; 
+        return;
     }
-    
+
+    // Handle Pause Toggle (Escape key)
+    if (event.key === 'Escape' && gameActive && !isGameOver) {
+        setIsPaused(!isPaused); // Toggle pause state
+        console.log("Pause Toggled: ", isPaused);
+        event.preventDefault(); // Prevent any default browser behavior for Escape
+        return;
+    }
+
+    // If paused, don't process other game inputs
+    if (isPaused) {
+        return;
+    }
+
     // Add check: If game is not active, start it on first key press
     if (!gameActive) {
         // Check for potentially non-gameplay keys if needed, 

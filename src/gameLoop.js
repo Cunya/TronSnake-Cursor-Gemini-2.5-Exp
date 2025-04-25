@@ -1,9 +1,11 @@
 import * as THREE from 'three';
 import {
     scene, camera, renderer,
-    gameActive, isGameOver, winner, scoreP1,
-    isSpeedBoostActiveP1, speedBoostEndTimeP1, isZoomedOutP1, zoomOutEndTimeP1, zoomLevelP1, isSparseTrailActiveP1, sparseTrailEndTimeP1, trailCounterP1, sparseLevelP1, lastUpdateTimeP1,
-    isSpeedBoostActiveAI, speedBoostEndTimeAI, isSparseTrailActiveAI, sparseTrailEndTimeAI, trailCounterAI, sparseLevelAI, lastUpdateTimeAI,
+    gameActive, isGameOver, winner, scoreP1, isPaused,
+    isSpeedBoostActiveP1, speedBoostEndTimeP1, speedLevelP1,
+    isZoomedOutP1, zoomOutEndTimeP1, zoomLevelP1, isSparseTrailActiveP1, sparseTrailEndTimeP1, trailCounterP1, sparseLevelP1, lastUpdateTimeP1,
+    isSpeedBoostActiveAI, speedBoostEndTimeAI, speedLevelAI,
+    isSparseTrailActiveAI, sparseTrailEndTimeAI, trailCounterAI, sparseLevelAI, lastUpdateTimeAI,
     snakeHead1, snakeHead2, snakeTargetPosition1, snakeTargetPosition2, prevTargetPos1, prevTargetPos2, snakeDirection1, snakeDirection2,
     lastTrailSegment1, lastTrailSegment2, explosionParticles, floatingTexts, projectiles, allTrailParticles,
     headMaterial1, headMaterial2, ammoIndicatorP1, ammoIndicatorAI,
@@ -12,16 +14,18 @@ import {
     isLookingBack,
     trailSegments1, trailSegments2, // Need direct access for collision checks
     lastFrameTime, // Get lastFrameTime from state
-    gameOverTextElement, // <-- IMPORT gameOverTextElement
+    gameOverTextElement, pauseIndicatorElement,
     // State Setters
     setSpeedBoostActiveP1, setSpeedBoostActiveAI, setIsGameOver, setWinner, setTopScore, setLastFrameTime, setLastUpdateTimeP1, setLastUpdateTimeAI,
-    setScoreP1, // Assuming setter exists
+    setScoreP1, setSpeedLevelP1, setSpeedLevelAI,
     setIsZoomedOutP1, setZoomLevelP1, setIsSparseTrailActiveP1, setSparseLevelP1,
     setTrailCounterP1, setIsSparseTrailActiveAI, setSparseLevelAI, setTrailCounterAI,
     setLastTrailSegment1, setLastTrailSegment2
 } from './state.js';
 import {
-    normalUpdateInterval, boostedUpdateInterval, scoreIncrementPerTick, LERP_FACTOR,
+    normalUpdateInterval,
+    scoreIncrementPerTick, LERP_FACTOR,
+    SPEED_BOOST_DIMINISHING_FACTOR,
     cameraHeight, cameraDistanceBehind, cameraDistanceBehind as baseCameraDistance, cameraHeight as baseCameraHeight, // Alias for zoom calc
     cameraLag, gameOverCameraLag, segmentSize, epsilon,
     PARTICLE_GRAVITY, GROUND_Y, TEXT_MOVE_SPEED, PROJECTILE_SIZE,
@@ -71,93 +75,108 @@ export function animate(currentTime) {
     let playerMoved = false, aiMoved = false;
     
     // --- Game Logic Update ---
-    // 2. Check game over condition (Skip updates if game over)
     if (gameActive && !isGameOver) {
-        // 3. Update player/AI movement & Handle pickup timers
-        // Player 1 Update
-        if (isSpeedBoostActiveP1 && currentTime > speedBoostEndTimeP1) {
-            if(setSpeedBoostActiveP1) setSpeedBoostActiveP1(false);
-            if (snakeHead1) headMaterial1.color.setHex(P1_HEAD_COLOR_NORMAL);
-        }
-        if (isZoomedOutP1 && currentTime > zoomOutEndTimeP1) { if(setIsZoomedOutP1) setIsZoomedOutP1(false); if(setZoomLevelP1) setZoomLevelP1(0); }
-        if (isSparseTrailActiveP1 && currentTime > sparseTrailEndTimeP1) { if(setIsSparseTrailActiveP1) setIsSparseTrailActiveP1(false); if(setSparseLevelP1) setSparseLevelP1(1); }
-        const currentUpdateIntervalP1 = isSpeedBoostActiveP1 ? boostedUpdateInterval : normalUpdateInterval;
-        if ((currentTime - lastUpdateTimeP1) > currentUpdateIntervalP1) {
-            if(setLastUpdateTimeP1) setLastUpdateTimeP1(currentTime - ((currentTime - lastUpdateTimeP1) % currentUpdateIntervalP1));
-            if(setScoreP1) { 
-                const newScore = scoreP1 + scoreIncrementPerTick; 
-                setScoreP1(newScore); 
-            } 
-            prevTargetPos1.copy(snakeTargetPosition1);
-            let nextPos1 = snakeTargetPosition1.clone().addScaledVector(snakeDirection1, segmentSize);
-            snakeTargetPosition1.set(snapToGridCenter(nextPos1.x, 'x'), 0, snapToGridCenter(nextPos1.z, 'z'));
-            playerMoved = true;
-            checkPlayerPickupCollisions(); // Check pickup collision AFTER position update
-        }
+        // Check if paused
+        if (!isPaused) {
+            // Calculate delta time only when not paused
+            const deltaTimeSeconds = (currentTime - lastFrameTime) / 1000.0;
+            setLastFrameTime(currentTime); // Update last frame time
 
-        // AI Update
-        if (isSpeedBoostActiveAI && currentTime > speedBoostEndTimeAI) {
-             if(setSpeedBoostActiveAI) setSpeedBoostActiveAI(false);
-             if (snakeHead2) headMaterial2.color.setHex(AI_HEAD_COLOR_NORMAL);
-        }
-        if (isSparseTrailActiveAI && currentTime > sparseTrailEndTimeAI) { if(setIsSparseTrailActiveAI) setIsSparseTrailActiveAI(false); if(setSparseLevelAI) setSparseLevelAI(1); }
-        const currentUpdateIntervalAI = isSpeedBoostActiveAI ? boostedUpdateInterval : normalUpdateInterval;
-        if ((currentTime - lastUpdateTimeAI) > currentUpdateIntervalAI) {
-            if(setLastUpdateTimeAI) setLastUpdateTimeAI(currentTime - ((currentTime - lastUpdateTimeAI) % currentUpdateIntervalAI));
-            updateAIPlayer(); // AI decides its next move
-            prevTargetPos2.copy(snakeTargetPosition2);
-            let nextPos2 = snakeTargetPosition2.clone().addScaledVector(snakeDirection2, segmentSize);
-            snakeTargetPosition2.set(snapToGridCenter(nextPos2.x, 'x'), 0, snapToGridCenter(nextPos2.z, 'z'));
-            aiMoved = true;
-            checkAIPickupCollisions(); // Check pickup collision AFTER position update
-        }
-
-        // 4. Check collisions (walls, self, other player) & Handle Trails
-        if (playerMoved || aiMoved) {
-            const collisionResult = checkCollisions(snakeTargetPosition1, snakeTargetPosition2, trailSegments1, trailSegments2);
-            if(setWinner) setWinner(collisionResult);
-
-            // Player Trail
-            if (playerMoved && (collisionResult === 0 || collisionResult === 2)) { // P1 didn't lose
-                const intervalP1 = sparseLevelP1 + 1;
-                // Make previous hidden segment visible if needed
-                if (isSparseTrailActiveP1 && trailCounterP1 % intervalP1 !== 0 && lastTrailSegment1) lastTrailSegment1.visible = true; 
-                // Create new segment (always if not sparse, or on interval if sparse)
-                if (!isSparseTrailActiveP1 || trailCounterP1 % intervalP1 === 0) {
-                     createTrailSegment(prevTargetPos1, trailSegments1, 1);
-                 } else if (lastTrailSegment1) {
-                     lastTrailSegment1.visible = false; // Hide the latest segment if sparse and not on interval
-                 }
-                if(setTrailCounterP1) setTrailCounterP1(trailCounterP1 + 1);
-            }
-            // AI Trail
-            if (aiMoved && (collisionResult === 0 || collisionResult === 1)) { // AI didn't lose
-                 const intervalAI = sparseLevelAI + 1;
-                 if (isSparseTrailActiveAI && trailCounterAI % intervalAI !== 0 && lastTrailSegment2) lastTrailSegment2.visible = true;
-                 if (!isSparseTrailActiveAI || trailCounterAI % intervalAI === 0) {
-                     createTrailSegment(prevTargetPos2, trailSegments2, 2);
-                 } else if (lastTrailSegment2) {
-                     lastTrailSegment2.visible = false;
-                 }
-                 if(setTrailCounterAI) setTrailCounterAI(trailCounterAI + 1);
-            }
-
-            // Game Over Handling
-            if (collisionResult !== 0) {
-                if(setIsGameOver) setIsGameOver(true);
-                revertHeadColors();
-                if(setSpeedBoostActiveP1) setSpeedBoostActiveP1(false);
-                if(setSpeedBoostActiveAI) setSpeedBoostActiveAI(false);
-                if (scoreP1 > topScore) {
-                    if(setTopScore) setTopScore(scoreP1);
-                    localStorage.setItem('tronSnakeTopScore', scoreP1.toString());
+            // 2. Check game over condition (Skip updates if game over)
+            if (gameActive && !isGameOver) {
+                // 3. Update player/AI movement & Handle pickup timers
+                // Player 1 Update
+                if (isSpeedBoostActiveP1 && currentTime > speedBoostEndTimeP1) {
+                    setSpeedLevelP1(0); // Reset level first
+                    setSpeedBoostActiveP1(false);
+                    if (snakeHead1) headMaterial1.color.setHex(P1_HEAD_COLOR_NORMAL);
                 }
-                console.log(`[Game Over Check] Value of topScore after check: ${topScore}`);
-                showGameOverMessage(collisionResult);
-                if (collisionResult === 1 || collisionResult === 3) setHeadColorToRed(1);
-                if (collisionResult === 2 || collisionResult === 3) setHeadColorToRed(2);
-            }
-        }
+                if (isZoomedOutP1 && currentTime > zoomOutEndTimeP1) { if(setIsZoomedOutP1) setIsZoomedOutP1(false); if(setZoomLevelP1) setZoomLevelP1(0); }
+                if (isSparseTrailActiveP1 && currentTime > sparseTrailEndTimeP1) { if(setIsSparseTrailActiveP1) setIsSparseTrailActiveP1(false); if(setSparseLevelP1) setSparseLevelP1(1); }
+                const currentUpdateIntervalP1 = isSpeedBoostActiveP1 
+                    ? normalUpdateInterval / (1 + speedLevelP1 * SPEED_BOOST_DIMINISHING_FACTOR)
+                    : normalUpdateInterval;
+                if ((currentTime - lastUpdateTimeP1) > currentUpdateIntervalP1) {
+                    if(setLastUpdateTimeP1) setLastUpdateTimeP1(currentTime - ((currentTime - lastUpdateTimeP1) % currentUpdateIntervalP1));
+                    if(setScoreP1) { 
+                        const newScore = scoreP1 + scoreIncrementPerTick; 
+                        setScoreP1(newScore); 
+                    } 
+                    prevTargetPos1.copy(snakeTargetPosition1);
+                    let nextPos1 = snakeTargetPosition1.clone().addScaledVector(snakeDirection1, segmentSize);
+                    snakeTargetPosition1.set(snapToGridCenter(nextPos1.x, 'x'), 0, snapToGridCenter(nextPos1.z, 'z'));
+                    playerMoved = true;
+                    checkPlayerPickupCollisions(); // Check pickup collision AFTER position update
+                }
+
+                // AI Update
+                if (isSpeedBoostActiveAI && currentTime > speedBoostEndTimeAI) {
+                    setSpeedLevelAI(0); // Reset level first
+                    setSpeedBoostActiveAI(false);
+                     if (snakeHead2) headMaterial2.color.setHex(AI_HEAD_COLOR_NORMAL);
+                }
+                if (isSparseTrailActiveAI && currentTime > sparseTrailEndTimeAI) { if(setIsSparseTrailActiveAI) setIsSparseTrailActiveAI(false); if(setSparseLevelAI) setSparseLevelAI(1); }
+                const currentUpdateIntervalAI = isSpeedBoostActiveAI 
+                    ? normalUpdateInterval / (1 + speedLevelAI * SPEED_BOOST_DIMINISHING_FACTOR)
+                    : normalUpdateInterval;
+                if ((currentTime - lastUpdateTimeAI) > currentUpdateIntervalAI) {
+                    if(setLastUpdateTimeAI) setLastUpdateTimeAI(currentTime - ((currentTime - lastUpdateTimeAI) % currentUpdateIntervalAI));
+                    updateAIPlayer(); // AI decides its next move
+                    prevTargetPos2.copy(snakeTargetPosition2);
+                    let nextPos2 = snakeTargetPosition2.clone().addScaledVector(snakeDirection2, segmentSize);
+                    snakeTargetPosition2.set(snapToGridCenter(nextPos2.x, 'x'), 0, snapToGridCenter(nextPos2.z, 'z'));
+                    aiMoved = true;
+                    checkAIPickupCollisions(); // Check pickup collision AFTER position update
+                }
+
+                // 4. Check collisions (walls, self, other player) & Handle Trails
+                if (playerMoved || aiMoved) {
+                    const collisionResult = checkCollisions(snakeTargetPosition1, snakeTargetPosition2, trailSegments1, trailSegments2);
+                    if(setWinner) setWinner(collisionResult);
+
+                    // Player Trail
+                    if (playerMoved && (collisionResult === 0 || collisionResult === 2)) { // P1 didn't lose
+                        const intervalP1 = sparseLevelP1 + 1;
+                        // Make previous hidden segment visible if needed
+                        if (isSparseTrailActiveP1 && trailCounterP1 % intervalP1 !== 0 && lastTrailSegment1) lastTrailSegment1.visible = true; 
+                        // Create new segment (always if not sparse, or on interval if sparse)
+                        if (!isSparseTrailActiveP1 || trailCounterP1 % intervalP1 === 0) {
+                             createTrailSegment(prevTargetPos1, trailSegments1, 1);
+                         } else if (lastTrailSegment1) {
+                             lastTrailSegment1.visible = false; // Hide the latest segment if sparse and not on interval
+                         }
+                        if(setTrailCounterP1) setTrailCounterP1(trailCounterP1 + 1);
+                    }
+                    // AI Trail
+                    if (aiMoved && (collisionResult === 0 || collisionResult === 1)) { // AI didn't lose
+                         const intervalAI = sparseLevelAI + 1;
+                         if (isSparseTrailActiveAI && trailCounterAI % intervalAI !== 0 && lastTrailSegment2) lastTrailSegment2.visible = true;
+                         if (!isSparseTrailActiveAI || trailCounterAI % intervalAI === 0) {
+                             createTrailSegment(prevTargetPos2, trailSegments2, 2);
+                         } else if (lastTrailSegment2) {
+                             lastTrailSegment2.visible = false;
+                         }
+                         if(setTrailCounterAI) setTrailCounterAI(trailCounterAI + 1);
+                    }
+
+                    // Game Over Handling
+                    if (collisionResult !== 0) {
+                        if(setIsGameOver) setIsGameOver(true);
+                        revertHeadColors();
+                        if(setSpeedBoostActiveP1) setSpeedBoostActiveP1(false);
+                        if(setSpeedBoostActiveAI) setSpeedBoostActiveAI(false);
+                        if (scoreP1 > topScore) {
+                            if(setTopScore) setTopScore(scoreP1);
+                            localStorage.setItem('tronSnakeTopScore', scoreP1.toString());
+                        }
+                        console.log(`[Game Over Check] Value of topScore after check: ${topScore}`);
+                        showGameOverMessage(collisionResult);
+                        if (collisionResult === 1 || collisionResult === 3) setHeadColorToRed(1);
+                        if (collisionResult === 2 || collisionResult === 3) setHeadColorToRed(2);
+                    }
+                }
+            } // End of if(gameActive && !isGameOver)
+        } // End of if (!isPaused)
     } // End of if(gameActive && !isGameOver)
 
     // --- Visual Updates ---
@@ -170,6 +189,11 @@ export function animate(currentTime) {
     // Update Game Over Dialog Visibility
     if (gameOverTextElement) { // Check if the element exists in state
         gameOverTextElement.style.display = isGameOver ? 'block' : 'none';
+    }
+
+    // Update Pause Indicator Visibility
+    if (pauseIndicatorElement) {
+        pauseIndicatorElement.style.display = isPaused ? 'block' : 'none';
     }
 
     // 6. Update projectile positions & check hits

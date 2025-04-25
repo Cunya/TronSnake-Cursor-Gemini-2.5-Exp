@@ -3,7 +3,7 @@ import * as THREE from 'three';
 // Game constants (colors, sizes, speeds, etc.) will be defined and exported from here 
 
 // Version
-export const GAME_VERSION = "v1.1.4";
+export const GAME_VERSION = "v1.1.5";
 
 // Color Constants
 export const P1_HEAD_COLOR_NORMAL = 0x00ffff; // Cyan
@@ -21,8 +21,8 @@ export const AMMO_COLOR = 0xffa500; // Orange
 // Game Settings
 export const segmentSize = 1;
 export const normalUpdateInterval = 250; // Normal speed
-export const boostedUpdateInterval = 125; // Faster speed (half interval)
 export const boostDuration = 3000; // milliseconds (3 seconds)
+export const SPEED_BOOST_DIMINISHING_FACTOR = 0.75; // Higher = less diminishing return
 export const zoomOutDuration = 10000; // Doubled to 10 seconds zoom
 export const sparseTrailDuration = 8000; // 8 seconds sparse trail
 export const LERP_FACTOR = 0.2; // Smoothing factor for visual movement
@@ -42,6 +42,7 @@ export const gameOverCameraLag = 0.06;
 
 // Scoring
 export const scoreIncrementPerTick = 1; // Score for surviving a tick
+export const SPEED_BOOST_SCORE_MULTIPLIER = 0.5; // Each speed level adds 50% bonus score
 
 // Pickup Geometries & Materials (Consider moving instantiation later if complex)
 export const scorePickupGeometry = new THREE.BoxGeometry(segmentSize * 0.6, segmentSize * 0.6, segmentSize * 0.6); 
