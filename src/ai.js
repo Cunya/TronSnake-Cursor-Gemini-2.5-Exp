@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import {
     snakeTargetPosition1, snakeTargetPosition2, snakeDirection2,
+    snakeHead1, snakeHead2,
     boundaryXMin, boundaryXMax, boundaryZMin, boundaryZMax,
     trailSegments1, trailSegments2,
     scorePickups, expansionPickups, clearPickups, zoomPickups, sparseTrailPickups, multiSpawnPickups, addAiPickups, ammoPickups,
