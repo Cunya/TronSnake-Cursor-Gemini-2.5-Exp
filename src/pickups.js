@@ -786,8 +786,8 @@ function checkAIScorePickupCollision(aiObject) {
             
             const newLevelAI = aiObject.speedLevel + 1;
             aiObject.speedLevel = newLevelAI;
-            // Set head color to the AI's specific boost color
-            if (aiObject.head && aiObject.colors) aiObject.material.color.setHex(aiObject.colors.boost); 
+            // Set head color to the AI's specific boost color 
+            // if (aiObject.head && aiObject.colors) aiObject.material.color.setHex(aiObject.colors.boost); // <-- Commented out
             aiObject.isSpeedBoostActive = true; 
             aiObject.speedBoostEndTime = performance.now() + boostDuration;
             // AI doesn't need floating text

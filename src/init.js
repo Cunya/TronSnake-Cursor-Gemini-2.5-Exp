@@ -179,9 +179,11 @@ export function resetGame() {
         if (ai.head && scene) scene.remove(ai.head);
         if (ai.ammoIndicator && scene) scene.remove(ai.ammoIndicator);
         // Clear AI trails individually if needed, or rely on clearAllTrails
-        ai.trailSegments.forEach(seg => scene.remove(seg)); // Safer to clear here
+        ai.trailSegments.forEach(seg => scene.remove(seg)); // Remove visual segments
+        ai.trailSegments.length = 0; // <-- Explicitly clear the internal array
+        ai.lastTrailSegment = null; // <-- Ensure last segment ref is cleared too
     });
-    aiPlayers.length = 0; // Clear the main array
+    aiPlayers.length = 0; // Clear the main aiPlayers array
     
     // Reset Max Pickup Counts
     if(setMaxScorePickups) setMaxScorePickups(1);
@@ -235,7 +237,9 @@ export function resetGame() {
     }
 
     // Create AI at the determined safe(r) position
-    const firstAI = createNewAIPlayer(scene, aiSpawnPos.x, aiSpawnPos.z, -1, 0); // Start moving left
+    const aiStartDir = new THREE.Vector3(-1, 0, 0); // Explicitly define start direction
+    const firstAI = createNewAIPlayer(scene, aiSpawnPos.x, aiSpawnPos.z, aiStartDir.x, aiStartDir.z); 
+    console.log(`[resetGame] Created AI at (${aiSpawnPos.x.toFixed(1)}, ${aiSpawnPos.z.toFixed(1)}) with initial direction (${aiStartDir.x}, ${aiStartDir.z})`); // Log creation details
     aiPlayers.push(firstAI);
     // After adding the new AI(s), reset the collision status based on the current number of AIs
     if(setPreviousFrameAICollisionStatus) setPreviousFrameAICollisionStatus(aiPlayers.map(() => false));

@@ -204,8 +204,11 @@ function checkCollisions(prevAILostStatus) {
         if (!lostToTrail) {
              const aiCheckLength = Math.max(0, currentAI.trailSegments.length - 1);
              for (let k = 0; k < aiCheckLength; k++) {
-                 if (currentAIPos.distanceTo(currentAI.trailSegments[k].position) < collisionThreshold) {
+                 const seg = currentAI.trailSegments[k];
+                 const dist = currentAIPos.distanceTo(seg.position);
+                 if (dist < collisionThreshold) {
                      console.log(`[Collision] AI ${currentAI.id} lost: Hit own trail segment at index ${k}.`);
+                     console.log(`  -> AI Pos: (${currentAIPos.x.toFixed(1)}, ${currentAIPos.z.toFixed(1)}), Seg Pos: (${seg.position.x.toFixed(1)}, ${seg.position.z.toFixed(1)}), Dist: ${dist.toFixed(3)}`);
                      lostToTrail = true; break;
                 }
             }
@@ -222,30 +225,24 @@ function checkCollisions(prevAILostStatus) {
 
     // 5. Determine Winner Code (Uses updated currentAILostStatus)
     let winnerCode = 0; // Default: Ongoing
+    // Add detailed logging before the filter
+    // console.log(`[Debug CheckCollisions] Before filter: aiPlayers.length=${aiPlayers.length}, currentAILostStatus=[${currentAILostStatus.join(', ')}]`);
     const currentActiveAICount = aiPlayers.filter((ai, index) => !currentAILostStatus[index]).length;
+    // console.log(`[Debug CheckCollisions] After filter: currentActiveAICount=${currentActiveAICount}`); // Log the result
     if (p1Lost) {
         winnerCode = (currentActiveAICount > 0) ? 1 : 3; 
-        console.log(`[Collision] Game Over (Player Lost)...`);
+        // console.log(`[Collision] Game Over (Player Lost)...`); // Keep game over logs?
     } else if (currentActiveAICount === 0 && gameActive) {
         winnerCode = 2; 
-        console.log(`[Collision] Game Over (All AIs Lost / Player Survived)...`);
+        // console.log(`[Collision] Game Over (All AIs Lost / Player Survived)...`); // Keep game over logs?
     } 
     
     // Return the calculated winner code, player status, and the CUMULATIVE AI status for this frame
     return { winnerCode, p1Lost, aiLostStatus: currentAILostStatus };
 }
 
-// Need a variable outside animate to store the status across frames
-let lastKnownAILostStatus = []; // Initialize empty or based on initial aiPlayers
-
 export function animate(currentTime) {
-    // Request the next frame
     requestAnimationFrame(animate);
-
-    // Initialize lastKnownAILostStatus on first run or game reset if needed
-    if (lastKnownAILostStatus.length !== aiPlayers.length) {
-         lastKnownAILostStatus = aiPlayers.map(() => false);
-    }
 
     // 1. Calculate delta time
     const resolvedLastFrameTime = lastFrameTime || currentTime; // Handle first frame
@@ -254,12 +251,9 @@ export function animate(currentTime) {
     if (setLastFrameTime) setLastFrameTime(currentTime);
     
     let playerMoved = false, aiMoved = false;
-    // This variable will store the results from THIS frame's collision check
-    let aiLostStatusResultThisFrame = [...lastKnownAILostStatus]; // Start with last known status
     
     // --- Game Logic Update ---
     if (gameActive && !isGameOver) {
-        // Check if paused
         if (!isPaused) {
             // Calculate delta time only when not paused
             const deltaTimeSeconds = (currentTime - lastFrameTime) / 1000.0;
@@ -280,6 +274,7 @@ export function animate(currentTime) {
                     ? normalUpdateInterval / (1 + speedLevelP1 * SPEED_BOOST_DIMINISHING_FACTOR)
                     : normalUpdateInterval;
                 if ((currentTime - lastUpdateTimeP1) > currentUpdateIntervalP1) {
+                    // console.log(`[Debug] Player interval passed. CT=${currentTime.toFixed(0)}, LUP=${lastUpdateTimeP1.toFixed(0)}, Interval=${currentUpdateIntervalP1.toFixed(0)}`);
                     if(setLastUpdateTimeP1) setLastUpdateTimeP1(currentTime - ((currentTime - lastUpdateTimeP1) % currentUpdateIntervalP1));
                     if(setScoreP1) { 
                         const newScore = scoreP1 + scoreIncrementPerTick; 
@@ -307,23 +302,21 @@ export function animate(currentTime) {
                 });
 
                 // AI Movement Update (Loop through AIs)
-                let aiMovedStatus = aiPlayers.map(() => false); // Track movement status per AI
-                aiPlayers.forEach((ai, index) => { // Add index
-                    // ---> ADD Check: Only update movement if AI is not already marked as lost THIS FRAME <-----
-                    if (aiLostStatusResultThisFrame[index]) return; // Skip update if lost
+                let aiMovedStatus = aiPlayers.map(() => false);
+                aiPlayers.forEach((ai, index) => {
+                    if (previousFrameAICollisionStatus[index]) return; // Skip move/pickup check if already lost according to state
                     
                     const intervalAI = ai.isSpeedBoostActive 
                         ? normalUpdateInterval / (1 + ai.speedLevel * SPEED_BOOST_DIMINISHING_FACTOR)
                         : normalUpdateInterval;
                     if ((currentTime - ai.lastUpdateTime) > intervalAI) {
+                        // console.log(`[Debug] AI ${ai.id} interval passed. CT=${currentTime.toFixed(0)}, LUA=${ai.lastUpdateTime.toFixed(0)}, Interval=${intervalAI.toFixed(0)}`);
                         ai.lastUpdateTime = currentTime - ((currentTime - ai.lastUpdateTime) % intervalAI);
                         ai.prevTargetPos.copy(ai.targetPosition);
                         let nextPos = ai.targetPosition.clone().addScaledVector(ai.direction, segmentSize);
                         ai.targetPosition.set(snapToGridCenter(nextPos.x, 'x'), 0, snapToGridCenter(nextPos.z, 'z'));
-                        aiMoved = true; // Flag that *an* AI moved
-                        aiMovedStatus[index] = true; // Set specific AI moved status
-
-                        // Check pickup collision immediately after move for this specific AI
+                        aiMoved = true; 
+                        aiMovedStatus[index] = true;
                         checkAIPickupCollisions(ai);
                     }
                 });
@@ -334,10 +327,10 @@ export function animate(currentTime) {
 
                 // Check collisions & Handle Trails
                 if (playerMoved || aiMoved) {
-                    // Pass the status from the END of the previous frame
-                    const collisionInfo = checkCollisions(lastKnownAILostStatus);
-                    // Store the result for the NEXT frame and for visual updates THIS frame
-                    aiLostStatusResultThisFrame = collisionInfo.aiLostStatus;
+                    // console.log(`[Debug] Entering collision check. playerMoved=${playerMoved}, aiMoved=${aiMoved}`);
+                    const statusFromPrevFrame = [...previousFrameAICollisionStatus]; // Copy state to pass
+                    const collisionInfo = checkCollisions(statusFromPrevFrame);
+                    const currentFrameStatus = collisionInfo.aiLostStatus;
                     const winnerCode = collisionInfo.winnerCode;
                     if(setWinner) setWinner(winnerCode);
 
@@ -356,9 +349,8 @@ export function animate(currentTime) {
                     }
                     // AI Trail Creation (Loop through AIs)
                     aiPlayers.forEach((ai, index) => {
-                        const aiMovedThisTick = aiMovedStatus[index]; // Use the tracked status
-
-                        if (aiMovedThisTick && !aiLostStatusResultThisFrame[index]) { // Check result status
+                        const aiMovedThisTick = aiMovedStatus[index]; 
+                        if (aiMovedThisTick && !currentFrameStatus[index]) { // Check current frame status
                              // Handle sparse trail for AI
                              const intervalAI = ai.sparseLevel + 1;
                              // Make previous hidden segment visible if needed
@@ -389,26 +381,42 @@ export function animate(currentTime) {
                         if (collisionInfo.p1Lost) {
                             setHeadColorToRed(1); // Player is owner 1
                         }
-                        aiLostStatusResultThisFrame.forEach((lost, index) => {
+                        currentFrameStatus.forEach((lost, index) => { // Use current frame status
                             if (lost) {
-                                setHeadColorToRed(aiPlayers[index]); // Pass the AI object
+                                setHeadColorToRed(aiPlayers[index]);
                             }
                         });
                     }
+                    // ---> Update central state at the end of collision handling <--- 
+                    if (setPreviousFrameAICollisionStatus) setPreviousFrameAICollisionStatus(currentFrameStatus);
+
+                    // --- MOVE AI Head Removal Logic INSIDE this block --- 
+                    aiPlayers.forEach((ai, index) => {
+                        if (currentFrameStatus[index] && !statusFromPrevFrame[index]) { 
+                            if (ai.head && scene) {
+                                // console.log(`[animate] Removing head for newly lost AI: ${ai.id}`);
+                                scene.remove(ai.head);
+                                ai.head = null; 
+                            }
+                            if (ai.ammoIndicator && scene) {
+                                // console.log(`[animate] Removing ammo indicator for newly lost AI: ${ai.id}`);
+                                scene.remove(ai.ammoIndicator);
+                                ai.ammoIndicator = null;
+                            }
+                        }
+                    });
+                    // --- END Moved AI Head Removal Logic ---
                 }
             } // End of if(gameActive && !isGameOver)
         } // End of if (!isPaused)
     } // End of if(gameActive && !isGameOver)
 
-    // --- Update last known status for the next frame --- 
-    lastKnownAILostStatus = [...aiLostStatusResultThisFrame];
-
-    // --- Visual Updates ---
+    // --- Visual Updates --- (Use state)
     // Lerp snake head visual positions towards target logical positions
     if (snakeHead1) snakeHead1.position.lerp(snakeTargetPosition1, LERP_FACTOR);
     // Lerp AIs
     aiPlayers.forEach((ai, index) => { 
-        if (ai.head && !aiLostStatusResultThisFrame[index]) { 
+        if (ai.head && !previousFrameAICollisionStatus[index]) { 
              ai.head.position.lerp(ai.targetPosition, LERP_FACTOR);
         }
     });

@@ -3,7 +3,7 @@ import * as THREE from 'three';
 // Game constants (colors, sizes, speeds, etc.) will be defined and exported from here 
 
 // Version
-export const GAME_VERSION = "v1.1.12";
+export const GAME_VERSION = "v1.1.14";
 
 // Color Constants
 export const P1_HEAD_COLOR_NORMAL = 0x00ffff; // Cyan
@@ -125,11 +125,15 @@ export const UNLOCK_THRESHOLDS = [
 
 // --- AI Colors ---
 export const AI_COLORS = [
-    { name: 'Orange', normal: 0xff8800, trail: 0xcc6600, boost: 0xffaa40, boostTrail: 0xdd8840 },
+    // AI 0: Was Orange (0xff8800), now Dark Orange
+    { name: 'DarkOrange', normal: 0xcc6600, trail: 0x994c00, boost: 0xff8800, boostTrail: 0xdd6600 },
+    // AI 1: Red (Remains the same)
     { name: 'Red',    normal: 0xff0000, trail: 0xcc0000, boost: 0xff6666, boostTrail: 0xdd4444 },
-    { name: 'Purple', normal: 0x9900ff, trail: 0x7700cc, boost: 0xcc66ff, boostTrail: 0xaa44dd },
-    { name: 'Green',  normal: 0x00cc00, trail: 0x009900, boost: 0x66ff66, boostTrail: 0x44dd44 },
-    // Add more colors if desired
+    // AI 2: Was Purple (0x9900ff), now BlueViolet
+    { name: 'BlueViolet', normal: 0x8A2BE2, trail: 0x6A1FBC, boost: 0xAA66EE, boostTrail: 0x9040D0 },
+    // AI 3: Was Green (0x00cc00), now ForestGreen
+    { name: 'ForestGreen',  normal: 0x228B22, trail: 0x1A681A, boost: 0x66CC66, boostTrail: 0x44AA44 },
+    // Add more distinct colors if more AIs are needed
 ];
 
 // --- REMOVED OLD SINGLE COLORS ---
@@ -137,5 +141,8 @@ export const AI_COLORS = [
 // export const AI_TRAIL_COLOR_NORMAL = 0xcc6600; // Dark Orange
 // export const AI_HEAD_COLOR_BOOST = 0xffaa40; // Lighter Orange
 // export const AI_TRAIL_COLOR_BOOST = 0xdd8840; // Lighter Dark Orange
+
+// Game Settings & Tunables
+export const ARENA_SIZE = 30;
 
 // ... rest of constants.js ... 
