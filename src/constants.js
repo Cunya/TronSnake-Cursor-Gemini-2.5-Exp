@@ -3,18 +3,13 @@ import * as THREE from 'three';
 // Game constants (colors, sizes, speeds, etc.) will be defined and exported from here 
 
 // Version
-export const GAME_VERSION = "v1.1.7";
+export const GAME_VERSION = "v1.1.11";
 
 // Color Constants
 export const P1_HEAD_COLOR_NORMAL = 0x00ffff; // Cyan
 export const P1_TRAIL_COLOR_NORMAL = 0x00aaaa; // Dark Cyan
 export const P1_HEAD_COLOR_BOOST = 0x80ffff; // Lighter Cyan
 export const P1_TRAIL_COLOR_BOOST = 0x40cccc; // Lighter Dark Cyan
-
-export const AI_HEAD_COLOR_NORMAL = 0xff8800; // Orange
-export const AI_TRAIL_COLOR_NORMAL = 0xcc6600; // Dark Orange
-export const AI_HEAD_COLOR_BOOST = 0xffaa40; // Lighter Orange
-export const AI_TRAIL_COLOR_BOOST = 0xdd8840; // Lighter Dark Orange
 
 export const AMMO_COLOR = 0xffa500; // Orange
 
@@ -126,4 +121,21 @@ export const UNLOCK_THRESHOLDS = [
     { score: 1000, name: "More Players!", color: 0x888888, type: "add_ai" },
     { score: 1500, name: "Expand!", color: 0x00ff00, type: "expansion" },
     { score: 2000, name: "More!", color: 0x9900ff, type: "multi" }
-]; 
+];
+
+// --- AI Colors ---
+export const AI_COLORS = [
+    { name: 'Orange', normal: 0xff8800, trail: 0xcc6600, boost: 0xffaa40, boostTrail: 0xdd8840 },
+    { name: 'Red',    normal: 0xff0000, trail: 0xcc0000, boost: 0xff6666, boostTrail: 0xdd4444 },
+    { name: 'Purple', normal: 0x9900ff, trail: 0x7700cc, boost: 0xcc66ff, boostTrail: 0xaa44dd },
+    { name: 'Green',  normal: 0x00cc00, trail: 0x009900, boost: 0x66ff66, boostTrail: 0x44dd44 },
+    // Add more colors if desired
+];
+
+// --- REMOVED OLD SINGLE COLORS ---
+// export const AI_HEAD_COLOR_NORMAL = 0xff8800; // Orange
+// export const AI_TRAIL_COLOR_NORMAL = 0xcc6600; // Dark Orange
+// export const AI_HEAD_COLOR_BOOST = 0xffaa40; // Lighter Orange
+// export const AI_TRAIL_COLOR_BOOST = 0xdd8840; // Lighter Dark Orange
+
+// ... rest of constants.js ... 

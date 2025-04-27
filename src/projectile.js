@@ -1,70 +1,53 @@
 import * as THREE from 'three';
 import { 
-    scene, isGameOver, gameActive, 
-    ammoCountP1, ammoCountAI, 
-    snakeHead1, snakeHead2, snakeDirection1, snakeDirection2, 
-    projectiles, // The array of projectiles
-    setAmmoCountP1, setAmmoCountAI 
+    scene, projectiles, allTrailParticles, 
+    snakeHead1, snakeTargetPosition1, snakeDirection1, ammoCountP1, 
+    aiPlayers, // Import AI array
+    setAmmoCountP1, 
 } from './state.js';
-import { 
-    PROJECTILE_SPEED, segmentSize, 
-    projectileGeometry, projectileMaterial 
-} from './constants.js';
+import { PROJECTILE_SPEED, projectileGeometry, projectileMaterial } from './constants.js';
 import { updateAmmoIndicatorP1, updateAmmoIndicatorAI } from './visuals.js';
 
-// --- Shoot Projectile Function (Player) ---
+// --- Player Shoot ---
 export function shootProjectile() {
-    if (isGameOver || !gameActive || ammoCountP1 <= 0 || !snakeHead1) {
-        return; 
-    }
+    if (ammoCountP1 <= 0) return; // Check player ammo
 
-    setAmmoCountP1(ammoCountP1 - 1);
-    updateAmmoIndicatorP1(); 
-
-    const startPos = snakeHead1.position.clone().addScaledVector(snakeDirection1, segmentSize * 0.6);
-    startPos.y = 0; 
-    const projectileMesh = new THREE.Mesh(projectileGeometry, projectileMaterial);
-    projectileMesh.position.copy(startPos);
-
+    const projectile = new THREE.Mesh(projectileGeometry, projectileMaterial);
+    const offset = snakeDirection1.clone().multiplyScalar(1.5); // Start slightly ahead
+    projectile.position.copy(snakeTargetPosition1).add(offset);
     const velocity = snakeDirection1.clone().multiplyScalar(PROJECTILE_SPEED);
-
-    projectiles.push({ // Push directly to the imported array
-        mesh: projectileMesh,
-        velocity: velocity,
-        life: 2.0, 
-        owner: 'player' 
-    });
-    scene.add(projectileMesh);
+    projectiles.push({ mesh: projectile, velocity: velocity, life: 3.0, owner: 'player' }); // Set owner
+    scene.add(projectile);
+    setAmmoCountP1(ammoCountP1 - 1); // Decrement player ammo
+    updateAmmoIndicatorP1(); // Needs import? Assumed available
 }
 
-// --- AI Shoot Projectile Function ---
-export function aiShootProjectile() {
-    if (isGameOver || !gameActive || ammoCountAI <= 0 || !snakeHead2) {
-        return; 
+// --- AI Shoot ---
+// Now accepts the specific AI object that is shooting
+export function aiShootProjectile(aiObject) {
+    if (!aiObject || aiObject.ammoCount <= 0) return; // Check specific AI ammo
+
+    const projectile = new THREE.Mesh(projectileGeometry, projectileMaterial);
+    const offset = aiObject.direction.clone().multiplyScalar(1.5); // Use AI direction
+    projectile.position.copy(aiObject.targetPosition).add(offset); // Use AI position
+    const velocity = aiObject.direction.clone().multiplyScalar(PROJECTILE_SPEED);
+    // Use specific AI ID as owner
+    projectiles.push({ mesh: projectile, velocity: velocity, life: 3.0, owner: aiObject.id }); 
+    scene.add(projectile);
+    aiObject.ammoCount -= 1; // Decrement specific AI ammo
+    // Need to import updateAmmoIndicatorAI
+    if (typeof updateAmmoIndicatorAI === 'function') { // Check if imported/available
+        updateAmmoIndicatorAI(aiObject); // Update specific AI indicator
+    } else {
+        console.warn("updateAmmoIndicatorAI not available in projectile.js");
     }
-
-    setAmmoCountAI(ammoCountAI - 1);
-    updateAmmoIndicatorAI(); 
-
-    const startPos = snakeHead2.position.clone().addScaledVector(snakeDirection2, segmentSize * 0.6);
-    startPos.y = 0; 
-    const projectileMesh = new THREE.Mesh(projectileGeometry, projectileMaterial);
-    projectileMesh.position.copy(startPos);
-
-    const velocity = snakeDirection2.clone().multiplyScalar(PROJECTILE_SPEED);
-
-    projectiles.push({ // Push directly to the imported array
-        mesh: projectileMesh,
-        velocity: velocity,
-        life: 2.0, 
-        owner: 'ai' 
-    });
-    scene.add(projectileMesh);
 }
 
-// --- Clear Projectiles Function (Called on reset) ---
+// --- Clear Projectiles ---
 export function clearAllProjectiles() {
-    projectiles.forEach(p => scene.remove(p.mesh)); 
-    projectiles.length = 0; // Clear the array
-    // Also clear trail particles associated with them (assuming handled elsewhere or needs adding here)
+    projectiles.forEach(p => {
+        if (p.mesh) scene.remove(p.mesh);
+        // Also remove associated trail particles? (Handled in gameLoop)
+    });
+    projectiles.length = 0;
 } 

@@ -5,12 +5,12 @@ import * as THREE from 'three';
 import { FontLoader } from 'three/addons/loaders/FontLoader.js';
 import {
     scene, camera, renderer, planeMesh, gridMesh, // Core Three elements
-    snakeHead1, snakeHead2, snakeTargetPosition1, snakeTargetPosition2, prevTargetPos1, prevTargetPos2, snakeDirection1, snakeDirection2,
-    headMaterial1, headMaterial2, // Snake materials
-    trailSegments1, trailSegments2, // Trail arrays
+    snakeHead1, snakeTargetPosition1, prevTargetPos1, snakeDirection1,
+    headMaterial1, // Snake materials
+    trailSegments1, // Trail arrays
     scoreP1, topScore, topScoreAtGameStart, pickupsCollectedCounter, unlockedScoresThisGame, // Score & unlock state
     isSpeedBoostActiveP1, speedBoostEndTimeP1, isZoomedOutP1, zoomOutEndTimeP1, zoomLevelP1, isSparseTrailActiveP1, sparseTrailEndTimeP1, trailCounterP1, sparseLevelP1, ammoCountP1,
-    isSpeedBoostActiveAI, speedBoostEndTimeAI, isSparseTrailActiveAI, sparseTrailEndTimeAI, trailCounterAI, sparseLevelAI, ammoCountAI,
+    aiPlayers,
     boundaryXMin, boundaryXMax, boundaryZMin, boundaryZMax, // Boundaries
     maxScorePickups, maxExpansionPickups, maxClearPickups, maxZoomPickups, maxSparseTrailPickups, maxAmmoPickups, maxMultiSpawnPickups, maxAddAiPickups, // Max pickups
     floatingTexts, explosionParticles, projectiles, // Effect arrays
@@ -18,26 +18,27 @@ import {
     // Import UI Elements needed in resetGame
     topScoreTextElement,
     // State Setters
-    setScene, setCamera, setRenderer, setSnakeHead1, setSnakeHead2, setTopScore, setTopScoreAtGameStart,
-    setLastUpdateTimeP1, setLastUpdateTimeAI, setLastFrameTime,
+    setScene, setCamera, setRenderer, setSnakeHead1, setTopScore, setTopScoreAtGameStart,
+    setLastUpdateTimeP1, setLastFrameTime,
     setIsGameOver, setWinner, setScoreP1, setSpeedBoostActiveP1, setSpeedBoostEndTimeP1, setIsZoomedOutP1, setZoomOutEndTimeP1,
     setZoomLevelP1, setIsSparseTrailActiveP1, setSparseTrailEndTimeP1, setTrailCounterP1, setSparseLevelP1,
-    setSpeedBoostActiveAI, setSpeedBoostEndTimeAI, setIsSparseTrailActiveAI, setSparseTrailEndTimeAI, setTrailCounterAI, setSparseLevelAI,
-    setPickupsCollectedCounter, setBoundaryXMin, setBoundaryXMax, setBoundaryZMin, setBoundaryZMax,
-    setLastTrailSegment1, setLastTrailSegment2, setAmmoCountP1, setAmmoCountAI,
+    setAmmoCountP1,
     setMaxScorePickups, setMaxExpansionPickups, setMaxClearPickups, setMaxZoomPickups, setMaxSparseTrailPickups, setMaxMultiSpawnPickups, setMaxAddAiPickups, setMaxAmmoPickups,
     setGameActive, setTextFont, setOpeningDialogElement, setGameOverTextElement, setVersionTextElement, setScoreTextElement, setTopScoreTextElement,
+    setBoundaryXMin, setBoundaryXMax, setBoundaryZMin, setBoundaryZMax,
+    setLastTrailSegment1,
     // Import setters for new counters
     setNextAmmoSpawnCount, setNextClearSpawnCount, setNextAddAiSpawnCount, setNextExpansionSpawnCount, setNextMultiSpawnCount,
     // Make sure pickup arrays are imported
     scorePickups, expansionPickups, clearPickups, zoomPickups, sparseTrailPickups, multiSpawnPickups, addAiPickups, ammoPickups,
     // Import necessary state for visibility change handler
     gameActive, isGameOver, setIsPaused,
-    setSpeedLevelP1, setSpeedLevelAI
+    setSpeedLevelP1
 } from './state.js';
 import {
-    initialBoundaryHalfSize, segmentSize, cameraHeight, cameraDistanceBehind, P1_HEAD_COLOR_NORMAL, AI_HEAD_COLOR_NORMAL,
-    AMMO_PICKUP_THRESHOLD, CLEAR_WALL_PICKUP_THRESHOLD, ADD_AI_PICKUP_THRESHOLD, EXPAND_PICKUP_THRESHOLD, MULTI_PICKUP_THRESHOLD
+    initialBoundaryHalfSize, segmentSize, cameraHeight, cameraDistanceBehind, P1_HEAD_COLOR_NORMAL,
+    AMMO_PICKUP_THRESHOLD, CLEAR_WALL_PICKUP_THRESHOLD, ADD_AI_PICKUP_THRESHOLD, EXPAND_PICKUP_THRESHOLD, MULTI_PICKUP_THRESHOLD,
+    AI_COLORS
 } from './constants.js';
 import { snapToGridCenter } from './utils.js';
 import { onKeyDown, onKeyUp, onTouchStart, onTouchEnd, handleFirstClick, startGame } from './playerControls.js';
@@ -65,6 +66,46 @@ function handleVisibilityChange() {
     }
 }
 
+// Helper function to create a new AI player object
+export function createNewAIPlayer(scene, startX, startZ, startDirX, startDirZ) {
+    const colorIndex = aiPlayers.length % AI_COLORS.length; // Cycle through colors
+    const assignedColors = AI_COLORS[colorIndex];
+
+    const headSize = segmentSize * 1.05;
+    const headGeometry = new THREE.BoxGeometry(headSize, headSize, headSize);
+    // Use the assigned normal color for the material
+    const headMaterial = new THREE.MeshPhongMaterial({ color: assignedColors.normal }); 
+    const snakeHead = new THREE.Mesh(headGeometry, headMaterial);
+    const targetPosition = new THREE.Vector3(startX, 0, startZ);
+    const prevTargetPos = new THREE.Vector3(startX, 0, startZ);
+    const direction = new THREE.Vector3(startDirX, 0, startDirZ);
+    
+    snakeHead.position.copy(targetPosition);
+    scene.add(snakeHead);
+
+    return {
+        id: `ai-${aiPlayers.length}`, // Simple unique ID
+        head: snakeHead,
+        targetPosition: targetPosition,
+        prevTargetPos: prevTargetPos,
+        direction: direction,
+        material: headMaterial, 
+        colors: assignedColors, // Store the assigned color object
+        trailSegments: [],
+        lastTrailSegment: null,
+        isSpeedBoostActive: false,
+        speedBoostEndTime: 0,
+        speedLevel: 0,
+        isSparseTrailActive: false,
+        sparseTrailEndTime: 0,
+        trailCounter: 0,
+        sparseLevel: 1,
+        lastUpdateTime: performance.now(),
+        ammoCount: 0,
+        ammoIndicator: null // Will need to be created/updated separately
+    };
+}
+
 export function resetGame() {
     console.log(`--- Entering resetGame ---`);
     // Capture top score at the start of reset
@@ -87,14 +128,7 @@ export function resetGame() {
     if(setSparseTrailEndTimeP1) setSparseTrailEndTimeP1(0);
     if(setTrailCounterP1) setTrailCounterP1(0);
     if(setSparseLevelP1) setSparseLevelP1(1);
-    if(setSpeedBoostActiveAI) setSpeedBoostActiveAI(false);
-    if(setSpeedBoostEndTimeAI) setSpeedBoostEndTimeAI(0);
-    if(setSpeedLevelAI) setSpeedLevelAI(0);
-    if(setIsSparseTrailActiveAI) setIsSparseTrailActiveAI(false);
-    if(setSparseTrailEndTimeAI) setSparseTrailEndTimeAI(0);
-    if(setTrailCounterAI) setTrailCounterAI(0);
-    if(setSparseLevelAI) setSparseLevelAI(1);
-    if(setPickupsCollectedCounter) setPickupsCollectedCounter(0);
+    if(setAmmoCountP1) setAmmoCountP1(0);
 
     // Reset UI elements
     // if(scoreTextElement) scoreTextElement.textContent = "Score: 0"; // Keep this removed - handled by updateScoreDisplay
@@ -134,8 +168,16 @@ export function resetGame() {
     });
     // --> END PICKUP CLEARING <--
 
-    // Reset Pickups & Counters
-    // spawnInitialPickups(); // Keep removed - initial spawn happens in init only // <-- Comment is now wrong
+    // --- Reset AI Players --- 
+    // Remove existing AI visuals and clear the array
+    aiPlayers.forEach(ai => {
+        if (ai.head && scene) scene.remove(ai.head);
+        if (ai.ammoIndicator && scene) scene.remove(ai.ammoIndicator);
+        // Clear AI trails individually if needed, or rely on clearAllTrails
+        ai.trailSegments.forEach(seg => scene.remove(seg)); // Safer to clear here
+    });
+    aiPlayers.length = 0; // Clear the main array
+    
     // Reset Max Pickup Counts
     if(setMaxScorePickups) setMaxScorePickups(1);
     if(setMaxExpansionPickups) setMaxExpansionPickups(1);
@@ -155,7 +197,7 @@ export function resetGame() {
     // Spawn a fresh set of initial pickups AFTER clearing and resetting counters
     spawnInitialPickups(); // <-- RE-ADD call here
 
-    // Reset snake positions
+    // Reset player 1 snake position
     const startPos1X = snapToGridCenter(bXMin + segmentSize, 'x');
     const startPos1Z = snapToGridCenter(0, 'z');
     if(snakeHead1) snakeHead1.position.set(startPos1X, 0, startPos1Z);
@@ -164,13 +206,12 @@ export function resetGame() {
     snakeDirection1.set(1, 0, 0);
     // headMaterial1 color already reset by revertHeadColors
 
-    const startPos2X = snapToGridCenter(bXMax - segmentSize, 'x');
-    const startPos2Z = snapToGridCenter(0, 'z');
-    if(snakeHead2) snakeHead2.position.set(startPos2X, 0, startPos2Z);
-    snakeTargetPosition2.set(startPos2X, 0, startPos2Z);
-    prevTargetPos2.copy(snakeTargetPosition2);
-    snakeDirection2.set(-1, 0, 0);
-    // headMaterial2 color already reset by revertHeadColors
+    // --- Initialize First AI --- 
+    const aiStartX = snapToGridCenter(bXMax - segmentSize, 'x');
+    const aiStartZ = snapToGridCenter(0, 'z');
+    const firstAI = createNewAIPlayer(scene, aiStartX, aiStartZ, -1, 0); // Pass scene
+    aiPlayers.push(firstAI);
+    // updateAmmoIndicatorAI(); // Needs rework for multiple AIs
 
     // Reset camera immediately
     if (snakeHead1 && camera) {
@@ -183,18 +224,14 @@ export function resetGame() {
 
     // Reset trackers and timers
     if(setLastTrailSegment1) setLastTrailSegment1(null);
-    if(setLastTrailSegment2) setLastTrailSegment2(null);
     const now = performance.now();
     if(setLastUpdateTimeP1) setLastUpdateTimeP1(now);
-    if(setLastUpdateTimeAI) setLastUpdateTimeAI(now);
-    if(setLastFrameTime) setLastFrameTime(now);
 
-    // Reset Ammo
-    if(setAmmoCountP1) setAmmoCountP1(0);
+    // Reset Player Ammo
     updateAmmoIndicatorP1();
-    if(setAmmoCountAI) setAmmoCountAI(0);
-    updateAmmoIndicatorAI();
 
+    // Reset AI Ammo (handled within AI object creation/reset)
+    
     // Reset unlock tracking for the new game
     unlockedScoresThisGame.clear();
 
@@ -269,15 +306,12 @@ export function init() {
     newScene.add(newSnakeHead1);
     if(setSnakeHead1) setSnakeHead1(newSnakeHead1);
 
-    const newSnakeHead2 = new THREE.Mesh(headGeometry.clone(), headMaterial2);
-    const startPos2X = snapToGridCenter(bXMax - segmentSize, 'x');
-    const startPos2Z = snapToGridCenter(0, 'z');
-    newSnakeHead2.position.set(startPos2X, 0, startPos2Z);
-    snakeTargetPosition2.set(startPos2X, 0, startPos2Z);
-    prevTargetPos2.copy(snakeTargetPosition2);
-    newScene.add(newSnakeHead2);
-    if(setSnakeHead2) setSnakeHead2(newSnakeHead2);
-
+    // --- Initialize First AI --- 
+    const aiStartX = snapToGridCenter(bXMax - segmentSize, 'x');
+    const aiStartZ = snapToGridCenter(0, 'z');
+    const firstAI = createNewAIPlayer(newScene, aiStartX, aiStartZ, -1, 0); // Pass newScene
+    aiPlayers.push(firstAI);
+    
     // Initial camera position
     targetLookAt.copy(snakeTargetPosition1);
     const initialCameraOffset = snakeDirection1.clone().multiplyScalar(-cameraDistanceBehind);
@@ -304,8 +338,6 @@ export function init() {
     // Timing Init
     const now = performance.now();
     if(setLastUpdateTimeP1) setLastUpdateTimeP1(now);
-    if(setLastUpdateTimeAI) setLastUpdateTimeAI(now);
-    if(setLastFrameTime) setLastFrameTime(now);
 
     // Load Font -> Then Load Top Score -> Then Create remaining UI -> Spawn Pickups -> Start Game
     const fontLoader = new FontLoader();
@@ -337,7 +369,7 @@ export function init() {
             createOpeningDialog(); 
             initializePickupTemplates(); 
             updateAmmoIndicatorP1(); 
-            updateAmmoIndicatorAI();
+            // updateAmmoIndicatorAI(); // Needs rework
             
             spawnInitialPickups(); 
 
@@ -354,7 +386,6 @@ export function init() {
              // Optionally, provide a fallback or start loop anyway?
              initializePickupTemplates(); 
              updateAmmoIndicatorP1(); 
-             updateAmmoIndicatorAI();
              createTopScoreText(); 
              createOpeningDialog(); 
              spawnInitialPickups(); // <-- Also call here in error case if templates might partially work?

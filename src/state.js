@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { P1_HEAD_COLOR_NORMAL, AI_HEAD_COLOR_NORMAL } from './constants.js';
+import { P1_HEAD_COLOR_NORMAL } from './constants.js';
 
 // Scene, Camera, Renderer (Initialized in init.js)
 export let scene;
@@ -30,24 +30,8 @@ export let ammoCountP1 = 0;
 export let ammoIndicatorP1 = null; 
 export let scoreP1 = 0;
 
-// Player 2 (AI) State
-export let snakeHead2;
-export let snakeTargetPosition2 = new THREE.Vector3(); // Logical position
-export let prevTargetPos2 = new THREE.Vector3(); // Previous logical position
-export let snakeDirection2 = new THREE.Vector3(-1, 0, 0); // Start moving left
-export const trailSegments2 = [];
-export let lastTrailSegment2 = null; 
-export const headMaterial2 = new THREE.MeshPhongMaterial({ color: AI_HEAD_COLOR_NORMAL });
-export let isSpeedBoostActiveAI = false;
-export let speedBoostEndTimeAI = 0;
-export let speedLevelAI = 0; // Added AI speed boost level
-export let isSparseTrailActiveAI = false; 
-export let sparseTrailEndTimeAI = 0;
-export let trailCounterAI = 0; 
-export let sparseLevelAI = 1; 
-export let lastUpdateTimeAI = 0;
-export let ammoCountAI = 0; 
-export let ammoIndicatorAI = null; 
+// --- AI Player State --- 
+export let aiPlayers = []; // Array to hold all AI player objects
 
 // --- Unlock Tracking --- 
 export let unlockedScoresThisGame = new Set(); 
@@ -139,9 +123,7 @@ export function setRenderer(newRenderer) { renderer = newRenderer; }
 export function setPlaneMesh(newMesh) { planeMesh = newMesh; }
 export function setGridMesh(newMesh) { gridMesh = newMesh; }
 export function setSnakeHead1(head) { snakeHead1 = head; }
-export function setSnakeHead2(head) { snakeHead2 = head; }
 export function setAmmoIndicatorP1(indicator) { ammoIndicatorP1 = indicator; }
-export function setAmmoIndicatorAI(indicator) { ammoIndicatorAI = indicator; }
 export function setLookingBack(value) { isLookingBack = value; }
 export function setLookBackTouchId(value) { lookBackTouchId = value; }
 export function setBoundaryXMin(value) { boundaryXMin = value; }
@@ -174,7 +156,6 @@ export function setPickupsCollectedCounter(count) { pickupsCollectedCounter = co
 export function setSparseTrailPickupTemplate(template) { sparseTrailPickupTemplate = template; }
 export function setAmmoPickupTemplate(template) { ammoPickupTemplate = template; }
 export function setLastTrailSegment1(segment) { lastTrailSegment1 = segment; }
-export function setLastTrailSegment2(segment) { lastTrailSegment2 = segment; }
 export function setSpeedBoostActiveP1(value) { isSpeedBoostActiveP1 = value; }
 export function setSpeedBoostEndTimeP1(time) { speedBoostEndTimeP1 = time; }
 export function setSpeedLevelP1(level) { speedLevelP1 = level; } // Added setter
@@ -187,15 +168,6 @@ export function setTrailCounterP1(count) { trailCounterP1 = count; }
 export function setSparseLevelP1(level) { sparseLevelP1 = level; }
 export function setLastUpdateTimeP1(time) { lastUpdateTimeP1 = time; }
 export function setAmmoCountP1(count) { ammoCountP1 = count; }
-export function setSpeedBoostActiveAI(value) { isSpeedBoostActiveAI = value; }
-export function setSpeedBoostEndTimeAI(time) { speedBoostEndTimeAI = time; }
-export function setSpeedLevelAI(level) { speedLevelAI = level; } // Added setter
-export function setIsSparseTrailActiveAI(value) { isSparseTrailActiveAI = value; }
-export function setSparseTrailEndTimeAI(time) { sparseTrailEndTimeAI = time; }
-export function setTrailCounterAI(count) { trailCounterAI = count; }
-export function setSparseLevelAI(level) { sparseLevelAI = level; }
-export function setLastUpdateTimeAI(time) { lastUpdateTimeAI = time; }
-export function setAmmoCountAI(count) { ammoCountAI = count; }
 
 // Setters for counter pickup tracking
 export function setNextAmmoSpawnCount(count) { nextAmmoSpawnCount = count; }

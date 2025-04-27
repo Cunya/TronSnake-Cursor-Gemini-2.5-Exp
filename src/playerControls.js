@@ -1,4 +1,4 @@
-import { isGameOver, gameActive, snakeDirection1, setLookingBack, setLookBackTouchId, lookBackTouchId, setGameActive, openingDialogElement, lastUpdateTimeP1, lastUpdateTimeAI, isPaused, setIsPaused } from './state.js';
+import { isGameOver, gameActive, snakeDirection1, setLookingBack, setLookBackTouchId, lookBackTouchId, setGameActive, openingDialogElement, lastUpdateTimeP1, setLastUpdateTimeP1, isPaused, setIsPaused } from './state.js';
 import { yAxis } from './constants.js';
 import { resetGame } from './init.js';         // <-- Import resetGame from init.js
 import { shootProjectile } from './projectile.js'; // <-- Import shootProjectile from projectile.js
@@ -25,6 +25,9 @@ export function handleFirstClick() {
 }
 
 export function onKeyDown(event) {
+    // Log the key press
+    // console.log(`[Input] KeyDown: ${event.key}`); // Commented out
+
     if (isGameOver) {
         resetGame();
         return;
@@ -62,7 +65,7 @@ export function onKeyDown(event) {
             break;
         case ' ': // Spacebar
             event.preventDefault(); 
-            shootProjectile();
+            shootProjectile(); // Reverted: Call without owner, no ammo check here
             break;
         case 'ArrowDown':
             event.preventDefault(); 
@@ -106,7 +109,7 @@ export function onTouchStart(event) {
         const touchY = touch.clientY;
 
         if (touchY < shootZoneHeight) {
-            shootProjectile();
+            shootProjectile(); // Reverted: Call without owner, no ammo check here
         } else if (touchY > window.innerHeight - lookBackZoneHeight) {
             if (lookBackTouchId === null) { 
                 setLookingBack(true);

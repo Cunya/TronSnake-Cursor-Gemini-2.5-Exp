@@ -230,17 +230,17 @@ export function createPauseIndicator() {
 }
 
 // Show Game Over Message (Called from animate)
-export function showGameOverMessage(winnerArg) {
-    // winnerArg passed in, use state.topScore, state.scoreP1
+export function showGameOverMessage(winnerCode) {
     if (!gameOverTextElement) return;
 
     let message = "";
-    if (winnerArg === 1) message = 'AI Wins! (Orange)';
-    else if (winnerArg === 2) message = 'Player 1 Wins! (Cyan)';
-    else if (winnerArg === 3) message = 'Draw!';
+    if (winnerCode === 1) message = 'AI Wins!';
+    else if (winnerCode === 2) message = 'Player Wins!';
+    else if (winnerCode === 3) message = 'Draw!';
+    else { message = 'Game Over?'; console.warn("showGameOverMessage called with unknown winnerCode:", winnerCode); }
 
     let scoreMessage = `Final Score: ${scoreP1}`;
-    if (scoreP1 > topScore && (winnerArg === 2 || winnerArg === 3)) {
+    if (scoreP1 > topScore && (winnerCode === 2 || winnerCode === 3)) {
         scoreMessage += ` (NEW TOP SCORE!)`;
     }
 

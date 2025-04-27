@@ -1,60 +1,69 @@
 import * as THREE from 'three';
 import { TextGeometry } from 'three/addons/geometries/TextGeometry.js';
 import {
-    scene, setLastTrailSegment1, setLastTrailSegment2, lastTrailSegment1, lastTrailSegment2,
-    explosionParticles, floatingTexts, textFont, camera, snakeHead1, snakeHead2, ammoIndicatorP1, ammoIndicatorAI,
-    headMaterial1, headMaterial2, setAmmoIndicatorP1, setAmmoIndicatorAI, setPlaneMesh, setGridMesh,
-    planeMesh, gridMesh, setSparseTrailPickupTemplate, setAmmoPickupTemplate, trailSegments1, trailSegments2,
-    ammoCountP1, ammoCountAI, isSpeedBoostActiveP1, isSpeedBoostActiveAI
+    scene, setLastTrailSegment1, lastTrailSegment1,
+    explosionParticles, floatingTexts, textFont, camera, snakeHead1, ammoIndicatorP1,
+    headMaterial1, setAmmoIndicatorP1, setPlaneMesh, setGridMesh,
+    planeMesh, gridMesh, setSparseTrailPickupTemplate, setAmmoPickupTemplate, trailSegments1,
+    ammoCountP1, isSpeedBoostActiveP1,
+    aiPlayers, // Need AI array
+    allTrailParticles, // Replaced by aiPlayers - Keeping for now, might be used by particles
 } from './state.js';
 import {
-    segmentSize, P1_TRAIL_COLOR_BOOST, P1_TRAIL_COLOR_NORMAL, AI_TRAIL_COLOR_BOOST, AI_TRAIL_COLOR_NORMAL,
+    segmentSize, P1_TRAIL_COLOR_BOOST, P1_TRAIL_COLOR_NORMAL, 
     PARTICLE_COUNT, PARTICLE_SIZE, EXPLOSION_FORCE, PARTICLE_GRAVITY, PARTICLE_LIFE, GROUND_Y,
     TEXT_LIFE, TEXT_MOVE_SPEED, TEXT_SIZE, TEXT_HEIGHT_OFFSET, gridLineMaterial,
     sparseTrailMaterial, ammoPickupMaterial, AMMO_COLOR, AMMO_PICKUP_RADIUS, P1_HEAD_COLOR_NORMAL,
-    AI_HEAD_COLOR_NORMAL
+    AI_COLORS // <-- Import AI_COLORS instead of individual AI colors
 } from './constants.js';
 import { getGridDimensions } from './utils.js';
+import { FontLoader } from 'three/addons/loaders/FontLoader.js'; // Needed for createFloatingText check
 
-export function createTrailSegment(position, trailArray, playerIndex) {
+export function createTrailSegment(pos, trailArray, owner) {
     const segmentGeometry = new THREE.BoxGeometry(segmentSize, segmentSize, segmentSize);
+    let segmentMaterial;
+    let newSegment;
+    let assignedColors = null;
 
-    let segmentColor;
-    let isBoostActive;
-    if (playerIndex === 1) {
-        // Need to import isSpeedBoostActiveP1 from state for this check
-        // For now, assume it's accessible directly (will fix imports later)
-        isBoostActive = isSpeedBoostActiveP1; 
-        segmentColor = isBoostActive ? P1_TRAIL_COLOR_BOOST : P1_TRAIL_COLOR_NORMAL;
-    } else { // Player 2
-        // Need to import isSpeedBoostActiveAI
-        isBoostActive = isSpeedBoostActiveAI; 
-        segmentColor = isBoostActive ? AI_TRAIL_COLOR_BOOST : AI_TRAIL_COLOR_NORMAL;
-    }
-
-    const segmentMaterial = new THREE.MeshPhongMaterial({ color: segmentColor });
-    const trailSegment = new THREE.Mesh(segmentGeometry, segmentMaterial);
-    trailSegment.position.copy(position);
-
-    if (playerIndex === 1) {
-        if (lastTrailSegment1) lastTrailSegment1.visible = true;
-        trailSegment.visible = false;
-        setLastTrailSegment1(trailSegment); // Use setter
+    if (owner === 1) { // Player 1
+        // Use boost color if active, otherwise normal
+        const color = isSpeedBoostActiveP1 ? P1_TRAIL_COLOR_BOOST : P1_TRAIL_COLOR_NORMAL;
+        segmentMaterial = new THREE.MeshPhongMaterial({ color: color });
+        newSegment = new THREE.Mesh(segmentGeometry, segmentMaterial);
+        if(setLastTrailSegment1) setLastTrailSegment1(newSegment); // Use setter
+    } else if (owner && typeof owner === 'object' && owner.id.startsWith('ai-')) { // AI object
+        assignedColors = owner.colors; // Get the AI's specific colors
+        if (!assignedColors) {
+            console.error("createTrailSegment: AI object missing colors property!", owner);
+            assignedColors = AI_COLORS[0]; // Fallback to first color
+        }
+        // Use boost trail color if active, otherwise normal trail color
+        const color = owner.isSpeedBoostActive ? assignedColors.boostTrail : assignedColors.trail;
+        segmentMaterial = new THREE.MeshPhongMaterial({ color: color });
+        newSegment = new THREE.Mesh(segmentGeometry, segmentMaterial);
+        owner.lastTrailSegment = newSegment; // Update segment within the AI object
     } else {
-        if (lastTrailSegment2) lastTrailSegment2.visible = true;
-        trailSegment.visible = false;
-        setLastTrailSegment2(trailSegment); // Use setter
+        console.error("createTrailSegment: Invalid owner specified", owner);
+        return;
     }
 
-    scene.add(trailSegment);
-    trailArray.push(trailSegment); // Can push directly
+    newSegment.position.copy(pos);
+    scene.add(newSegment);
+    trailArray.push(newSegment);
 }
 
-export function createExplosionEffect(position, color) {
-    const particleGeometry = new THREE.BoxGeometry(PARTICLE_SIZE, PARTICLE_SIZE, PARTICLE_SIZE);
-    for (let i = 0; i < PARTICLE_COUNT; i++) {
-        const particleMaterial = new THREE.MeshPhongMaterial({
-            color: color,
+// Creates a particle explosion effect at the given position with the given color
+// Optional scale parameter modifies particle count, size, and force.
+export function createExplosionEffect(position, color, scale = 1) {
+    const scaledParticleCount = Math.round(PARTICLE_COUNT * scale);
+    const scaledParticleSize = PARTICLE_SIZE * Math.sqrt(scale);
+    const scaledExplosionForce = EXPLOSION_FORCE * Math.sqrt(scale);
+
+    const particleGeometry = new THREE.BoxGeometry(scaledParticleSize, scaledParticleSize, scaledParticleSize);
+    
+    for (let i = 0; i < scaledParticleCount; i++) {
+        const particleMaterial = new THREE.MeshBasicMaterial({
+            color: color, // Use provided color
             transparent: true,
             opacity: 1.0
         });
@@ -65,7 +74,7 @@ export function createExplosionEffect(position, color) {
             (Math.random() - 0.5),
             (Math.random() * 0.6 + 0.2),
             (Math.random() - 0.5)
-        ).normalize().multiplyScalar(EXPLOSION_FORCE * (0.8 + Math.random() * 0.4));
+        ).normalize().multiplyScalar(scaledExplosionForce * (0.8 + Math.random() * 0.4));
 
         explosionParticles.push({ // Can push directly
             mesh: particleMesh,
@@ -196,38 +205,34 @@ export function updateAmmoIndicatorP1() {
     // Rotation is handled in gameLoop
 }
 
-export function updateAmmoIndicatorAI() {
-    if (!snakeHead2) return;
+export function updateAmmoIndicatorAI(aiObject) {
+    if (!aiObject || !aiObject.head || !scene) return;
 
-    let indicatorGroup = ammoIndicatorAI;
-    if (!indicatorGroup) {
-        indicatorGroup = new THREE.Group();
-        setAmmoIndicatorAI(indicatorGroup); // Use setter
-        scene.add(indicatorGroup);
+    // Remove existing indicator for this AI if it exists
+    if (aiObject.ammoIndicator) {
+        scene.remove(aiObject.ammoIndicator);
     }
 
-    while (indicatorGroup.children.length) {
-        indicatorGroup.remove(indicatorGroup.children[0]);
+    // Create new indicator group
+    const indicatorGroup = new THREE.Group();
+    const cubeSize = segmentSize * 0.15;
+    const spacing = cubeSize * 1.3;
+    const ammoGeometry = new THREE.BoxGeometry(cubeSize, cubeSize, cubeSize);
+    const ammoMaterial = new THREE.MeshPhongMaterial({ color: AMMO_COLOR, emissive: 0x553300 });
+
+    const totalWidth = (aiObject.ammoCount - 1) * spacing;
+    const startX = -totalWidth / 2;
+
+    for (let i = 0; i < aiObject.ammoCount; i++) {
+        const ammoCube = new THREE.Mesh(ammoGeometry, ammoMaterial);
+        ammoCube.position.x = startX + i * spacing;
+        indicatorGroup.add(ammoCube);
     }
 
-    // Need ammoCountAI from state
-    // Assume accessible for now (will fix imports later)
-    const count = ammoCountAI; 
-    const indicatorSize = 0.2;
-    const indicatorSpacing = 0.25;
-    const indicatorGeometry = new THREE.BoxGeometry(indicatorSize, indicatorSize, indicatorSize);
-    const indicatorMaterial = new THREE.MeshPhongMaterial({ color: AMMO_COLOR });
-
-    for (let i = 0; i < count; i++) {
-        const indicatorMesh = new THREE.Mesh(indicatorGeometry, indicatorMaterial);
-        indicatorMesh.position.x = (i - (count - 1) / 2) * indicatorSpacing;
-        indicatorGroup.add(indicatorMesh);
-    }
-
-    if(indicatorGroup) {
-        indicatorGroup.position.copy(snakeHead2.position);
-        indicatorGroup.position.y += segmentSize * 0.7;
-    }
+    indicatorGroup.position.copy(aiObject.head.position).y += segmentSize * 0.7; 
+    // Rotation handled in game loop
+    scene.add(indicatorGroup);
+    aiObject.ammoIndicator = indicatorGroup; // Store reference in the AI object
 }
 
 export function createPlayAreaVisuals(xMin, xMax, zMin, zMax) {
@@ -273,34 +278,46 @@ export function createPlayAreaVisuals(xMin, xMax, zMin, zMax) {
 
 // Make the most recent trail segment visible
 export function updateLastTrailSegmentsVisibility() {
-    if (lastTrailSegment1) {
-        lastTrailSegment1.visible = true;
-    }
-    if (lastTrailSegment2) {
-        lastTrailSegment2.visible = true;
-    }
+    if (lastTrailSegment1) lastTrailSegment1.visible = true;
+    aiPlayers.forEach(ai => {
+        if (ai.lastTrailSegment) ai.lastTrailSegment.visible = true;
+    });
 }
 
 // Revert snake head colors to normal (e.g., on game over)
 export function revertHeadColors() {
-    if (snakeHead1) snakeHead1.material.color.setHex(P1_HEAD_COLOR_NORMAL);
-    if (snakeHead2) snakeHead2.material.color.setHex(AI_HEAD_COLOR_NORMAL);
+    if (snakeHead1) headMaterial1.color.setHex(P1_HEAD_COLOR_NORMAL);
+    aiPlayers.forEach(ai => {
+        // Revert to the AI's specific normal color
+        if (ai.head && ai.colors) ai.material.color.setHex(ai.colors.normal);
+    });
 }
 
 // Set specific snake head to red (loser color)
-export function setHeadColorToRed(playerIndex) {
-     if (playerIndex === 1 && snakeHead1) snakeHead1.material.color.setHex(0xff0000);
-     if (playerIndex === 2 && snakeHead2) snakeHead2.material.color.setHex(0xff0000);
+export function setHeadColorToRed(owner) {
+    if (owner === 1 && snakeHead1) {
+        headMaterial1.color.setHex(0xff0000);
+    } else if (owner && typeof owner === 'object' && owner.id.startsWith('ai-')) {
+        if (owner.head) owner.material.color.setHex(0xff0000);
+    } else {
+         console.warn("setHeadColorToRed: Invalid owner", owner);
+    }
 }
 
 // Clear all trails from the scene and state arrays
 export function clearAllTrails() {
     trailSegments1.forEach(seg => scene.remove(seg));
     trailSegments1.length = 0;
-    trailSegments2.forEach(seg => scene.remove(seg));
-    trailSegments2.length = 0;
-    setLastTrailSegment1(null);
-    setLastTrailSegment2(null);
+    if(setLastTrailSegment1) setLastTrailSegment1(null);
+
+    aiPlayers.forEach(ai => {
+        ai.trailSegments.forEach(seg => scene.remove(seg));
+        ai.trailSegments.length = 0;
+        ai.lastTrailSegment = null;
+    });
+    // REMOVED: trailSegments2.forEach(seg => scene.remove(seg));
+    // REMOVED: trailSegments2.length = 0;
+    // REMOVED: if(setLastTrailSegment2) setLastTrailSegment2(null);
 }
 
 // Clear floating texts from scene and state array
