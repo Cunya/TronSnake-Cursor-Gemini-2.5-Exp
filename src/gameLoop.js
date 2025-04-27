@@ -14,12 +14,15 @@ import {
     trailSegments1, // Removed trailSegments2
     lastFrameTime, // Get lastFrameTime from state
     gameOverTextElement, pauseIndicatorElement,
+    // NEW: Track previous frame's collision status
+    previousFrameAICollisionStatus, // Assume this is initialized in state (e.g., to aiPlayers.map(() => false))
     // State Setters
     setSpeedBoostActiveP1, setIsGameOver, setWinner, setTopScore, setLastFrameTime, setLastUpdateTimeP1,
     setScoreP1, setSpeedLevelP1,
     setIsZoomedOutP1, setZoomLevelP1, setIsSparseTrailActiveP1, setSparseLevelP1,
     setTrailCounterP1,
-    setLastTrailSegment1
+    setLastTrailSegment1,
+    setPreviousFrameAICollisionStatus // Add setter for the status
 } from './state.js';
 import {
     normalUpdateInterval,
@@ -42,17 +45,18 @@ import {
 import { showGameOverMessage, updateScoreDisplay } from './ui.js';
 
 // Game Over Collision Check (Internal to game loop)
+// MODIFIED: Accepts previous frame's AI loss status
 // Returns object: { winnerCode: 0|1|2|3, p1Lost: bool, aiLostStatus: bool[] }
-function checkCollisions() {
+function checkCollisions(prevAILostStatus) { 
     let p1Lost = false;
-    let aiLostStatus = aiPlayers.map(() => false); // Track loss status for each AI
-    const collisionThreshold = segmentSize * 0.45; // Increased threshold for wall hits
+    // Initialize current status based on previous frame's status
+    let currentAILostStatus = [...prevAILostStatus]; 
+    const collisionThreshold = segmentSize * 0.45;
     
-    // Use LOGICAL positions for checks
-    const logicalHeadPos = snakeTargetPosition1; // Player's logical position
-    const aiLogicalPositions = aiPlayers.map(ai => ai.targetPosition); // Array of AI logical positions
+    const logicalHeadPos = snakeTargetPosition1; 
+    const aiLogicalPositions = aiPlayers.map(ai => ai.targetPosition); 
 
-    // --- Add Logging Before Player Checks ---
+    // --- Logging --- (Keep as is for now)
     if (logicalHeadPos) {
         // console.log(`[Pre-Check] Player logicalHeadPos: (${logicalHeadPos.x.toFixed(1)}, ${logicalHeadPos.z.toFixed(1)})`); // Commented out
     } else {
@@ -62,38 +66,36 @@ function checkCollisions() {
     // console.log(`[Pre-Check] Boundaries: X(${boundaryXMin?.toFixed(1)}->${boundaryXMax?.toFixed(1)}) Z(${boundaryZMin?.toFixed(1)}->${boundaryZMax?.toFixed(1)})`); // Commented out
     // --------------------------------------
 
-    // 1. Check Player Boundaries
+    // 1. Check Player Boundaries (p1Lost only depends on current frame)
     if (logicalHeadPos && (logicalHeadPos.x <= boundaryXMin || logicalHeadPos.x >= boundaryXMax || logicalHeadPos.z <= boundaryZMin || logicalHeadPos.z >= boundaryZMax)) {
-        console.log(`[Collision] Player boundary check (NO EPSILON): Pos=(${logicalHeadPos.x.toFixed(1)}, ${logicalHeadPos.z.toFixed(1)}) Boundaries=(${boundaryXMin.toFixed(1)}->${boundaryXMax.toFixed(1)}, ${boundaryZMin.toFixed(1)}->${boundaryZMax.toFixed(1)})`);
+        // Only create explosion if not already lost? Player only loses once.
+        console.log(`[Collision] Player boundary check...`);
         p1Lost = true;
+        // Maybe add explosion effect here for player?
     }
 
     // 2. Check AI Boundaries
     for (let i = 0; i < aiPlayers.length; i++) {
+        if (currentAILostStatus[i]) continue; // Skip if already marked lost THIS check cycle
         const ai = aiPlayers[i];
         const aiPos = aiLogicalPositions[i]; 
-        if (!ai.head) { // Still check for missing head visual
+        let lostThisCheck = false;
+        if (!ai.head) {
             console.log(`[Collision] AI ${ai.id} lost: Missing head object.`);
-            aiLostStatus[i] = true;
-            // Use AI's current head color (or fallback to orange if material missing)
-            const explosionColor = ai.material ? ai.material.color.getHex() : 0xffa500; // Orange fallback
-            createExplosionEffect(aiPos ?? ai.head?.position ?? new THREE.Vector3(0,0,0), explosionColor, 3); // Reduced scale explosion
-            continue;
-        }
-        if (!aiPos) { // Check if logical position is somehow missing (shouldn't happen)
+            lostThisCheck = true;
+        } else if (!aiPos) {
              console.log(`[Collision] AI ${ai.id} lost: Missing targetPosition.`);
-             aiLostStatus[i] = true;
-             // Use AI's current head color (or fallback to orange if material missing)
-             const explosionColor = ai.material ? ai.material.color.getHex() : 0xffa500; // Orange fallback
-             createExplosionEffect(ai.head?.position ?? new THREE.Vector3(0,0,0), explosionColor, 3); // Reduced scale explosion
-             continue;
-        }
-        if (aiPos.x < boundaryXMin + epsilon || aiPos.x > boundaryXMax - epsilon || aiPos.z < boundaryZMin + epsilon || aiPos.z > boundaryZMax - epsilon) {
+             lostThisCheck = true;
+        } else if (aiPos.x < boundaryXMin + epsilon || aiPos.x > boundaryXMax - epsilon || aiPos.z < boundaryZMin + epsilon || aiPos.z > boundaryZMax - epsilon) {
             console.log(`[Collision] AI ${ai.id} lost: Hit boundary at (${aiPos.x.toFixed(1)}, ${aiPos.z.toFixed(1)}).`);
-            aiLostStatus[i] = true;
-             // Use AI's current head color (or fallback to orange if material missing)
-            const explosionColor = ai.material ? ai.material.color.getHex() : 0xffa500; // Orange fallback
-            createExplosionEffect(aiPos, explosionColor, 3); // Reduced scale explosion
+            lostThisCheck = true;
+        }
+        if (lostThisCheck) {
+             currentAILostStatus[i] = true;
+             if (!prevAILostStatus[i]) { // Only explode if not lost last frame
+                 const explosionColor = ai.material ? ai.material.color.getHex() : 0xffa500;
+                 createExplosionEffect(aiPos ?? ai.head?.position ?? new THREE.Vector3(0,0,0), explosionColor, 3); 
+             }
         }
     }
 
@@ -101,54 +103,61 @@ function checkCollisions() {
     // Player vs AIs
     if (logicalHeadPos && !p1Lost) {
         for (let i = 0; i < aiPlayers.length; i++) {
-            const ai = aiPlayers[i]; // Get the AI object
+            if (currentAILostStatus[i]) continue; // Skip if AI already lost this cycle
+            const ai = aiPlayers[i]; 
             const aiPos = aiLogicalPositions[i];
-            if (aiPos && !aiLostStatus[i] && logicalHeadPos.distanceTo(aiPos) < collisionThreshold) {
+            if (aiPos && logicalHeadPos.distanceTo(aiPos) < collisionThreshold) {
                  console.log(`[Collision] Player lost: Head-on with AI ${ai.id}.`);
                  console.log(`[Collision] AI ${ai.id} lost: Head-on with Player.`);
                 p1Lost = true;
-                aiLostStatus[i] = true; // Both lose
-                // Use AI's current head color (or fallback to orange if material missing)
-                const explosionColor = ai.material ? ai.material.color.getHex() : 0xffa500; // Orange fallback
-                createExplosionEffect(aiPos, explosionColor, 3); // Reduced scale explosion for AI
+                currentAILostStatus[i] = true; // Mark AI lost this cycle
+                if (!prevAILostStatus[i]) { // Only explode AI if not lost last frame
+                    const explosionColor = ai.material ? ai.material.color.getHex() : 0xffa500;
+                    createExplosionEffect(aiPos, explosionColor, 3);
+                }
+                // Player explosion should happen outside this loop based on p1Lost flag?
             }
         }
     }
     // AI vs AI
     for (let i = 0; i < aiPlayers.length; i++) {
-        const ai_i = aiPlayers[i]; // Get AI object i
+        if (currentAILostStatus[i]) continue; // Skip if i lost this cycle
+        const ai_i = aiPlayers[i];
         const aiPos1 = aiLogicalPositions[i];
-        if (aiLostStatus[i] || !aiPos1) continue; 
+        if (!aiPos1) continue;
         for (let j = i + 1; j < aiPlayers.length; j++) {
-            const ai_j = aiPlayers[j]; // Get AI object j
+            if (currentAILostStatus[j]) continue; // Skip if j lost this cycle
+            const ai_j = aiPlayers[j]; 
             const aiPos2 = aiLogicalPositions[j];
-            if (aiLostStatus[j] || !aiPos2) continue; 
+            if (!aiPos2) continue; 
             if (aiPos1.distanceTo(aiPos2) < collisionThreshold) {
                  console.log(`[Collision] AI ${ai_i.id} lost: Head-on with AI ${ai_j.id}.`);
                  console.log(`[Collision] AI ${ai_j.id} lost: Head-on with AI ${ai_i.id}.`);
-                aiLostStatus[i] = true;
-                const explosionColor_i = ai_i.material ? ai_i.material.color.getHex() : 0xffa500; // Orange fallback
-                createExplosionEffect(aiPos1, explosionColor_i, 3); // Reduced scale explosion for AI i
-                aiLostStatus[j] = true; // Both lose
-                const explosionColor_j = ai_j.material ? ai_j.material.color.getHex() : 0xffa500; // Orange fallback
-                createExplosionEffect(aiPos2, explosionColor_j, 3); // Reduced scale explosion for AI j
+                 currentAILostStatus[i] = true;
+                 currentAILostStatus[j] = true;
+                 // Explode i only if not lost previously
+                 if (!prevAILostStatus[i]) {
+                     const explosionColor_i = ai_i.material ? ai_i.material.color.getHex() : 0xffa500;
+                     createExplosionEffect(aiPos1, explosionColor_i, 3); 
+                 }
+                 // Explode j only if not lost previously
+                 if (!prevAILostStatus[j]) {
+                     const explosionColor_j = ai_j.material ? ai_j.material.color.getHex() : 0xffa500;
+                     createExplosionEffect(aiPos2, explosionColor_j, 3);
+                 }
             }
         }
     }
 
-    // 4. Check Trail Collisions
+    // 4. Check Trail Collisions (Refactor similarly)
     // Player vs All AI Trails
     if (logicalHeadPos && !p1Lost) {
-        if (trailSegments1?.length > 0) { // Add check if trail exists before logging potentially large array
-             // console.log(`[Pre-Check] Player trailSegments1[0].position:`, trailSegments1[0]?.position);
-        }
         for (const ai of aiPlayers) {
+            // No need to check trails of AI already lost? Maybe keep, trail still exists.
             for (let seg of ai.trailSegments) {
-                const dist = logicalHeadPos.distanceTo(seg.position);
-                if (dist < segmentSize * 0.5) { 
-                    console.log(`[Collision] Player vs AI Trail: PlayerPos=(${logicalHeadPos.x.toFixed(1)}, ${logicalHeadPos.z.toFixed(1)}) AISegPos=(${seg.position.x.toFixed(1)}, ${seg.position.z.toFixed(1)}) Dist=${dist.toFixed(3)} Threshold=${(segmentSize * 0.5).toFixed(3)}`);
-                    p1Lost = true;
-                    break;
+                if (logicalHeadPos.distanceTo(seg.position) < segmentSize * 0.5) { 
+                    console.log(`[Collision] Player vs AI Trail...`);
+                    p1Lost = true; break;
                 }
             }
             if (p1Lost) break;
@@ -157,90 +166,86 @@ function checkCollisions() {
     // Player vs Own Trail
     if (logicalHeadPos && !p1Lost) {
          const checkLength = Math.max(0, trailSegments1.length - 1); 
-         if (checkLength > 0) {
-            // console.log(`[Pre-Check] Checking Player vs Own Trail (${checkLength} segments)`);
-         }
          for (let k = 0; k < checkLength; k++) { 
-            const seg = trailSegments1[k];
-            const dist = logicalHeadPos.distanceTo(seg.position);
-            if (dist < segmentSize * 0.5) { 
-                console.log(`[Collision] Player vs Own Trail: PlayerPos=(${logicalHeadPos.x.toFixed(1)}, ${logicalHeadPos.z.toFixed(1)}) OwnSegPos=(${seg.position.x.toFixed(1)}, ${seg.position.z.toFixed(1)}) Index=${k} Dist=${dist.toFixed(3)} Threshold=${(segmentSize * 0.5).toFixed(3)}`);
-                p1Lost = true;
-                break;
+            if (logicalHeadPos.distanceTo(trailSegments1[k].position) < segmentSize * 0.5) { 
+                console.log(`[Collision] Player vs Own Trail...`);
+                p1Lost = true; break;
             }
         }
     }
-
     // Each AI vs All Trails (Player + AI)
     for (let i = 0; i < aiPlayers.length; i++) {
+        if (currentAILostStatus[i]) continue; // Skip if lost this cycle
         const currentAI = aiPlayers[i];
         const currentAIPos = aiLogicalPositions[i]; 
-        if (aiLostStatus[i] || !currentAIPos) continue; 
-        
+        if (!currentAIPos) continue; 
+        let lostToTrail = false;
         // Check against player trail
         for (let seg of trailSegments1) {
-             // Check distance against logical AI position
              if (currentAIPos.distanceTo(seg.position) < collisionThreshold) {
                  console.log(`[Collision] AI ${currentAI.id} lost: Hit player trail.`);
-                aiLostStatus[i] = true;
-                const explosionColor = currentAI.material ? currentAI.material.color.getHex() : 0xffa500; // Orange fallback
-                createExplosionEffect(currentAIPos, explosionColor, 3); // Reduced scale explosion
-                break;
+                 lostToTrail = true; break;
             }
         }
-        if (aiLostStatus[i]) continue; 
-
         // Check against other AI trails
-        for (let otherAI of aiPlayers) {
-            if (otherAI.id === currentAI.id) continue; 
-            for (let seg of otherAI.trailSegments) {
-                 // Check distance against logical AI position
-                 if (currentAIPos.distanceTo(seg.position) < collisionThreshold) {
-                     console.log(`[Collision] AI ${currentAI.id} lost: Hit trail of AI ${otherAI.id}.`);
-                    aiLostStatus[i] = true;
-                    const explosionColor = currentAI.material ? currentAI.material.color.getHex() : 0xffa500; // Orange fallback
-                    createExplosionEffect(currentAIPos, explosionColor, 3); // Reduced scale explosion
-                    break;
+        if (!lostToTrail) {
+            for (let otherAI of aiPlayers) {
+                if (otherAI.id === currentAI.id) continue; 
+                for (let seg of otherAI.trailSegments) {
+                     if (currentAIPos.distanceTo(seg.position) < collisionThreshold) {
+                         console.log(`[Collision] AI ${currentAI.id} lost: Hit trail of AI ${otherAI.id}.`);
+                         lostToTrail = true; break;
+                    }
+                }
+                 if (lostToTrail) break; 
+            }
+        }
+        // Check against own trail
+        if (!lostToTrail) {
+             const aiCheckLength = Math.max(0, currentAI.trailSegments.length - 1);
+             for (let k = 0; k < aiCheckLength; k++) {
+                 if (currentAIPos.distanceTo(currentAI.trailSegments[k].position) < collisionThreshold) {
+                     console.log(`[Collision] AI ${currentAI.id} lost: Hit own trail segment at index ${k}.`);
+                     lostToTrail = true; break;
                 }
             }
-             if (aiLostStatus[i]) break; 
         }
-        if (aiLostStatus[i]) continue;
-
-        // Check against own trail (skipping last segment)
-         const aiCheckLength = Math.max(0, currentAI.trailSegments.length - 1);
-         for (let k = 0; k < aiCheckLength; k++) {
-             const seg = currentAI.trailSegments[k];
-             // Check distance against logical AI position
-             if (currentAIPos.distanceTo(seg.position) < collisionThreshold) {
-                 console.log(`[Collision] AI ${currentAI.id} lost: Hit own trail segment at index ${k}.`);
-                aiLostStatus[i] = true;
-                const explosionColor = currentAI.material ? currentAI.material.color.getHex() : 0xffa500; // Orange fallback
-                createExplosionEffect(currentAIPos, explosionColor, 3); // Reduced scale explosion
-                break;
+        // If lost to any trail, update status and explode if new
+        if (lostToTrail) {
+            currentAILostStatus[i] = true;
+            if (!prevAILostStatus[i]) { // Only explode if not lost last frame
+                 const explosionColor = currentAI.material ? currentAI.material.color.getHex() : 0xffa500;
+                 createExplosionEffect(currentAIPos, explosionColor, 3);
             }
         }
     }
 
-    // 5. Determine Winner Code (Revised Logic)
+    // 5. Determine Winner Code (Uses updated currentAILostStatus)
     let winnerCode = 0; // Default: Ongoing
-    const currentActiveAICount = aiPlayers.filter((ai, index) => !aiLostStatus[index]).length;
-
-    if (p1Lost) { // Player lost, game over!
-        winnerCode = (currentActiveAICount > 0) ? 1 : 3; // AI wins (1) unless it's a Draw (3)
-        console.log(`[Collision] Game Over (Player Lost). p1Lost=${p1Lost}, activeAICount=${currentActiveAICount}, winnerCode=${winnerCode}`);
-    } else if (currentActiveAICount === 0 && gameActive) { // Player didn't lose, and no AIs left active
-        winnerCode = 2; // Player wins
-        console.log(`[Collision] Game Over (All AIs Lost / Player Survived). p1Lost=${p1Lost}, activeAICount=${currentActiveAICount}, winnerCode=${winnerCode}`);
+    const currentActiveAICount = aiPlayers.filter((ai, index) => !currentAILostStatus[index]).length;
+    if (p1Lost) {
+        winnerCode = (currentActiveAICount > 0) ? 1 : 3; 
+        console.log(`[Collision] Game Over (Player Lost)...`);
+    } else if (currentActiveAICount === 0 && gameActive) {
+        winnerCode = 2; 
+        console.log(`[Collision] Game Over (All AIs Lost / Player Survived)...`);
     } 
-    // Implicit else: game continues (winnerCode remains 0)
     
-    return { winnerCode, p1Lost, aiLostStatus };
+    // Return the calculated winner code, player status, and the CUMULATIVE AI status for this frame
+    return { winnerCode, p1Lost, aiLostStatus: currentAILostStatus };
 }
+
+// Need a variable outside animate to store the status across frames
+let lastKnownAILostStatus = []; // Initialize empty or based on initial aiPlayers
 
 export function animate(currentTime) {
     // Request the next frame
     requestAnimationFrame(animate);
+
+    // Initialize lastKnownAILostStatus on first run or game reset if needed
+    if (lastKnownAILostStatus.length !== aiPlayers.length) {
+         lastKnownAILostStatus = aiPlayers.map(() => false);
+    }
 
     // 1. Calculate delta time
     const resolvedLastFrameTime = lastFrameTime || currentTime; // Handle first frame
@@ -249,8 +254,8 @@ export function animate(currentTime) {
     if (setLastFrameTime) setLastFrameTime(currentTime);
     
     let playerMoved = false, aiMoved = false;
-    // Initialize collision status for the frame (assuming no one lost yet)
-    let currentFrameAICollisionStatus = aiPlayers.map(() => false);
+    // This variable will store the results from THIS frame's collision check
+    let aiLostStatusResultThisFrame = [...lastKnownAILostStatus]; // Start with last known status
     
     // --- Game Logic Update ---
     if (gameActive && !isGameOver) {
@@ -305,7 +310,7 @@ export function animate(currentTime) {
                 let aiMovedStatus = aiPlayers.map(() => false); // Track movement status per AI
                 aiPlayers.forEach((ai, index) => { // Add index
                     // ---> ADD Check: Only update movement if AI is not already marked as lost THIS FRAME <-----
-                    if (currentFrameAICollisionStatus[index]) return; // Skip update if lost
+                    if (aiLostStatusResultThisFrame[index]) return; // Skip update if lost
                     
                     const intervalAI = ai.isSpeedBoostActive 
                         ? normalUpdateInterval / (1 + ai.speedLevel * SPEED_BOOST_DIMINISHING_FACTOR)
@@ -329,13 +334,15 @@ export function animate(currentTime) {
 
                 // Check collisions & Handle Trails
                 if (playerMoved || aiMoved) {
-                    const collisionInfo = checkCollisions(); // Get detailed collision info
-                    currentFrameAICollisionStatus = collisionInfo.aiLostStatus; // Store it
+                    // Pass the status from the END of the previous frame
+                    const collisionInfo = checkCollisions(lastKnownAILostStatus);
+                    // Store the result for the NEXT frame and for visual updates THIS frame
+                    aiLostStatusResultThisFrame = collisionInfo.aiLostStatus;
                     const winnerCode = collisionInfo.winnerCode;
                     if(setWinner) setWinner(winnerCode);
 
                     // Player Trail
-                    if (playerMoved) { 
+                    if (playerMoved && !collisionInfo.p1Lost) { 
                         const intervalP1 = sparseLevelP1 + 1;
                         // Make previous hidden segment visible if needed
                         if (isSparseTrailActiveP1 && trailCounterP1 % intervalP1 !== 0 && lastTrailSegment1) lastTrailSegment1.visible = true; 
@@ -351,7 +358,7 @@ export function animate(currentTime) {
                     aiPlayers.forEach((ai, index) => {
                         const aiMovedThisTick = aiMovedStatus[index]; // Use the tracked status
 
-                        if (aiMovedThisTick && !collisionInfo.aiLostStatus[index]) { // Check specific AI loss status
+                        if (aiMovedThisTick && !aiLostStatusResultThisFrame[index]) { // Check result status
                              // Handle sparse trail for AI
                              const intervalAI = ai.sparseLevel + 1;
                              // Make previous hidden segment visible if needed
@@ -382,7 +389,7 @@ export function animate(currentTime) {
                         if (collisionInfo.p1Lost) {
                             setHeadColorToRed(1); // Player is owner 1
                         }
-                        collisionInfo.aiLostStatus.forEach((lost, index) => {
+                        aiLostStatusResultThisFrame.forEach((lost, index) => {
                             if (lost) {
                                 setHeadColorToRed(aiPlayers[index]); // Pass the AI object
                             }
@@ -393,13 +400,15 @@ export function animate(currentTime) {
         } // End of if (!isPaused)
     } // End of if(gameActive && !isGameOver)
 
+    // --- Update last known status for the next frame --- 
+    lastKnownAILostStatus = [...aiLostStatusResultThisFrame];
+
     // --- Visual Updates ---
     // Lerp snake head visual positions towards target logical positions
     if (snakeHead1) snakeHead1.position.lerp(snakeTargetPosition1, LERP_FACTOR);
     // Lerp AIs
-    aiPlayers.forEach((ai, index) => { // Add index
-        // ---> ADD Check: Only lerp if AI is not lost <--- 
-        if (ai.head && !currentFrameAICollisionStatus[index]) { 
+    aiPlayers.forEach((ai, index) => { 
+        if (ai.head && !aiLostStatusResultThisFrame[index]) { 
              ai.head.position.lerp(ai.targetPosition, LERP_FACTOR);
         }
     });
@@ -421,7 +430,14 @@ export function animate(currentTime) {
         const proj = projectiles[i]; proj.mesh.position.addScaledVector(proj.velocity, deltaTimeSeconds); proj.life -= deltaTimeSeconds;
         let remove = false;
         // Emit trail particles
+        const PARTICLE_LIMIT = 10000; // Define limit here too
         for (let p = 0; p < TRAIL_PARTICLE_COUNT_PER_FRAME; p++) {
+            // --- Particle Limit Check --- <--- ADDED CHECK
+            if (explosionParticles.length + allTrailParticles.length >= PARTICLE_LIMIT) {
+                // console.warn(`[Projectile Trail] Particle limit (${PARTICLE_LIMIT}) reached. Skipping trail particle.`);
+                break; // Stop emitting trail particles for this projectile this frame if limit reached
+            }
+            // ---------------------------
             const particleMesh = new THREE.Mesh(trailParticleGeometry, trailParticleMaterial.clone());
             const offset = proj.velocity.clone().normalize().multiplyScalar(-PROJECTILE_SIZE * 1.5);
             particleMesh.position.copy(proj.mesh.position).add(offset).add(new THREE.Vector3((Math.random()-0.5)*0.1, (Math.random()-0.5)*0.1, (Math.random()-0.5)*0.1));

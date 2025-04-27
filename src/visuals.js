@@ -55,6 +55,14 @@ export function createTrailSegment(pos, trailArray, owner) {
 // Creates a particle explosion effect at the given position with the given color
 // Optional scale parameter modifies particle count, size, and force.
 export function createExplosionEffect(position, color, scale = 1) {
+    // --- Particle Limit Check --- <--- ADDED CHECK
+    const PARTICLE_LIMIT = 10000;
+    if (explosionParticles.length + allTrailParticles.length >= PARTICLE_LIMIT) {
+        console.warn(`[createExplosionEffect] Particle limit (${PARTICLE_LIMIT}) reached. Skipping explosion.`);
+        return; // Skip creating more particles if limit is reached
+    }
+    // ---------------------------
+
     const scaledParticleCount = Math.round(PARTICLE_COUNT * scale);
     const scaledParticleSize = PARTICLE_SIZE * Math.sqrt(scale);
     const scaledExplosionForce = EXPLOSION_FORCE * Math.sqrt(scale);

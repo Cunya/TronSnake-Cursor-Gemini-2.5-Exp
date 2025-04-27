@@ -116,6 +116,9 @@ export let nextMultiSpawnCount = 15; // MULTI_PICKUP_THRESHOLD (Matches Expand? 
 export let sparseTrailPickupTemplate;
 export let ammoPickupTemplate;
 
+// NEW: Collision Status Tracking (for preventing duplicate effects)
+export let previousFrameAICollisionStatus = [];
+
 // --- Functions to set state --- (Needed because modules are static)
 export function setScene(newScene) { scene = newScene; }
 export function setCamera(newCamera) { camera = newCamera; }
@@ -184,4 +187,7 @@ export function setScoreP1(newScore) {
     } else {
         console.warn("scoreTextElement not yet initialized in state.");
     }
-} 
+}
+
+// Setter for NEW Collision Status
+export function setPreviousFrameAICollisionStatus(value) { previousFrameAICollisionStatus = value; } 

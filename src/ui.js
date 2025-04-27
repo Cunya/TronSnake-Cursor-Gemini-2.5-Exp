@@ -137,7 +137,7 @@ export function createVersionText() {
     if (!element) {
         element = document.createElement('div');
         element.style.position = 'absolute';
-        element.style.top = '10px';
+        element.style.bottom = '10px';
         element.style.right = '10px';
         element.style.color = 'rgba(255, 255, 255, 0.9)';
         element.style.backgroundColor = 'rgba(0, 0, 0, 0.5)';
@@ -281,4 +281,29 @@ export function updateScoreDisplay() {
             topScoreTextElement.style.color = originalColor;
         }
     }
+}
+
+// NEW: Create GitHub Link Element
+export function createGitHubLink() {
+    const linkElement = document.createElement('a');
+    linkElement.href = "https://github.com/Cunya/TronSnake-Cursor-Gemini-2.5-Exp";
+    linkElement.target = "_blank"; // Open in new tab
+    linkElement.rel = "noopener noreferrer"; // Security best practice
+    linkElement.textContent = "GitHub"; // Or use an icon
+
+    // Style similar to version/score text
+    linkElement.style.position = 'absolute';
+    linkElement.style.top = '10px';
+    linkElement.style.right = '10px';
+    linkElement.style.color = 'rgba(255, 255, 255, 0.9)';
+    linkElement.style.backgroundColor = 'rgba(0, 0, 0, 0.5)';
+    linkElement.style.padding = '5px 10px';
+    linkElement.style.borderRadius = '5px';
+    linkElement.style.fontSize = '18px';
+    linkElement.style.fontFamily = 'Arial, sans-serif';
+    linkElement.style.textDecoration = 'none';
+    linkElement.style.zIndex = '10'; // Ensure it's on top
+
+    document.body.appendChild(linkElement);
+    // No need to store this in state unless we plan to update it
 } 

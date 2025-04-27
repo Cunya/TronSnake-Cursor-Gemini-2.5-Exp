@@ -1,29 +1,40 @@
-# Tron Snake 3D (v1.0.0)
+# Tron Snake 3D (v1.1.11)
 
 A simple 3D snake game inspired by the light cycles from Tron, built with Three.js.
+
+This project is part of a series of experiments in LLM-assisted code generation, developed entirely through conversation with Gemini 2.5 pro exp 03-25 using the Cursor editor.
+More similar porjects can be found at https://cunya.github.io/github-landing-page/.
 
 ## Features
 
 *   Classic snake gameplay in 3D.
-*   Two players: Player 1 (Cyan, keyboard controlled) vs AI (Orange).
+*   Player 1 (Cyan, keyboard/touch controlled) vs multiple AI opponents (Orange/Red/Purple/Green).
 *   Dynamic play area that expands when collecting green cubes.
-*   Multiple power-ups:
-    *   **Pink Cube:** Temporary speed boost for the collecting snake.
-    *   **Green Cube:** Expands the play area boundaries in the direction the snake was heading.
-    *   **White Cube:** Clears all existing snake trails (walls).
-    *   **Blue Cube:** Temporarily zooms the player's camera out.
-    *   **Yellow Rings:** Temporarily makes the collecting snake's trail sparse (leaves gaps).
+*   Multiple power-ups with score thresholds and some with counter-based spawning:
+    *   **Blue Cube (Zoom):** Grants 20 pts. Briefly zooms the player's camera out.
+    *   **Pink Cube (Speed Up):** Grants 40 pts. Temporary speed boost for the collecting snake. (Score threshold: 50)
+    *   **Yellow Blocks (Sparse Trail):** Grants 60 pts. Leave gaps in your trail. (Score threshold: 200)
+    *   **Orange Sphere (Ammo):** Grants 80 pts. Allows player/AI to shoot trails (Spacebar/Touch). (Score threshold: 300, Spawns every 10 pickups)
+    *   **White Cube (Clear Walls):** Grants 100 pts. Removes all existing snake trails. (Score threshold: 500, Spawns every 5 pickups)
+    *   **Gray Octahedron (Add AI):** Grants 125 pts. Spawns a new AI opponent. (Score threshold: 1000, Spawns every 20 pickups)
+    *   **Green Cube (Expand):** Grants 150 pts. Expands play area boundaries. (Score threshold: 1500, Spawns every 15 pickups)
+    *   **Purple Gems (More!):** Grants 200 pts. Increases max count of some pickups & spawns 2 others. (Score threshold: 2000, Spawns every 15 pickups)
 *   Visual effects for pickup collection (particle explosion, floating text).
-*   Basic AI opponent.
+*   Multiple AI opponents with basic pathfinding and shooting behavior.
 *   Smooth camera follow, with look-back capability.
+*   Pause functionality (Escape key).
+*   Game automatically pauses if the browser tab loses focus.
 *   Persistent Top Score tracking using `localStorage`.
+*   Link to GitHub repository in the UI.
 
 ## Controls
 
-*   **Start Game:** Click or Press Any Key on the opening screen.
-*   **Player 1 Turn:** Left / Right Arrow Keys
-*   **Look Backwards:** Hold Down Arrow Key
-*   **Restart Game (after Game Over):** Press Any Key
+*   **Start Game:** Click / Touch / Press Any Key on the opening screen.
+*   **Player 1 Turn:** Left / Right Arrow Keys OR Touch Left / Right side of screen.
+*   **Shoot:** Spacebar OR Touch Top area of screen.
+*   **Look Backwards:** Hold Down Arrow Key OR Touch Bottom area of screen.
+*   **Pause / Unpause:** Escape Key.
+*   **Restart Game (after Game Over):** Press Any Key or Tap.
 
 ## Setup & Running
 
