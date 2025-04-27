@@ -33,7 +33,9 @@ import {
     scorePickups, expansionPickups, clearPickups, zoomPickups, sparseTrailPickups, multiSpawnPickups, addAiPickups, ammoPickups,
     // Import necessary state for visibility change handler
     gameActive, isGameOver, setIsPaused,
-    setSpeedLevelP1
+    setSpeedLevelP1,
+    // Import collision status setter
+    setPreviousFrameAICollisionStatus
 } from './state.js';
 import {
     initialBoundaryHalfSize, segmentSize, cameraHeight, cameraDistanceBehind, P1_HEAD_COLOR_NORMAL,
@@ -47,6 +49,7 @@ import { createPlayAreaVisuals, initializePickupTemplates, updateAmmoIndicatorP1
 import { createOpeningDialog, createGameOverText, createVersionText, createScoreText, createTopScoreText, createPauseIndicator, createGitHubLink } from './ui.js';
 import { clearAllProjectiles } from './projectile.js';
 import { animate } from './gameLoop.js';
+import { isPositionSafe } from './ai.js';
 
 // Visibility Change Handler
 function handleVisibilityChange() {
@@ -129,6 +132,8 @@ export function resetGame() {
     if(setTrailCounterP1) setTrailCounterP1(0);
     if(setSparseLevelP1) setSparseLevelP1(1);
     if(setAmmoCountP1) setAmmoCountP1(0);
+    // Reset collision status tracking for AIs
+    if(setPreviousFrameAICollisionStatus) setPreviousFrameAICollisionStatus([]); // Reset to empty array
 
     // Reset UI elements
     // if(scoreTextElement) scoreTextElement.textContent = "Score: 0"; // Keep this removed - handled by updateScoreDisplay
@@ -194,8 +199,8 @@ export function resetGame() {
     if(setNextExpansionSpawnCount) setNextExpansionSpawnCount(EXPAND_PICKUP_THRESHOLD);
     if(setNextMultiSpawnCount) setNextMultiSpawnCount(MULTI_PICKUP_THRESHOLD);
 
-    // Spawn a fresh set of initial pickups AFTER clearing and resetting counters
-    spawnInitialPickups(); // <-- RE-ADD call here
+    // Spawn a fresh set of initial pickups
+    spawnInitialPickups();
 
     // Reset player 1 snake position
     const startPos1X = snapToGridCenter(bXMin + segmentSize, 'x');
@@ -207,11 +212,33 @@ export function resetGame() {
     // headMaterial1 color already reset by revertHeadColors
 
     // --- Initialize First AI --- 
-    const aiStartX = snapToGridCenter(bXMax - segmentSize, 'x');
-    const aiStartZ = snapToGridCenter(0, 'z');
-    const firstAI = createNewAIPlayer(scene, aiStartX, aiStartZ, -1, 0); // Pass scene
+    let aiSpawnPos = null;
+    const maxSpawnAttempts = 50; // Limit attempts to find a spot
+    console.log("[resetGame] Finding safe spawn for initial AI...");
+    for (let attempt = 0; attempt < maxSpawnAttempts; attempt++) {
+        // Try spawning near the right edge, moving inwards slightly
+        const tryX = bXMax - segmentSize * (1 + Math.floor(attempt / 5)); // Move inwards every 5 attempts
+        const tryZ = snapToGridCenter(0 + (Math.random() - 0.5) * (bZMax - bZMin) * 0.8, 'z'); // Random Z near center
+        const potentialPos = new THREE.Vector3(snapToGridCenter(tryX, 'x'), 0, tryZ);
+
+        // Check safety (against trails and pickups, not heads)
+        if (isPositionSafe(potentialPos, null, true, false)) { 
+            aiSpawnPos = potentialPos;
+            console.log(`[resetGame] Found safe AI spawn at (${aiSpawnPos.x.toFixed(1)}, ${aiSpawnPos.z.toFixed(1)}) on attempt ${attempt + 1}`);
+            break;
+        }
+    }
+    // Fallback if no safe spot found (should be rare)
+    if (!aiSpawnPos) {
+        console.warn("[resetGame] Could not find safe spawn for initial AI, using default near edge.");
+        aiSpawnPos = new THREE.Vector3(snapToGridCenter(bXMax - segmentSize, 'x'), 0, snapToGridCenter(0, 'z'));
+    }
+
+    // Create AI at the determined safe(r) position
+    const firstAI = createNewAIPlayer(scene, aiSpawnPos.x, aiSpawnPos.z, -1, 0); // Start moving left
     aiPlayers.push(firstAI);
-    // updateAmmoIndicatorAI(); // Needs rework for multiple AIs
+    // After adding the new AI(s), reset the collision status based on the current number of AIs
+    if(setPreviousFrameAICollisionStatus) setPreviousFrameAICollisionStatus(aiPlayers.map(() => false));
 
     // Reset camera immediately
     if (snakeHead1 && camera) {

@@ -1,4 +1,4 @@
-import { isGameOver, gameActive, snakeDirection1, setLookingBack, setLookBackTouchId, lookBackTouchId, setGameActive, openingDialogElement, lastUpdateTimeP1, setLastUpdateTimeP1, isPaused, setIsPaused } from './state.js';
+import { isGameOver, gameActive, snakeDirection1, setLookingBack, setLookBackTouchId, lookBackTouchId, setGameActive, openingDialogElement, lastUpdateTimeP1, setLastUpdateTimeP1, isPaused, setIsPaused, gameOverTextElement } from './state.js';
 import { yAxis } from './constants.js';
 import { resetGame } from './init.js';         // <-- Import resetGame from init.js
 import { shootProjectile } from './projectile.js'; // <-- Import shootProjectile from projectile.js
@@ -28,7 +28,7 @@ export function onKeyDown(event) {
     // Log the key press
     // console.log(`[Input] KeyDown: ${event.key}`); // Commented out
 
-    if (isGameOver) {
+    if (isGameOver && gameOverTextElement && gameOverTextElement.style.display === 'block') {
         resetGame();
         return;
     }
@@ -82,7 +82,7 @@ export function onKeyUp(event) {
 }
 
 export function onTouchStart(event) {
-    if (isGameOver) {
+    if (isGameOver && gameOverTextElement && gameOverTextElement.style.display === 'block') {
         resetGame();
         event.preventDefault();
         return; 

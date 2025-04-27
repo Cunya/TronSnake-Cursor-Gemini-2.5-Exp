@@ -1,4 +1,6 @@
-# Tron Snake 3D (v1.1.11)
+# Tron Snake 3D (v1.1.12)
+
+**[Play Live!](https://cunya.github.io/TronSnake-Cursor-Gemini-2.5-Exp/)**
 
 A simple 3D snake game inspired by the light cycles from Tron, built with Three.js.
 
