@@ -86,6 +86,14 @@ export const gameOverLookAtTarget = new THREE.Vector3();
 export const gameOverCameraTargetPosition = new THREE.Vector3();
 export const viewShiftPoint = new THREE.Vector3(); 
 
+// --- NEW: Game Over Camera Drag State ---
+export let isDraggingCamera = false;
+export let isPanningCamera = false; // New state for middle mouse panning
+export let lastPointerX = 0;
+export let lastPointerY = 0;
+export let gameOverCameraOffset = new THREE.Vector3(0, 50, 50); // Initial offset, adjust as needed
+export let isInitialDragMove = false; // NEW flag for first move
+
 // Particle/Text Effect Arrays (Mutable state)
 export const explosionParticles = [];
 export const floatingTexts = [];
@@ -191,3 +199,29 @@ export function setScoreP1(newScore) {
 
 // Setter for NEW Collision Status
 export function setPreviousFrameAICollisionStatus(value) { previousFrameAICollisionStatus = value; } 
+
+// --- NEW: Setters for Game Over Camera Drag State ---
+export function setIsDraggingCamera(value) {
+    isDraggingCamera = value;
+}
+
+// New setter for panning state
+export function setIsPanningCamera(value) {
+    isPanningCamera = value;
+}
+
+export function setLastPointerX(value) {
+    lastPointerX = value;
+}
+
+export function setLastPointerY(value) {
+    lastPointerY = value;
+}
+
+export function setGameOverCameraOffset(value) { gameOverCameraOffset.copy(value); } // Copy to avoid reference issues 
+export function setGameOverCameraTargetPosition(value) { gameOverCameraTargetPosition.copy(value); } // Add this setter
+
+// Setter for the look-at target (used for panning)
+export function setGameOverLookAtTarget(value) { gameOverLookAtTarget.copy(value); }
+
+export function setIsInitialDragMove(value) { isInitialDragMove = value; } // NEW setter for flag

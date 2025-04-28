@@ -46,10 +46,11 @@ import { snapToGridCenter } from './utils.js';
 import { onKeyDown, onKeyUp, onTouchStart, onTouchEnd, handleFirstClick, startGame } from './playerControls.js';
 import { spawnInitialPickups } from './pickups.js';
 import { createPlayAreaVisuals, initializePickupTemplates, updateAmmoIndicatorP1, updateAmmoIndicatorAI, clearAllTrails, clearFloatingTexts, clearExplosionParticles, revertHeadColors } from './visuals.js';
-import { createOpeningDialog, createGameOverText, createVersionText, createScoreText, createTopScoreText, createPauseIndicator, createGitHubLink, createItchLink } from './ui.js';
+import { createOpeningDialog, createGameOverText, createVersionText, createScoreText, createTopScoreText, createPauseIndicator, createGitHubLink, createItchLink, removeGameOverPointerListeners } from './ui.js';
 import { clearAllProjectiles } from './projectile.js';
 import { animate } from './gameLoop.js';
 import { isPositionSafe } from './ai.js';
+import { cleanupGameOverListeners } from './playerControls.js';
 
 // Visibility Change Handler
 function handleVisibilityChange() {
@@ -115,6 +116,12 @@ export function resetGame() {
     console.log(`[resetGame] Value of topScore BEFORE assignment: ${topScore}`);
     if(setTopScoreAtGameStart) setTopScoreAtGameStart(topScore);
     console.log(`[resetGame] Value of topScoreAtGameStart AFTER assignment: ${topScoreAtGameStart}`);
+
+    // --- Remove Game Over Listeners ---
+    removeGameOverPointerListeners();
+    // Ensure any active drag is stopped and move/up/wheel listeners are removed
+    cleanupGameOverListeners();
+    // --- End Listener Removal ---
 
     // Reset flags and scores
     if(setIsGameOver) setIsGameOver(false);

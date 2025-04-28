@@ -1,0 +1,183 @@
+[v1.1.27]   Yaw Angle: -0.0030 -> Yawed Offset: (14.33, 20.96, -5.90)
+playerControls.js:318 [v1.1.27]   Pitch Angle: 0.0000, Right Vector: (-0.39, 0.00, -0.92)
+playerControls.js:319 [v1.1.27]   Camera Up: (0.00, 1.00, 0.00)
+playerControls.js:323 [v1.1.27]   Potential Offset (Yaw+Pitch): (14.33, 20.96, -5.90)
+playerControls.js:328 [v1.1.27]   Normalized Y: 0.804 (Limits: 0.169 - 0.986)
+playerControls.js:333 [v1.1.27]   Pitch Applied (Y limits OK or Initial Move).
+playerControls.js:339 [v1.1.27]   Setting Offset: (14.33, 20.96, -5.90)
+playerControls.js:293 [v1.1.27] Move Start (Rotation) - Current isInitialDragMove = true
+playerControls.js:294 [v1.1.27] Move - DeltaX: 1.00, DeltaY: 0.00
+playerControls.js:302 [v1.1.27]   Initial Offset: (14.33, 20.96, -5.90)
+playerControls.js:307 [v1.1.27]   Yaw Angle: -0.0030 -> Yawed Offset: (14.35, 20.96, -5.85)
+playerControls.js:318 [v1.1.27]   Pitch Angle: 0.0000, Right Vector: (-0.39, 0.00, -0.92)
+playerControls.js:319 [v1.1.27]   Camera Up: (0.00, 1.00, 0.00)
+playerControls.js:323 [v1.1.27]   Potential Offset (Yaw+Pitch): (14.35, 20.96, -5.85)
+playerControls.js:328 [v1.1.27]   Normalized Y: 0.804 (Limits: 0.169 - 0.986)
+playerControls.js:333 [v1.1.27]   Pitch Applied (Y limits OK or Initial Move).
+playerControls.js:339 [v1.1.27]   Setting Offset: (14.35, 20.96, -5.85)
+playerControls.js:293 [v1.1.27] Move Start (Rotation) - Current isInitialDragMove = true
+playerControls.js:294 [v1.1.27] Move - DeltaX: 1.00, DeltaY: 0.00
+playerControls.js:302 [v1.1.27]   Initial Offset: (14.35, 20.96, -5.85)
+playerControls.js:307 [v1.1.27]   Yaw Angle: -0.0030 -> Yawed Offset: (14.37, 20.96, -5.81)
+playerControls.js:318 [v1.1.27]   Pitch Angle: 0.0000, Right Vector: (-0.39, 0.00, -0.92)
+playerControls.js:319 [v1.1.27]   Camera Up: (0.00, 1.00, 0.00)
+playerControls.js:323 [v1.1.27]   Potential Offset (Yaw+Pitch): (14.37, 20.96, -5.81)
+playerControls.js:328 [v1.1.27]   Normalized Y: 0.804 (Limits: 0.169 - 0.986)
+playerControls.js:333 [v1.1.27]   Pitch Applied (Y limits OK or Initial Move).
+playerControls.js:339 [v1.1.27]   Setting Offset: (14.37, 20.96, -5.81)
+playerControls.js:293 [v1.1.27] Move Start (Rotation) - Current isInitialDragMove = true
+playerControls.js:294 [v1.1.27] Move - DeltaX: 1.00, DeltaY: 0.00
+playerControls.js:302 [v1.1.27]   Initial Offset: (14.37, 20.96, -5.81)
+playerControls.js:307 [v1.1.27]   Yaw Angle: -0.0030 -> Yawed Offset: (14.38, 20.96, -5.77)
+playerControls.js:318 [v1.1.27]   Pitch Angle: 0.0000, Right Vector: (-0.37, 0.00, -0.93)
+playerControls.js:319 [v1.1.27]   Camera Up: (0.00, 1.00, 0.00)
+playerControls.js:323 [v1.1.27]   Potential Offset (Yaw+Pitch): (14.38, 20.96, -5.77)
+playerControls.js:328 [v1.1.27]   Normalized Y: 0.804 (Limits: 0.169 - 0.986)
+playerControls.js:333 [v1.1.27]   Pitch Applied (Y limits OK or Initial Move).
+playerControls.js:339 [v1.1.27]   Setting Offset: (14.38, 20.96, -5.77)
+playerControls.js:293 [v1.1.27] Move Start (Rotation) - Current isInitialDragMove = true
+playerControls.js:294 [v1.1.27] Move - DeltaX: 0.00, DeltaY: -1.00
+playerControls.js:302 [v1.1.27]   Initial Offset: (14.38, 20.96, -5.77)
+playerControls.js:307 [v1.1.27]   Yaw Angle: 0.0000 -> Yawed Offset: (14.38, 20.96, -5.77)
+playerControls.js:318 [v1.1.27]   Pitch Angle: 0.0030, Right Vector: (-0.37, 0.00, -0.93)
+playerControls.js:319 [v1.1.27]   Camera Up: (0.00, 1.00, 0.00)
+playerControls.js:323 [v1.1.27]   Potential Offset (Yaw+Pitch): (14.44, 20.91, -5.79)
+playerControls.js:328 [v1.1.27]   Normalized Y: 0.802 (Limits: 0.169 - 0.986)
+playerControls.js:333 [v1.1.27]   Pitch Applied (Y limits OK or Initial Move).
+playerControls.js:339 [v1.1.27]   Setting Offset: (14.44, 20.91, -5.79)
+playerControls.js:293 [v1.1.27] Move Start (Rotation) - Current isInitialDragMove = true
+playerControls.js:294 [v1.1.27] Move - DeltaX: 1.00, DeltaY: 0.00
+playerControls.js:302 [v1.1.27]   Initial Offset: (14.44, 20.91, -5.79)
+playerControls.js:307 [v1.1.27]   Yaw Angle: -0.0030 -> Yawed Offset: (14.46, 20.91, -5.75)
+playerControls.js:318 [v1.1.27]   Pitch Angle: 0.0000, Right Vector: (-0.37, 0.00, -0.93)
+playerControls.js:319 [v1.1.27]   Camera Up: (0.00, 1.00, 0.00)
+playerControls.js:323 [v1.1.27]   Potential Offset (Yaw+Pitch): (14.46, 20.91, -5.75)
+playerControls.js:328 [v1.1.27]   Normalized Y: 0.802 (Limits: 0.169 - 0.986)
+playerControls.js:333 [v1.1.27]   Pitch Applied (Y limits OK or Initial Move).
+playerControls.js:339 [v1.1.27]   Setting Offset: (14.46, 20.91, -5.75)
+playerControls.js:293 [v1.1.27] Move Start (Rotation) - Current isInitialDragMove = true
+playerControls.js:294 [v1.1.27] Move - DeltaX: 1.00, DeltaY: 0.00
+playerControls.js:302 [v1.1.27]   Initial Offset: (14.46, 20.91, -5.75)
+playerControls.js:307 [v1.1.27]   Yaw Angle: -0.0030 -> Yawed Offset: (14.48, 20.91, -5.70)
+playerControls.js:318 [v1.1.27]   Pitch Angle: 0.0000, Right Vector: (-0.37, 0.00, -0.93)
+playerControls.js:319 [v1.1.27]   Camera Up: (0.00, 1.00, 0.00)
+playerControls.js:323 [v1.1.27]   Potential Offset (Yaw+Pitch): (14.48, 20.91, -5.70)
+playerControls.js:328 [v1.1.27]   Normalized Y: 0.802 (Limits: 0.169 - 0.986)
+playerControls.js:333 [v1.1.27]   Pitch Applied (Y limits OK or Initial Move).
+playerControls.js:339 [v1.1.27]   Setting Offset: (14.48, 20.91, -5.70)
+playerControls.js:293 [v1.1.27] Move Start (Rotation) - Current isInitialDragMove = true
+playerControls.js:294 [v1.1.27] Move - DeltaX: 1.00, DeltaY: 0.00
+playerControls.js:302 [v1.1.27]   Initial Offset: (14.48, 20.91, -5.70)
+playerControls.js:307 [v1.1.27]   Yaw Angle: -0.0030 -> Yawed Offset: (14.49, 20.91, -5.66)
+playerControls.js:318 [v1.1.27]   Pitch Angle: 0.0000, Right Vector: (-0.37, 0.00, -0.93)
+playerControls.js:319 [v1.1.27]   Camera Up: (0.00, 1.00, 0.00)
+playerControls.js:323 [v1.1.27]   Potential Offset (Yaw+Pitch): (14.49, 20.91, -5.66)
+playerControls.js:328 [v1.1.27]   Normalized Y: 0.802 (Limits: 0.169 - 0.986)
+playerControls.js:333 [v1.1.27]   Pitch Applied (Y limits OK or Initial Move).
+playerControls.js:339 [v1.1.27]   Setting Offset: (14.49, 20.91, -5.66)
+playerControls.js:293 [v1.1.27] Move Start (Rotation) - Current isInitialDragMove = true
+playerControls.js:294 [v1.1.27] Move - DeltaX: 1.00, DeltaY: 0.00
+playerControls.js:302 [v1.1.27]   Initial Offset: (14.49, 20.91, -5.66)
+playerControls.js:307 [v1.1.27]   Yaw Angle: -0.0030 -> Yawed Offset: (14.51, 20.91, -5.62)
+playerControls.js:318 [v1.1.27]   Pitch Angle: 0.0000, Right Vector: (-0.37, 0.00, -0.93)
+playerControls.js:319 [v1.1.27]   Camera Up: (0.00, 1.00, 0.00)
+playerControls.js:323 [v1.1.27]   Potential Offset (Yaw+Pitch): (14.51, 20.91, -5.62)
+playerControls.js:328 [v1.1.27]   Normalized Y: 0.802 (Limits: 0.169 - 0.986)
+playerControls.js:333 [v1.1.27]   Pitch Applied (Y limits OK or Initial Move).
+playerControls.js:339 [v1.1.27]   Setting Offset: (14.51, 20.91, -5.62)
+playerControls.js:293 [v1.1.27] Move Start (Rotation) - Current isInitialDragMove = true
+playerControls.js:294 [v1.1.27] Move - DeltaX: 1.00, DeltaY: 0.00
+playerControls.js:302 [v1.1.27]   Initial Offset: (14.51, 20.91, -5.62)
+playerControls.js:307 [v1.1.27]   Yaw Angle: -0.0030 -> Yawed Offset: (14.53, 20.91, -5.57)
+playerControls.js:318 [v1.1.27]   Pitch Angle: 0.0000, Right Vector: (-0.37, 0.00, -0.93)
+playerControls.js:319 [v1.1.27]   Camera Up: (0.00, 1.00, 0.00)
+playerControls.js:323 [v1.1.27]   Potential Offset (Yaw+Pitch): (14.53, 20.91, -5.57)
+playerControls.js:328 [v1.1.27]   Normalized Y: 0.802 (Limits: 0.169 - 0.986)
+playerControls.js:333 [v1.1.27]   Pitch Applied (Y limits OK or Initial Move).
+playerControls.js:339 [v1.1.27]   Setting Offset: (14.53, 20.91, -5.57)
+playerControls.js:293 [v1.1.27] Move Start (Rotation) - Current isInitialDragMove = true
+playerControls.js:294 [v1.1.27] Move - DeltaX: 1.00, DeltaY: 0.00
+playerControls.js:302 [v1.1.27]   Initial Offset: (14.53, 20.91, -5.57)
+playerControls.js:307 [v1.1.27]   Yaw Angle: -0.0030 -> Yawed Offset: (14.54, 20.91, -5.53)
+playerControls.js:318 [v1.1.27]   Pitch Angle: 0.0000, Right Vector: (-0.37, 0.00, -0.93)
+playerControls.js:319 [v1.1.27]   Camera Up: (0.00, 1.00, 0.00)
+playerControls.js:323 [v1.1.27]   Potential Offset (Yaw+Pitch): (14.54, 20.91, -5.53)
+playerControls.js:328 [v1.1.27]   Normalized Y: 0.802 (Limits: 0.169 - 0.986)
+playerControls.js:333 [v1.1.27]   Pitch Applied (Y limits OK or Initial Move).
+playerControls.js:339 [v1.1.27]   Setting Offset: (14.54, 20.91, -5.53)
+playerControls.js:293 [v1.1.27] Move Start (Rotation) - Current isInitialDragMove = true
+playerControls.js:294 [v1.1.27] Move - DeltaX: 1.00, DeltaY: 0.00
+playerControls.js:302 [v1.1.27]   Initial Offset: (14.54, 20.91, -5.53)
+playerControls.js:307 [v1.1.27]   Yaw Angle: -0.0030 -> Yawed Offset: (14.56, 20.91, -5.49)
+playerControls.js:318 [v1.1.27]   Pitch Angle: 0.0000, Right Vector: (-0.36, 0.00, -0.93)
+playerControls.js:319 [v1.1.27]   Camera Up: (0.00, 1.00, 0.00)
+playerControls.js:323 [v1.1.27]   Potential Offset (Yaw+Pitch): (14.56, 20.91, -5.49)
+playerControls.js:328 [v1.1.27]   Normalized Y: 0.802 (Limits: 0.169 - 0.986)
+playerControls.js:333 [v1.1.27]   Pitch Applied (Y limits OK or Initial Move).
+playerControls.js:339 [v1.1.27]   Setting Offset: (14.56, 20.91, -5.49)
+playerControls.js:293 [v1.1.27] Move Start (Rotation) - Current isInitialDragMove = true
+playerControls.js:294 [v1.1.27] Move - DeltaX: 1.00, DeltaY: 0.00
+playerControls.js:302 [v1.1.27]   Initial Offset: (14.56, 20.91, -5.49)
+playerControls.js:307 [v1.1.27]   Yaw Angle: -0.0030 -> Yawed Offset: (14.58, 20.91, -5.44)
+playerControls.js:318 [v1.1.27]   Pitch Angle: 0.0000, Right Vector: (-0.36, 0.00, -0.93)
+playerControls.js:319 [v1.1.27]   Camera Up: (0.00, 1.00, 0.00)
+playerControls.js:323 [v1.1.27]   Potential Offset (Yaw+Pitch): (14.58, 20.91, -5.44)
+playerControls.js:328 [v1.1.27]   Normalized Y: 0.802 (Limits: 0.169 - 0.986)
+playerControls.js:333 [v1.1.27]   Pitch Applied (Y limits OK or Initial Move).
+playerControls.js:339 [v1.1.27]   Setting Offset: (14.58, 20.91, -5.44)
+playerControls.js:293 [v1.1.27] Move Start (Rotation) - Current isInitialDragMove = true
+playerControls.js:294 [v1.1.27] Move - DeltaX: 1.00, DeltaY: 0.00
+playerControls.js:302 [v1.1.27]   Initial Offset: (14.58, 20.91, -5.44)
+playerControls.js:307 [v1.1.27]   Yaw Angle: -0.0030 -> Yawed Offset: (14.59, 20.91, -5.40)
+playerControls.js:318 [v1.1.27]   Pitch Angle: 0.0000, Right Vector: (-0.36, 0.00, -0.93)
+playerControls.js:319 [v1.1.27]   Camera Up: (0.00, 1.00, 0.00)
+playerControls.js:323 [v1.1.27]   Potential Offset (Yaw+Pitch): (14.59, 20.91, -5.40)
+playerControls.js:328 [v1.1.27]   Normalized Y: 0.802 (Limits: 0.169 - 0.986)
+playerControls.js:333 [v1.1.27]   Pitch Applied (Y limits OK or Initial Move).
+playerControls.js:339 [v1.1.27]   Setting Offset: (14.59, 20.91, -5.40)
+playerControls.js:293 [v1.1.27] Move Start (Rotation) - Current isInitialDragMove = true
+playerControls.js:294 [v1.1.27] Move - DeltaX: 1.00, DeltaY: 0.00
+playerControls.js:302 [v1.1.27]   Initial Offset: (14.59, 20.91, -5.40)
+playerControls.js:307 [v1.1.27]   Yaw Angle: -0.0030 -> Yawed Offset: (14.61, 20.91, -5.35)
+playerControls.js:318 [v1.1.27]   Pitch Angle: 0.0000, Right Vector: (-0.35, 0.00, -0.94)
+playerControls.js:319 [v1.1.27]   Camera Up: (0.00, 1.00, 0.00)
+playerControls.js:323 [v1.1.27]   Potential Offset (Yaw+Pitch): (14.61, 20.91, -5.35)
+playerControls.js:328 [v1.1.27]   Normalized Y: 0.802 (Limits: 0.169 - 0.986)
+playerControls.js:333 [v1.1.27]   Pitch Applied (Y limits OK or Initial Move).
+playerControls.js:339 [v1.1.27]   Setting Offset: (14.61, 20.91, -5.35)
+playerControls.js:381 [v1.1.27] Mouse Up Left (Rotation) - State updated
+playerControls.js:346 [v1.1.27] cleanupGameOverListeners called
+init.js:114 --- Entering resetGame ---
+init.js:116 [resetGame] Value of topScore BEFORE assignment: 250
+init.js:118 [resetGame] Value of topScoreAtGameStart AFTER assignment: 250
+playerControls.js:346 [v1.1.27] cleanupGameOverListeners called
+init.js:170 [resetGame] Clearing existing pickup objects...
+pickups.js:333 --- spawnPickup called with forceType: zoom ---
+pickups.js:361   -> Final pickupType determined for non-counter spawn: zoom
+pickups.js:369   -> Attempting primary spawn: zoom
+pickups.js:166   [trySpawn] Check: Current count 0, Max allowed 1 for type zoom
+pickups.js:174   [trySpawn] Starting position search (max 50 attempts)...
+pickups.js:220   [trySpawn] SUCCESS on attempt 1 for zoom! Spawning at (3.5, 4.5)
+utils.js:30 PICKUP COUNT (Spawned zoom): 1
+pickups.js:372 --- spawnPickup finished for type: zoom ---
+pickups.js:333 --- spawnPickup called with forceType: score ---
+pickups.js:361   -> Final pickupType determined for non-counter spawn: score
+pickups.js:369   -> Attempting primary spawn: score
+pickups.js:166   [trySpawn] Check: Current count 0, Max allowed 1 for type score
+pickups.js:174   [trySpawn] Starting position search (max 50 attempts)...
+pickups.js:220   [trySpawn] SUCCESS on attempt 1 for score! Spawning at (7.5, -6.5)
+utils.js:30 PICKUP COUNT (Spawned score): 2
+pickups.js:372 --- spawnPickup finished for type: score ---
+pickups.js:333 --- spawnPickup called with forceType: sparse ---
+pickups.js:361   -> Final pickupType determined for non-counter spawn: sparse
+pickups.js:369   -> Attempting primary spawn: sparse
+pickups.js:166   [trySpawn] Check: Current count 0, Max allowed 1 for type sparse
+pickups.js:174   [trySpawn] Starting position search (max 50 attempts)...
+pickups.js:220   [trySpawn] SUCCESS on attempt 1 for sparse! Spawning at (-0.5, 7.5)
+utils.js:30 PICKUP COUNT (Spawned sparse): 3
+pickups.js:372 --- spawnPickup finished for type: sparse ---
+utils.js:30 PICKUP COUNT (After Initial Spawn): 3
+init.js:226 [resetGame] Finding safe spawn for initial AI...
+init.js:236 [resetGame] Found safe AI spawn at (14.5, -8.5) on attempt 1
+init.js:249 [resetGame] Created AI at (14.5, -8.5) with initial direction (-1, 0)
+init.js:61 Game paused due to visibility change.

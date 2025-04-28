@@ -1,11 +1,20 @@
 import { 
     topScore, topScoreAtGameStart, gameActive, isGameOver, winner, scoreP1, unlockedScoresThisGame, 
     gameOverTextElement, versionTextElement, openingDialogElement, scoreTextElement, topScoreTextElement,
-    pauseIndicatorElement,
+    pauseIndicatorElement, renderer, // Import renderer for canvas access
+    // Import state needed for initial offset calculation
+    gameOverLookAtTarget, gameOverCameraTargetPosition, setGameOverCameraOffset,
     setOpeningDialogElement, setGameOverTextElement, setVersionTextElement, setScoreTextElement, setTopScoreTextElement,
     setPauseIndicatorElement
 } from './state.js';
 import { GAME_VERSION } from './constants.js';
+// Import the handler function
+import { handleGameOverPointerDown, handleGameOverWheel } from './playerControls.js';
+import * as THREE from 'three'; // Need THREE for Vector3 subtraction
+
+// Add new state for dialog minimization
+let isGameOverDialogMinimized = false;
+// No setter needed globally, managed internally by toggle function
 
 // Helper Function for Unlock Status Text
 export function getUnlockStatusText(currentTopScore) {
@@ -106,6 +115,7 @@ export function createGameOverText() {
     let element = gameOverTextElement;
     if (!element) {
         element = document.createElement('div');
+        element.id = 'gameOverDialog'; // Add an ID for easier styling/selection
         element.style.position = 'absolute';
         element.style.top = '50%';
         element.style.left = '50%';
@@ -116,17 +126,44 @@ export function createGameOverText() {
         element.style.padding = 'clamp(15px, 4vw, 20px) clamp(20px, 5vw, 40px)';
         element.style.borderRadius = '10px';
         element.style.border = '2px solid rgba(255, 255, 255, 0.5)';
-        element.style.fontSize = 'clamp(28px, 6vw, 48px)';
+        element.style.fontSize = 'clamp(28px, 6vw, 48px)'; // Base font size for title
         element.style.fontFamily = 'Arial, sans-serif';
         element.style.textShadow = '2px 2px 4px #000000';
         element.style.textAlign = 'center';
-        element.style.maxHeight = '85vh';
-        element.style.overflowY = 'auto';
+        element.style.maxHeight = '85vh'; // Keep max height
+        element.style.overflowY = 'hidden'; // Start hidden, toggle to auto when maximized
         element.style.display = 'none';
-        element.style.cursor = 'pointer';
+        element.style.transition = 'all 0.3s ease-out'; // Add transition
+
+        // Container for the actual content (to be shown/hidden)
+        const contentContainer = document.createElement('div');
+        contentContainer.id = 'gameOverContentContainer';
+        element.appendChild(contentContainer); // Add content container
+
+        // Create Minimize Toggle Button
+        const minimizeButton = document.createElement('span');
+        minimizeButton.id = 'gameOverMinimizeButton';
+        minimizeButton.textContent = '_'; // Initial icon
+        minimizeButton.style.position = 'absolute';
+        minimizeButton.style.top = '5px';
+        minimizeButton.style.right = '10px';
+        minimizeButton.style.fontSize = '24px';
+        minimizeButton.style.lineHeight = '24px';
+        minimizeButton.style.cursor = 'pointer';
+        minimizeButton.style.color = '#cccccc';
+        minimizeButton.style.userSelect = 'none';
+        minimizeButton.title = 'Minimize/Maximize Dialog';
+
+        element.appendChild(minimizeButton); // Add button *after* container
+
         document.body.appendChild(element);
-        // Need state.setGameOverTextElement(element);
-        setGameOverTextElement(element);
+        setGameOverTextElement(element); // Store reference in state
+
+        // Add the toggle listener here, only once
+        minimizeButton.onclick = () => {
+             isGameOverDialogMinimized = !isGameOverDialogMinimized;
+             updateGameOverDialogAppearance();
+        };
     }
 }
 
@@ -229,10 +266,64 @@ export function createPauseIndicator() {
     }
 }
 
+// --- Listener Functions ---
+// Wrap the handler in functions that extract coordinates for consistency
+function onGameOverMouseDown(event) {
+    // Only trigger if click is not on the dialog itself
+    if (gameOverTextElement && !gameOverTextElement.contains(event.target)) {
+        handleGameOverPointerDown(event.clientX, event.clientY, event);
+    }
+}
+
+function onGameOverTouchStart(event) {
+    // Only trigger if touch is not on the dialog itself
+    if (gameOverTextElement && !gameOverTextElement.contains(event.target)) {
+        // Use the first touch in the changedTouches list
+        if (event.changedTouches.length > 0) {
+             handleGameOverPointerDown(event.changedTouches[0].clientX, event.changedTouches[0].clientY, event);
+        }
+    }
+}
+
+// Function to add pointer down listeners
+function addGameOverPointerListeners() {
+    const targetElement = renderer?.domElement || window; // Prefer canvas, fallback to window
+    console.log(`[${GAME_VERSION}] Adding game over pointer listeners (mousedown, touchstart, wheel)`);
+    targetElement.addEventListener('mousedown', onGameOverMouseDown);
+    targetElement.addEventListener('touchstart', onGameOverTouchStart, { passive: true });
+    // Add wheel listener here
+    window.addEventListener('wheel', handleGameOverWheel, { passive: false }); 
+}
+
+// Function to remove pointer down listeners (exported for resetGame)
+export function removeGameOverPointerListeners() {
+    const targetElement = renderer?.domElement || window;
+    console.log(`[${GAME_VERSION}] Removing game over pointer listeners (mousedown, touchstart, wheel)`);
+    targetElement.removeEventListener('mousedown', onGameOverMouseDown);
+    targetElement.removeEventListener('touchstart', onGameOverTouchStart);
+    // Remove wheel listener here
+    window.removeEventListener('wheel', handleGameOverWheel);
+}
+
 // Show Game Over Message (Called from animate)
+// This function now *only* populates the content container the first time
+// and makes the main dialog visible. It no longer handles the minimize state directly.
 export function showGameOverMessage(winnerCode) {
     if (!gameOverTextElement) return;
 
+    const contentContainer = document.getElementById('gameOverContentContainer');
+    if (!contentContainer) return;
+
+    // Store winnerCode for potential later use if needed (e.g., for debugging)
+    gameOverTextElement.dataset.winnerCode = winnerCode;
+
+    // --- Calculate and Set Initial Camera Offset ---
+    // This uses the target position calculated in gameLoop's game over logic
+    const initialOffset = gameOverCameraTargetPosition.clone().sub(gameOverLookAtTarget);
+    setGameOverCameraOffset(initialOffset);
+    // --- End Initial Offset Calculation ---
+
+    // Populate content (existing code)
     let message = "";
     if (winnerCode === 1) message = 'AI Wins!';
     else if (winnerCode === 2) message = 'Player Wins!';
@@ -240,22 +331,85 @@ export function showGameOverMessage(winnerCode) {
     else { message = 'Game Over?'; console.warn("showGameOverMessage called with unknown winnerCode:", winnerCode); }
 
     let scoreMessage = `Final Score: ${scoreP1}`;
+    // Need topScore from state here - Import it at the top
     if (scoreP1 > topScore && (winnerCode === 2 || winnerCode === 3)) {
         scoreMessage += ` (NEW TOP SCORE!)`;
     }
 
-    const unlockStatus = getUnlockStatusText(topScore);
-
-    gameOverTextElement.innerHTML =
-        `${message}<br>` +
-        `<span style="font-size: clamp(20px, 4vw, 32px); color: #cccccc;">${scoreMessage}</span><br>` +
-        `<div style="margin-top: 20px; border-top: 1px solid #555; padding-top: 15px;">` +
+    const unlockStatus = getUnlockStatusText(topScore); // Needs topScore
+    contentContainer.innerHTML =
+        `<span id="mainGameOverMessage" style="display: block; margin-bottom: 5px;">${message}</span>` + // Ensure block display
+        `<span style="font-size: clamp(20px, 4vw, 32px); color: #cccccc; display: block; margin-bottom: 15px;">${scoreMessage}</span>` + // Ensure block display
+        `<div id="gameOverUnlocks" style="margin-top: 20px; border-top: 1px solid #555; padding-top: 15px;">` +
         unlockStatus.unlockedHTML +
         unlockStatus.nextUnlockMsg +
         `</div>` +
+        `<div id="gameOverControls">` + // Wrap controls too
         unlockStatus.controlsText +
-        `<span style="display: block; margin-top: 15px; font-size: clamp(16px, 3vw, 24px); color: #dddddd;">Tap or Press Any Key to Restart</span>`;
+        `</div>` +
+        `<span id="restartText" style="display: block; margin-top: 15px; font-size: clamp(16px, 3vw, 24px); color: #dddddd; cursor: pointer;">Tap or Press Any Key to Restart</span>`;
+
+    // Ensure the dialog starts maximized
+    isGameOverDialogMinimized = false;
+    updateGameOverDialogAppearance();
+
+    // Make the main dialog visible
     gameOverTextElement.style.display = 'block';
+
+    // --- Add the pointer down listeners ---
+    addGameOverPointerListeners();
+}
+
+// Helper function to update appearance based on minimized state
+function updateGameOverDialogAppearance() {
+    if (!gameOverTextElement) return;
+
+    const minimizeButton = document.getElementById('gameOverMinimizeButton');
+    const contentContainer = document.getElementById('gameOverContentContainer'); // Target the container
+
+    if (!minimizeButton || !contentContainer) return; // Safety check
+
+    if (isGameOverDialogMinimized) {
+        // Minimized State - Move to bottom center, shrink
+        gameOverTextElement.style.top = 'unset'; // Remove top positioning
+        gameOverTextElement.style.bottom = '60px'; // Position near bottom (adjust if needed to avoid itch link)
+        gameOverTextElement.style.left = '50%';
+        gameOverTextElement.style.transform = 'translateX(-50%)'; // Center horizontally only
+        gameOverTextElement.style.width = '200px'; // Fixed smaller width
+        gameOverTextElement.style.height = 'auto';
+        gameOverTextElement.style.minHeight = '30px'; // Smaller min height
+        gameOverTextElement.style.padding = '5px 20px 5px 10px'; // Adjusted padding
+        gameOverTextElement.style.overflowY = 'hidden';
+
+        // Hide the content container
+        contentContainer.style.display = 'none';
+
+        minimizeButton.textContent = '+';
+        minimizeButton.title = 'Maximize Dialog';
+        // Adjust button position within the smaller box if needed
+        minimizeButton.style.top = '3px'; 
+        minimizeButton.style.right = '5px';
+
+    } else {
+        // Maximized/Normal State - Restore original position and size
+        gameOverTextElement.style.top = '50%';
+        gameOverTextElement.style.bottom = 'unset'; // Remove bottom positioning
+        gameOverTextElement.style.left = '50%';
+        gameOverTextElement.style.transform = 'translate(-50%, -50%)'; // Center both ways
+        gameOverTextElement.style.width = 'clamp(300px, 90vw, 700px)'; // Restore width
+        gameOverTextElement.style.minHeight = '';
+        gameOverTextElement.style.padding = 'clamp(15px, 4vw, 20px) clamp(20px, 5vw, 40px)'; // Restore padding
+        gameOverTextElement.style.overflowY = 'auto';
+
+        // Show the content container
+        contentContainer.style.display = 'block';
+
+        minimizeButton.textContent = '_';
+        minimizeButton.title = 'Minimize Dialog';
+        // Restore button position
+        minimizeButton.style.top = '5px';
+        minimizeButton.style.right = '10px';
+    }
 }
 
 // Update Score Display (Called from animate)
