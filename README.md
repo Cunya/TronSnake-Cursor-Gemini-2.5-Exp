@@ -66,4 +66,8 @@ The game currently attempts to load the `helvetiker_regular.typeface.json` font 
 
 ## Dependencies
 
-*   [Three.js](https://threejs.org/) (included via ES module imports) 
+*   [Three.js](https://threejs.org/) (included via ES module imports)
+
+## License
+
+This project is distributed under a custom license. Please see the [LICENSE.txt](./LICENSE.txt) file for details regarding usage restrictions. 

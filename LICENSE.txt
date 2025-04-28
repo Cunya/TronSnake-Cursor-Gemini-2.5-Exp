@@ -1,0 +1,15 @@
+Copyright (c) 2025 Tamás Martinec
+
+All rights reserved.
+
+Permission is granted to access and use this Software for personal, non-commercial purposes only through the official online service provided by https://cunya.github.io/TronSnake-Cursor-Gemini-2.5-Exp/.
+
+You may NOT:
+- Copy, download, modify, reproduce, distribute, or create derivative works based on the Software.
+- Host, mirror, or otherwise make the Software available elsewhere.
+- Solicit payments, donations, or financial compensation in connection with the Software.
+
+Any violation of these terms will be considered a breach of this license.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED.
+
