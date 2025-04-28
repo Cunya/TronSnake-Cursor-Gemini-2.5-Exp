@@ -16,13 +16,21 @@ import {
     gameOverTextElement, pauseIndicatorElement,
     // NEW: Track previous frame's collision status
     previousFrameAICollisionStatus, // Assume this is initialized in state (e.g., to aiPlayers.map(() => false))
+    // Import new camera drag state
+    isDraggingCamera, gameOverCameraOffset, 
     // State Setters
     setSpeedBoostActiveP1, setIsGameOver, setWinner, setTopScore, setLastFrameTime, setLastUpdateTimeP1,
     setScoreP1, setSpeedLevelP1,
     setIsZoomedOutP1, setZoomLevelP1, setIsSparseTrailActiveP1, setSparseLevelP1,
     setTrailCounterP1,
     setLastTrailSegment1,
-    setPreviousFrameAICollisionStatus // Add setter for the status
+    setPreviousFrameAICollisionStatus, // Add setter for the status
+    setGameOverCameraTargetPosition, // Setter for target position
+    setGameOverCameraOffset, // Setter for offset (used in ui.js, but ensure it's imported)
+    isPanningCamera, // Import isPanningCamera
+    lastPointerX, lastPointerY, isInitialDragMove,
+    // ...Setters...
+    setGameActive, setIsPaused, setPickupsCollectedCounter
 } from './state.js';
 import {
     normalUpdateInterval,
@@ -33,7 +41,8 @@ import {
     PARTICLE_GRAVITY, GROUND_Y, TEXT_MOVE_SPEED, PROJECTILE_SIZE,
     P1_HEAD_COLOR_NORMAL, P1_TRAIL_COLOR_NORMAL,
     trailParticleGeometry, trailParticleMaterial, TRAIL_PARTICLE_COUNT_PER_FRAME, TRAIL_PARTICLE_LIFE,
-    AMMO_COLOR // <-- Import AMMO_COLOR for explosion
+    AMMO_COLOR, // <-- Import AMMO_COLOR for explosion
+    GAME_VERSION
 } from './constants.js';
 import { snapToGridCenter } from './utils.js';
 import { updateAllAIPlayers } from './ai.js';
@@ -43,6 +52,8 @@ import {
     createExplosionEffect, updateAmmoIndicatorP1, updateAmmoIndicatorAI 
 } from './visuals.js';
 import { showGameOverMessage, updateScoreDisplay } from './ui.js';
+
+const gameOverLerpedLookAtTarget = new THREE.Vector3(); // Temporary vector for smooth lookAt
 
 // Game Over Collision Check (Internal to game loop)
 // MODIFIED: Accepts previous frame's AI loss status
@@ -367,13 +378,45 @@ export function animate(currentTime) {
                     // Game Over Handling
                     if (winnerCode !== 0) {
                         setIsGameOver(true);
+                        
+                        // --- Explicitly ensure player head & segment behind it are visible --- 
+                        if (snakeHead1) {
+                            snakeHead1.visible = true;
+                            // console.log(`[${GAME_VERSION}] Ensured snakeHead1 visibility on game over.`); // Commented out
+                        }
+                        // Ensure the segment immediately behind the head is visible
+                        if (trailSegments1.length > 0) {
+                            const segmentBehindHead = trailSegments1[trailSegments1.length - 1];
+                            if (segmentBehindHead) { // Extra safety check
+                                segmentBehindHead.visible = true;
+                                console.log(`[${GAME_VERSION}] Ensured segment behind head visibility on game over.`);
+                            }
+                        }
+                        // Removed check for lastTrailSegment1 - updateLastTrailSegmentsVisibility handles the most recent one during gameplay
+                        // --- End Visibility Check --- 
+                        
                         // Reset Boosts (already done correctly)
                         // ...
                         if (scoreP1 > topScore) {
                             setTopScore(scoreP1);
                             localStorage.setItem('tronSnakeTopScore', scoreP1.toString());
                         }
-                        showGameOverMessage(winnerCode); // Pass winner code for message
+
+                        // --- Calculate and Set Initial Game Over Camera State --- 
+                        const width = boundaryXMax - boundaryXMin, height = boundaryZMax - boundaryZMin;
+                        const centerX = (boundaryXMin + boundaryXMax) / 2, centerZ = (boundaryZMin + boundaryZMax) / 2;
+                        gameOverLookAtTarget.set(centerX, 0, centerZ); // Set the look-at target state
+
+                        // Calculate initial camera height/position (similar to old logic)
+                        const largestDim = Math.max(width, height);
+                        const fovRad = camera.fov * (Math.PI / 180);
+                        let reqHeight = (Math.tan(fovRad / 2) > epsilon) ? (largestDim / 1.8) / Math.tan(fovRad / 2) : 10; // Use 1.8 instead of 2 for slightly wider view
+                        const initialTargetHeight = Math.max(baseCameraHeight + 5, reqHeight * 1.2);
+                        // Set the target position state (used by ui.js to calc offset)
+                        gameOverCameraTargetPosition.set(centerX + 0.01, initialTargetHeight, centerZ); 
+                        // --- End Initial Camera State Setup --- 
+                        
+                        showGameOverMessage(winnerCode); // Show message AFTER setting initial positions
 
                         // Set Head Colors based on detailed status
                         revertHeadColors(); // Start fresh
@@ -412,14 +455,20 @@ export function animate(currentTime) {
 
     // --- Visual Updates --- (Use state)
     // Lerp snake head visual positions towards target logical positions
-    if (snakeHead1) snakeHead1.position.lerp(snakeTargetPosition1, LERP_FACTOR);
+    if (snakeHead1 && !isGameOver) {
+        snakeHead1.position.lerp(snakeTargetPosition1, LERP_FACTOR);
+    }
     // Lerp AIs
     aiPlayers.forEach((ai, index) => { 
         if (ai.head && !previousFrameAICollisionStatus[index]) { 
              ai.head.position.lerp(ai.targetPosition, LERP_FACTOR);
         }
     });
-    updateLastTrailSegmentsVisibility(); // Ensure last segments are visible during movement
+    // Ensure last segments are visible during MOVEMENT, not necessarily needed after game over
+    // but doesn't hurt to leave it unless performance is an issue.
+    if (!isGameOver) { // Only run this if game is active
+       updateLastTrailSegmentsVisibility();
+    }
     updateScoreDisplay(); // Update score UI text
 
     // Update Game Over Dialog Visibility
@@ -575,17 +624,49 @@ export function animate(currentTime) {
             }
         });
     } else if (isGameOver && camera) {
-        // Game Over Camera Logic (Zoom out to show whole arena)
-        const width = boundaryXMax - boundaryXMin, height = boundaryZMax - boundaryZMin;
-        const centerX = (boundaryXMin + boundaryXMax) / 2, centerZ = (boundaryZMin + boundaryZMax) / 2;
-        const largestDim = Math.max(width, height);
-        const fovRad = camera.fov * (Math.PI / 180);
-        let reqHeight = (Math.tan(fovRad / 2) > epsilon) ? (largestDim / 2) / Math.tan(fovRad / 2) : 10;
-        const targetHeight = Math.max(baseCameraHeight + 5, reqHeight * 1.2);
-        gameOverCameraTargetPosition.set(centerX + 0.01, targetHeight, centerZ);
-        gameOverLookAtTarget.set(centerX, 0, centerZ);
-        camera.position.lerp(gameOverCameraTargetPosition, gameOverCameraLag);
-        camera.up.set(0, 1, 0); camera.lookAt(gameOverLookAtTarget);
+        // Game Over Camera Logic
+        
+        // 1. Calculate Target Position using offset from state
+        const desiredPosition = gameOverLookAtTarget.clone().add(gameOverCameraOffset);
+
+        // 2. Update Camera Position (Lerp if not dragging/panning, jump if dragging/panning)
+        if (isDraggingCamera || isPanningCamera) { // Check for either drag or pan
+            camera.position.copy(desiredPosition);
+        } else {
+            camera.position.lerp(desiredPosition, gameOverCameraLag);
+        }
+        
+        // 3. Interpolate Look At Target (or set directly if dragging OR panning)
+        if (isDraggingCamera || isPanningCamera) { // Check for either interaction
+            // If dragging or panning, make the look-at target jump instantly
+            gameOverLerpedLookAtTarget.copy(gameOverLookAtTarget); 
+        } else {
+            // Otherwise (no interaction), smoothly interpolate the look-at target
+            gameOverLerpedLookAtTarget.lerp(gameOverLookAtTarget, gameOverCameraLag); 
+        }
+
+        // 4. Set Look At using the (potentially instantly updated) interpolated target
+        camera.up.set(0, 1, 0);
+        camera.lookAt(gameOverLerpedLookAtTarget); // Use the lerped/copied target
+
+    } else if (!gameActive && camera) {
+         // Added: Handle camera for Opening Screen / Pre-Game Start
+         // Position camera slightly above and behind the starting position, looking at it
+         const startPos = snakeTargetPosition1; // Player 1 start position
+         const startDir = snakeDirection1; // Initial direction
+         
+         const initialCamDistance = cameraDistanceBehind * 1.2; // Slightly further back
+         const initialCamHeight = cameraHeight * 1.1; // Slightly higher
+         
+         cameraOffset.copy(startDir).multiplyScalar(-initialCamDistance);
+         cameraOffset.y = initialCamHeight;
+         cameraTargetPosition.copy(startPos).add(cameraOffset);
+         targetLookAt.copy(startPos);
+         
+         // Use faster lerp initially or just set position?
+         // camera.position.copy(cameraTargetPosition); // Jump to position
+         camera.position.lerp(cameraTargetPosition, cameraLag * 2); // Faster lerp
+         camera.lookAt(targetLookAt);
     }
 
     // 9. Render the scene

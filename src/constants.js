@@ -3,7 +3,7 @@ import * as THREE from 'three';
 // Game constants (colors, sizes, speeds, etc.) will be defined and exported from here 
 
 // Version
-export const GAME_VERSION = "v1.1.15";
+export const GAME_VERSION = "v1.1.35";
 
 // Color Constants
 export const P1_HEAD_COLOR_NORMAL = 0x00ffff; // Cyan
@@ -34,6 +34,11 @@ export const zoomedOutCameraDistanceBehind = cameraDistanceBehind * 1.8; // Zoom
 export const cameraLag = 0.08; // Reverted to original value for maximum smoothness
 export const cameraViewShiftDistance = 25;
 export const gameOverCameraLag = 0.06;
+export const CAMERA_ROTATION_SPEED = 0.003; // Sensitivity for game over screen drag rotation
+export const CAMERA_PANNING_SPEED = 0.01;   // Sensitivity for middle-mouse panning
+export const CAMERA_ZOOM_SPEED = 0.1;       // Sensitivity for mouse wheel zoom (as a factor)
+export const MIN_ZOOM_DISTANCE = 5;        // Minimum distance from target
+export const MAX_ZOOM_DISTANCE = 100;       // Maximum distance from target
 
 // Scoring
 export const scoreIncrementPerTick = 1; // Score for surviving a tick

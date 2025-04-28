@@ -1,0 +1,165 @@
+  Angle with Down: 3.141 (Limits: 0.314 - 2.827)
+playerControls.js:262   Pitch Angle Limit Hit, using yawed offset only.
+playerControls.js:266   Setting Offset: (0.01, 26.06, 0.00)
+playerControls.js:205 Move - DeltaX: 1.00, DeltaY: 0.00
+playerControls.js:216   Initial Offset: (0.01, 26.06, 0.00)
+playerControls.js:223   Yaw Angle: -0.0030 -> Yawed Offset: (0.01, 26.06, 0.00)
+playerControls.js:239   Pitch Angle: 0.0000, Right Vector: (0.16, 0.00, -0.99)
+playerControls.js:240   Camera Up: (0.00, 1.00, 0.00)
+playerControls.js:245   Potential Offset (Yaw+Pitch): (0.01, 26.06, 0.00)
+playerControls.js:252   Angle with Down: 3.141 (Limits: 0.314 - 2.827)
+playerControls.js:262   Pitch Angle Limit Hit, using yawed offset only.
+playerControls.js:266   Setting Offset: (0.01, 26.06, 0.00)
+playerControls.js:205 Move - DeltaX: 1.00, DeltaY: 0.00
+playerControls.js:216   Initial Offset: (0.01, 26.06, 0.00)
+playerControls.js:223   Yaw Angle: -0.0030 -> Yawed Offset: (0.01, 26.06, 0.00)
+playerControls.js:239   Pitch Angle: 0.0000, Right Vector: (0.16, 0.00, -0.99)
+playerControls.js:240   Camera Up: (0.00, 1.00, 0.00)
+playerControls.js:245   Potential Offset (Yaw+Pitch): (0.01, 26.06, 0.00)
+playerControls.js:252   Angle with Down: 3.141 (Limits: 0.314 - 2.827)
+playerControls.js:262   Pitch Angle Limit Hit, using yawed offset only.
+playerControls.js:266   Setting Offset: (0.01, 26.06, 0.00)
+playerControls.js:205 Move - DeltaX: 1.00, DeltaY: 0.00
+playerControls.js:216   Initial Offset: (0.01, 26.06, 0.00)
+playerControls.js:223   Yaw Angle: -0.0030 -> Yawed Offset: (0.01, 26.06, 0.00)
+playerControls.js:239   Pitch Angle: 0.0000, Right Vector: (0.19, 0.00, -0.98)
+playerControls.js:240   Camera Up: (0.00, 1.00, 0.00)
+playerControls.js:245   Potential Offset (Yaw+Pitch): (0.01, 26.06, 0.00)
+playerControls.js:252   Angle with Down: 3.141 (Limits: 0.314 - 2.827)
+playerControls.js:262   Pitch Angle Limit Hit, using yawed offset only.
+playerControls.js:266   Setting Offset: (0.01, 26.06, 0.00)
+playerControls.js:205 Move - DeltaX: 1.00, DeltaY: 0.00
+playerControls.js:216   Initial Offset: (0.01, 26.06, 0.00)
+playerControls.js:223   Yaw Angle: -0.0030 -> Yawed Offset: (0.01, 26.06, 0.00)
+playerControls.js:239   Pitch Angle: 0.0000, Right Vector: (0.19, 0.00, -0.98)
+playerControls.js:240   Camera Up: (0.00, 1.00, 0.00)
+playerControls.js:245   Potential Offset (Yaw+Pitch): (0.01, 26.06, 0.00)
+playerControls.js:252   Angle with Down: 3.141 (Limits: 0.314 - 2.827)
+playerControls.js:262   Pitch Angle Limit Hit, using yawed offset only.
+playerControls.js:266   Setting Offset: (0.01, 26.06, 0.00)
+playerControls.js:205 Move - DeltaX: 1.00, DeltaY: 0.00
+playerControls.js:216   Initial Offset: (0.01, 26.06, 0.00)
+playerControls.js:223   Yaw Angle: -0.0030 -> Yawed Offset: (0.01, 26.06, 0.00)
+playerControls.js:239   Pitch Angle: 0.0000, Right Vector: (0.19, 0.00, -0.98)
+playerControls.js:240   Camera Up: (0.00, 1.00, 0.00)
+playerControls.js:245   Potential Offset (Yaw+Pitch): (0.01, 26.06, 0.00)
+playerControls.js:252   Angle with Down: 3.141 (Limits: 0.314 - 2.827)
+playerControls.js:262   Pitch Angle Limit Hit, using yawed offset only.
+playerControls.js:266   Setting Offset: (0.01, 26.06, 0.00)
+playerControls.js:205 Move - DeltaX: 1.00, DeltaY: 0.00
+playerControls.js:216   Initial Offset: (0.01, 26.06, 0.00)
+playerControls.js:223   Yaw Angle: -0.0030 -> Yawed Offset: (0.01, 26.06, 0.00)
+playerControls.js:239   Pitch Angle: 0.0000, Right Vector: (0.19, 0.00, -0.98)
+playerControls.js:240   Camera Up: (0.00, 1.00, 0.00)
+playerControls.js:245   Potential Offset (Yaw+Pitch): (0.01, 26.06, 0.00)
+playerControls.js:252   Angle with Down: 3.141 (Limits: 0.314 - 2.827)
+playerControls.js:262   Pitch Angle Limit Hit, using yawed offset only.
+playerControls.js:266   Setting Offset: (0.01, 26.06, 0.00)
+playerControls.js:205 Move - DeltaX: 1.00, DeltaY: 0.00
+playerControls.js:216   Initial Offset: (0.01, 26.06, 0.00)
+playerControls.js:223   Yaw Angle: -0.0030 -> Yawed Offset: (0.01, 26.06, 0.00)
+playerControls.js:239   Pitch Angle: 0.0000, Right Vector: (0.19, 0.00, -0.98)
+playerControls.js:240   Camera Up: (0.00, 1.00, 0.00)
+playerControls.js:245   Potential Offset (Yaw+Pitch): (0.01, 26.06, 0.00)
+playerControls.js:252   Angle with Down: 3.141 (Limits: 0.314 - 2.827)
+playerControls.js:262   Pitch Angle Limit Hit, using yawed offset only.
+playerControls.js:266   Setting Offset: (0.01, 26.06, 0.00)
+playerControls.js:205 Move - DeltaX: 1.00, DeltaY: 0.00
+playerControls.js:216   Initial Offset: (0.01, 26.06, 0.00)
+playerControls.js:223   Yaw Angle: -0.0030 -> Yawed Offset: (0.01, 26.06, 0.00)
+playerControls.js:239   Pitch Angle: 0.0000, Right Vector: (0.19, 0.00, -0.98)
+playerControls.js:240   Camera Up: (0.00, 1.00, 0.00)
+playerControls.js:245   Potential Offset (Yaw+Pitch): (0.01, 26.06, 0.00)
+playerControls.js:252   Angle with Down: 3.141 (Limits: 0.314 - 2.827)
+playerControls.js:262   Pitch Angle Limit Hit, using yawed offset only.
+playerControls.js:266   Setting Offset: (0.01, 26.06, 0.00)
+playerControls.js:205 Move - DeltaX: 1.00, DeltaY: 0.00
+playerControls.js:216   Initial Offset: (0.01, 26.06, 0.00)
+playerControls.js:223   Yaw Angle: -0.0030 -> Yawed Offset: (0.01, 26.06, 0.00)
+playerControls.js:239   Pitch Angle: 0.0000, Right Vector: (0.19, 0.00, -0.98)
+playerControls.js:240   Camera Up: (0.00, 1.00, 0.00)
+playerControls.js:245   Potential Offset (Yaw+Pitch): (0.01, 26.06, 0.00)
+playerControls.js:252   Angle with Down: 3.141 (Limits: 0.314 - 2.827)
+playerControls.js:262   Pitch Angle Limit Hit, using yawed offset only.
+playerControls.js:266   Setting Offset: (0.01, 26.06, 0.00)
+playerControls.js:205 Move - DeltaX: 1.00, DeltaY: 0.00
+playerControls.js:216   Initial Offset: (0.01, 26.06, 0.00)
+playerControls.js:223   Yaw Angle: -0.0030 -> Yawed Offset: (0.01, 26.06, 0.00)
+playerControls.js:239   Pitch Angle: 0.0000, Right Vector: (0.19, 0.00, -0.98)
+playerControls.js:240   Camera Up: (0.00, 1.00, 0.00)
+playerControls.js:245   Potential Offset (Yaw+Pitch): (0.01, 26.06, 0.00)
+playerControls.js:252   Angle with Down: 3.141 (Limits: 0.314 - 2.827)
+playerControls.js:262   Pitch Angle Limit Hit, using yawed offset only.
+playerControls.js:266   Setting Offset: (0.01, 26.06, 0.00)
+playerControls.js:205 Move - DeltaX: 1.00, DeltaY: 0.00
+playerControls.js:216   Initial Offset: (0.01, 26.06, 0.00)
+playerControls.js:223   Yaw Angle: -0.0030 -> Yawed Offset: (0.01, 26.06, 0.00)
+playerControls.js:239   Pitch Angle: 0.0000, Right Vector: (0.21, 0.00, -0.98)
+playerControls.js:240   Camera Up: (0.00, 1.00, 0.00)
+playerControls.js:245   Potential Offset (Yaw+Pitch): (0.01, 26.06, 0.00)
+playerControls.js:252   Angle with Down: 3.141 (Limits: 0.314 - 2.827)
+playerControls.js:262   Pitch Angle Limit Hit, using yawed offset only.
+playerControls.js:266   Setting Offset: (0.01, 26.06, 0.00)
+playerControls.js:205 Move - DeltaX: 1.00, DeltaY: 0.00
+playerControls.js:216   Initial Offset: (0.01, 26.06, 0.00)
+playerControls.js:223   Yaw Angle: -0.0030 -> Yawed Offset: (0.01, 26.06, 0.00)
+playerControls.js:239   Pitch Angle: 0.0000, Right Vector: (0.21, 0.00, -0.98)
+playerControls.js:240   Camera Up: (0.00, 1.00, 0.00)
+playerControls.js:245   Potential Offset (Yaw+Pitch): (0.01, 26.06, 0.00)
+playerControls.js:252   Angle with Down: 3.141 (Limits: 0.314 - 2.827)
+playerControls.js:262   Pitch Angle Limit Hit, using yawed offset only.
+playerControls.js:266   Setting Offset: (0.01, 26.06, 0.00)
+playerControls.js:205 Move - DeltaX: 1.00, DeltaY: 0.00
+playerControls.js:216   Initial Offset: (0.01, 26.06, 0.00)
+playerControls.js:223   Yaw Angle: -0.0030 -> Yawed Offset: (0.01, 26.06, 0.00)
+playerControls.js:239   Pitch Angle: 0.0000, Right Vector: (0.21, 0.00, -0.98)
+playerControls.js:240   Camera Up: (0.00, 1.00, 0.00)
+playerControls.js:245   Potential Offset (Yaw+Pitch): (0.01, 26.06, 0.00)
+playerControls.js:252   Angle with Down: 3.141 (Limits: 0.314 - 2.827)
+playerControls.js:262   Pitch Angle Limit Hit, using yawed offset only.
+playerControls.js:266   Setting Offset: (0.01, 26.06, 0.00)
+playerControls.js:205 Move - DeltaX: 1.00, DeltaY: 0.00
+playerControls.js:216   Initial Offset: (0.01, 26.06, 0.00)
+playerControls.js:223   Yaw Angle: -0.0030 -> Yawed Offset: (0.01, 26.06, 0.00)
+playerControls.js:239   Pitch Angle: 0.0000, Right Vector: (0.21, 0.00, -0.98)
+playerControls.js:240   Camera Up: (0.00, 1.00, 0.00)
+playerControls.js:245   Potential Offset (Yaw+Pitch): (0.01, 26.06, 0.00)
+playerControls.js:252   Angle with Down: 3.141 (Limits: 0.314 - 2.827)
+playerControls.js:262   Pitch Angle Limit Hit, using yawed offset only.
+playerControls.js:266   Setting Offset: (0.01, 26.06, 0.00)
+playerControls.js:205 Move - DeltaX: 1.00, DeltaY: 0.00
+playerControls.js:216   Initial Offset: (0.01, 26.06, 0.00)
+playerControls.js:223   Yaw Angle: -0.0030 -> Yawed Offset: (0.01, 26.06, 0.00)
+playerControls.js:239   Pitch Angle: 0.0000, Right Vector: (0.23, 0.00, -0.97)
+playerControls.js:240   Camera Up: (0.00, 1.00, 0.00)
+playerControls.js:245   Potential Offset (Yaw+Pitch): (0.01, 26.06, 0.00)
+playerControls.js:252   Angle with Down: 3.141 (Limits: 0.314 - 2.827)
+playerControls.js:262   Pitch Angle Limit Hit, using yawed offset only.
+playerControls.js:266   Setting Offset: (0.01, 26.06, 0.00)
+playerControls.js:205 Move - DeltaX: 1.00, DeltaY: 0.00
+playerControls.js:216   Initial Offset: (0.01, 26.06, 0.00)
+playerControls.js:223   Yaw Angle: -0.0030 -> Yawed Offset: (0.01, 26.06, 0.00)
+playerControls.js:239   Pitch Angle: 0.0000, Right Vector: (0.23, 0.00, -0.97)
+playerControls.js:240   Camera Up: (0.00, 1.00, 0.00)
+playerControls.js:245   Potential Offset (Yaw+Pitch): (0.01, 26.06, 0.00)
+playerControls.js:252   Angle with Down: 3.141 (Limits: 0.314 - 2.827)
+playerControls.js:262   Pitch Angle Limit Hit, using yawed offset only.
+playerControls.js:266   Setting Offset: (0.01, 26.06, 0.00)
+playerControls.js:205 Move - DeltaX: 1.00, DeltaY: 0.00
+playerControls.js:216   Initial Offset: (0.01, 26.06, 0.00)
+playerControls.js:223   Yaw Angle: -0.0030 -> Yawed Offset: (0.01, 26.06, 0.00)
+playerControls.js:239   Pitch Angle: 0.0000, Right Vector: (0.23, 0.00, -0.97)
+playerControls.js:240   Camera Up: (0.00, 1.00, 0.00)
+playerControls.js:245   Potential Offset (Yaw+Pitch): (0.01, 26.06, 0.00)
+playerControls.js:252   Angle with Down: 3.141 (Limits: 0.314 - 2.827)
+playerControls.js:262   Pitch Angle Limit Hit, using yawed offset only.
+playerControls.js:266   Setting Offset: (0.01, 26.06, 0.00)
+playerControls.js:205 Move - DeltaX: 1.00, DeltaY: 0.00
+playerControls.js:216   Initial Offset: (0.01, 26.06, 0.00)
+playerControls.js:223   Yaw Angle: -0.0030 -> Yawed Offset: (0.01, 26.06, 0.00)
+playerControls.js:239   Pitch Angle: 0.0000, Right Vector: (0.23, 0.00, -0.97)
+playerControls.js:240   Camera Up: (0.00, 1.00, 0.00)
+playerControls.js:245   Potential Offset (Yaw+Pitch): (0.01, 26.06, 0.00)
+playerControls.js:252   Angle with Down: 3.141 (Limits: 0.314 - 2.827)
+playerControls.js:262   Pitch Angle Limit Hit, using yawed offset only.
+playerControls.js:266   Setting Offset: (0.01, 26.06, 0.00)

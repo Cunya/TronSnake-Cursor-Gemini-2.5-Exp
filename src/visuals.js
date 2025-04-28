@@ -294,10 +294,20 @@ export function updateLastTrailSegmentsVisibility() {
 
 // Revert snake head colors to normal (e.g., on game over)
 export function revertHeadColors() {
-    if (snakeHead1) headMaterial1.color.setHex(P1_HEAD_COLOR_NORMAL);
+    // Add check for snakeHead1 existence
+    if (snakeHead1 && headMaterial1) { 
+        headMaterial1.color.setHex(P1_HEAD_COLOR_NORMAL);
+    } else if (!snakeHead1) {
+        console.warn("[revertHeadColors] snakeHead1 is null or undefined.");
+    }
+    
     aiPlayers.forEach(ai => {
         // Revert to the AI's specific normal color
-        if (ai.head && ai.colors) ai.material.color.setHex(ai.colors.normal);
+        if (ai.head && ai.material && ai.colors) { // Also check ai.material
+            ai.material.color.setHex(ai.colors.normal);
+        } else if (!ai.head) {
+             // console.warn(`[revertHeadColors] AI ${ai.id} head is null or undefined.`); // Optional logging
+        }
     });
 }
 
