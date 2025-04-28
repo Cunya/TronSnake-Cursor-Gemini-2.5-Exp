@@ -1,4 +1,4 @@
-# TronSnake 3D - v1.1.14
+# TronSnake 3D - v1.1.15
 
 **[Play Live!](https://cunya.github.io/TronSnake-Cursor-Gemini-2.5-Exp/)**
 

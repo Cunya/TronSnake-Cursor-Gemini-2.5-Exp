@@ -153,10 +153,9 @@ function checkCollisions(prevAILostStatus) {
     // Player vs All AI Trails
     if (logicalHeadPos && !p1Lost) {
         for (const ai of aiPlayers) {
-            // No need to check trails of AI already lost? Maybe keep, trail still exists.
             for (let seg of ai.trailSegments) {
                 if (logicalHeadPos.distanceTo(seg.position) < segmentSize * 0.5) { 
-                    console.log(`[Collision] Player vs AI Trail...`);
+                    // console.log(`[Collision] Player vs AI Trail...`);
                     p1Lost = true; break;
                 }
             }
@@ -168,7 +167,7 @@ function checkCollisions(prevAILostStatus) {
          const checkLength = Math.max(0, trailSegments1.length - 1); 
          for (let k = 0; k < checkLength; k++) { 
             if (logicalHeadPos.distanceTo(trailSegments1[k].position) < segmentSize * 0.5) { 
-                console.log(`[Collision] Player vs Own Trail...`);
+                // console.log(`[Collision] Player vs Own Trail...`);
                 p1Lost = true; break;
             }
         }
@@ -183,7 +182,7 @@ function checkCollisions(prevAILostStatus) {
         // Check against player trail
         for (let seg of trailSegments1) {
              if (currentAIPos.distanceTo(seg.position) < collisionThreshold) {
-                 console.log(`[Collision] AI ${currentAI.id} lost: Hit player trail.`);
+                 // console.log(`[Collision] AI ${currentAI.id} lost: Hit player trail.`);
                  lostToTrail = true; break;
             }
         }
@@ -193,7 +192,7 @@ function checkCollisions(prevAILostStatus) {
                 if (otherAI.id === currentAI.id) continue; 
                 for (let seg of otherAI.trailSegments) {
                      if (currentAIPos.distanceTo(seg.position) < collisionThreshold) {
-                         console.log(`[Collision] AI ${currentAI.id} lost: Hit trail of AI ${otherAI.id}.`);
+                         // console.log(`[Collision] AI ${currentAI.id} lost: Hit trail of AI ${otherAI.id}.`);
                          lostToTrail = true; break;
                     }
                 }
@@ -207,8 +206,8 @@ function checkCollisions(prevAILostStatus) {
                  const seg = currentAI.trailSegments[k];
                  const dist = currentAIPos.distanceTo(seg.position);
                  if (dist < collisionThreshold) {
-                     console.log(`[Collision] AI ${currentAI.id} lost: Hit own trail segment at index ${k}.`);
-                     console.log(`  -> AI Pos: (${currentAIPos.x.toFixed(1)}, ${currentAIPos.z.toFixed(1)}), Seg Pos: (${seg.position.x.toFixed(1)}, ${seg.position.z.toFixed(1)}), Dist: ${dist.toFixed(3)}`);
+                     // console.log(`[Collision] AI ${currentAI.id} lost: Hit own trail segment at index ${k}.`);
+                     // console.log(`  -> AI Pos: (${currentAIPos.x.toFixed(1)}, ${currentAIPos.z.toFixed(1)}), Seg Pos: (${seg.position.x.toFixed(1)}, ${seg.position.z.toFixed(1)}), Dist: ${dist.toFixed(3)}`);
                      lostToTrail = true; break;
                 }
             }

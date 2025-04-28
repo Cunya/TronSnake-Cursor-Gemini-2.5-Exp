@@ -16,4 +16,8 @@ This document tracks known issues encountered during development and their resol
 
 ## v1.1.14 Fixes (2024-07-26)
 
-*(No specific fixes for this version yet, only cleanup and version bump)* 
+*(No specific fixes for this version yet, only cleanup and version bump)*
+
+## v1.1.15 Fixes & Changes (2024-07-26)
+
+*   **Opening Dialog:** Updated the introductory text in the opening dialog (`src/ui.js` -> `createOpeningDialog`) to be more general ("Collect points to unlock exciting powerups...") instead of mentioning specific mechanics like trapping the AI or using Ammo. 
