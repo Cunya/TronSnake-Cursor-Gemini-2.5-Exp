@@ -35,7 +35,15 @@ import {
     gameActive, isGameOver, setIsPaused,
     setSpeedLevelP1,
     // Import collision status setter
-    setPreviousFrameAICollisionStatus
+    setPreviousFrameAICollisionStatus,
+    playerLostTime, // Import playerLostTime
+    setPlayerLostTime, // Import setter
+    isGameOverCameraActive, // ADDED Import
+    setIsGameOverCameraActive, // ADDED Import
+    deathZoomFactor, // ADDED Import
+    setDeathZoomFactor, // ADDED Import
+    aiDefeatedTime, // ADDED Import
+    setAiDefeatedTime // ADDED Import
 } from './state.js';
 import {
     initialBoundaryHalfSize, segmentSize, cameraHeight, cameraDistanceBehind, P1_HEAD_COLOR_NORMAL,
@@ -125,8 +133,12 @@ export function resetGame() {
 
     // Reset flags and scores
     if(setIsGameOver) setIsGameOver(false);
+    if(setIsGameOverCameraActive) setIsGameOverCameraActive(false);
     if(setIsPaused) setIsPaused(false);
     if(setWinner) setWinner(0);
+    if(setPlayerLostTime) setPlayerLostTime(null);
+    if(setAiDefeatedTime) setAiDefeatedTime(null);
+    if(setDeathZoomFactor) setDeathZoomFactor(1.0);
     if(setScoreP1) setScoreP1(0);
     if(setSpeedBoostActiveP1) setSpeedBoostActiveP1(false);
     if(setSpeedBoostEndTimeP1) setSpeedBoostEndTimeP1(0);
@@ -211,10 +223,29 @@ export function resetGame() {
     // Spawn a fresh set of initial pickups
     spawnInitialPickups();
 
-    // Reset player 1 snake position
+    // Reset player 1 snake position & visuals
     const startPos1X = snapToGridCenter(bXMin + segmentSize, 'x');
     const startPos1Z = snapToGridCenter(0, 'z');
-    if(snakeHead1) snakeHead1.position.set(startPos1X, 0, startPos1Z);
+
+    if (snakeHead1) { // If head exists, just reposition it
+        snakeHead1.position.set(startPos1X, 0, startPos1Z);
+        snakeHead1.visible = true; // Ensure it's visible
+    } else { // If head is null (e.g., after death), recreate it
+        console.log("[resetGame] snakeHead1 is null, recreating...");
+        const headSize = segmentSize * 1.05;
+        const headGeometry = new THREE.BoxGeometry(headSize, headSize, headSize);
+        // headMaterial1 should still exist and be in the correct state (reset by revertHeadColors)
+        const newSnakeHead1 = new THREE.Mesh(headGeometry, headMaterial1);
+        newSnakeHead1.position.set(startPos1X, 0, startPos1Z);
+        newSnakeHead1.visible = true; // ADDED: Explicitly set visibility
+        if (scene) { // Add to scene only if scene exists
+            scene.add(newSnakeHead1);
+        } else {
+            console.error("[resetGame] Scene does not exist when recreating snakeHead1!");
+        }
+        setSnakeHead1(newSnakeHead1); // Update state with the new head object
+    }
+
     snakeTargetPosition1.set(startPos1X, 0, startPos1Z);
     prevTargetPos1.copy(snakeTargetPosition1);
     snakeDirection1.set(1, 0, 0);
@@ -252,7 +283,7 @@ export function resetGame() {
     if(setPreviousFrameAICollisionStatus) setPreviousFrameAICollisionStatus(aiPlayers.map(() => false));
 
     // Reset camera immediately
-    if (snakeHead1 && camera) {
+    if (snakeHead1 && camera) { // Use the potentially newly created snakeHead1
         targetLookAt.copy(snakeTargetPosition1);
         cameraOffset.copy(snakeDirection1).multiplyScalar(-cameraDistanceBehind);
         cameraOffset.y = cameraHeight;

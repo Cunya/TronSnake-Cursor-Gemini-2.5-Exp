@@ -1,20 +1,34 @@
 import { 
     topScore, topScoreAtGameStart, gameActive, isGameOver, winner, scoreP1, unlockedScoresThisGame, 
     gameOverTextElement, versionTextElement, openingDialogElement, scoreTextElement, topScoreTextElement,
-    pauseIndicatorElement, renderer, // Import renderer for canvas access
+    pauseIndicatorElement, renderer, camera, // Import camera needed for middle mouse pan calc
     // Import state needed for initial offset calculation
     gameOverLookAtTarget, gameOverCameraTargetPosition, setGameOverCameraOffset,
     setOpeningDialogElement, setGameOverTextElement, setVersionTextElement, setScoreTextElement, setTopScoreTextElement,
-    setPauseIndicatorElement
+    setPauseIndicatorElement,
+    // Setters for camera drag/pan state
+    setIsDraggingCamera, setLastPointerX, setLastPointerY, 
+    lastPointerX, lastPointerY, // ADDED Imports for state variables
+    isDraggingCamera, isPanningCamera, // ADDED Imports for state variables
+    isInitialDragMove, // ADDED Import for state variable
+    gameOverCameraOffset, setGameOverCameraTargetPosition,
+    setGameOverLookAtTarget, setIsInitialDragMove,
+    setIsPanningCamera
 } from './state.js';
 import { GAME_VERSION } from './constants.js';
 // Import the handler function
 import { handleGameOverPointerDown, handleGameOverWheel } from './playerControls.js';
 import * as THREE from 'three'; // Need THREE for Vector3 subtraction
+import { resetGame } from './init.js';
 
 // Add new state for dialog minimization
 let isGameOverDialogMinimized = false;
-// No setter needed globally, managed internally by toggle function
+
+// ADDED: Function to reset the internal minimized state
+export function resetGameOverDialogState() {
+    console.log("[UI] Resetting isGameOverDialogMinimized to false.");
+    isGameOverDialogMinimized = false;
+}
 
 // Helper Function for Unlock Status Text
 export function getUnlockStatusText(currentTopScore) {
@@ -160,8 +174,13 @@ export function createGameOverText() {
         setGameOverTextElement(element); // Store reference in state
 
         // Add the toggle listener here, only once
-        minimizeButton.onclick = () => {
+        minimizeButton.onclick = (event) => {
+             // ADDED Console Logs for debugging
+             console.log("[GameOver Minimize] Clicked!");
+             // Prevent the click from bubbling up and potentially triggering restart
+             event.stopPropagation(); 
              isGameOverDialogMinimized = !isGameOverDialogMinimized;
+             console.log(`[GameOver Minimize] isGameOverDialogMinimized set to: ${isGameOverDialogMinimized}`);
              updateGameOverDialogAppearance();
         };
     }
@@ -266,43 +285,258 @@ export function createPauseIndicator() {
     }
 }
 
-// --- Listener Functions ---
-// Wrap the handler in functions that extract coordinates for consistency
-function onGameOverMouseDown(event) {
-    // Only trigger if click is not on the dialog itself
-    if (gameOverTextElement && !gameOverTextElement.contains(event.target)) {
-        handleGameOverPointerDown(event.clientX, event.clientY, event);
-    }
-}
+// --- Listener Callback Functions (defined outside to allow removal) ---
+let gameOverMouseDownListener = null;
+let gameOverTouchStartListener = null;
+let gameOverMouseMoveListener = null;
+let gameOverTouchMoveListener = null;
+let gameOverMouseUpListener = null;
+let gameOverTouchEndListener = null;
+let gameOverWheelListener = null;
 
-function onGameOverTouchStart(event) {
-    // Only trigger if touch is not on the dialog itself
-    if (gameOverTextElement && !gameOverTextElement.contains(event.target)) {
-        // Use the first touch in the changedTouches list
-        if (event.changedTouches.length > 0) {
-             handleGameOverPointerDown(event.changedTouches[0].clientX, event.changedTouches[0].clientY, event);
-        }
+// --- NEW Function to Add Listeners ---
+export function addGameOverPointerListeners() {
+    if (gameOverMouseDownListener || gameOverTouchStartListener || gameOverWheelListener) {
+        console.log("[addGameOverPointerListeners] Listeners already seem to be attached. Skipping.");
+        return; // Avoid attaching multiple times
     }
-}
-
-// Function to add pointer down listeners
-function addGameOverPointerListeners() {
-    const targetElement = renderer?.domElement || window; // Prefer canvas, fallback to window
     console.log(`[${GAME_VERSION}] Adding game over pointer listeners (mousedown, touchstart, wheel)`);
-    targetElement.addEventListener('mousedown', onGameOverMouseDown);
-    targetElement.addEventListener('touchstart', onGameOverTouchStart, { passive: true });
-    // Add wheel listener here
-    window.addEventListener('wheel', handleGameOverWheel, { passive: false }); 
+
+    gameOverMouseDownListener = (event) => {
+        // Prevent default browser actions (like text selection)
+        event.preventDefault();
+        
+        setIsInitialDragMove(true); // Set flag for first move
+
+        if (event.button === 0) { // Left mouse button for drag
+            setIsDraggingCamera(true);
+            setLastPointerX(event.clientX);
+            setLastPointerY(event.clientY);
+            document.addEventListener('mousemove', gameOverMouseMoveListener);
+            document.addEventListener('mouseup', gameOverMouseUpListener);
+        } else if (event.button === 1) { // Middle mouse button for pan
+            setIsPanningCamera(true);
+            setLastPointerX(event.clientX);
+            setLastPointerY(event.clientY);
+            document.addEventListener('mousemove', gameOverMouseMoveListener);
+            document.addEventListener('mouseup', gameOverMouseUpListener);
+        }
+    };
+
+    gameOverTouchStartListener = (event) => {
+         // Check if the touch is on the UI element itself to allow interaction
+        if (gameOverTextElement && gameOverTextElement.contains(event.target)) {
+             return; // Don't prevent default or start drag if touch is on UI
+        }
+        // Prevent default touch actions (like scrolling or zooming the page)
+        event.preventDefault();
+
+        if (event.touches.length === 1) {
+            setIsInitialDragMove(true); // Set flag for first move
+            setIsDraggingCamera(true);
+            setLastPointerX(event.touches[0].clientX);
+            setLastPointerY(event.touches[0].clientY);
+            document.addEventListener('touchmove', gameOverTouchMoveListener, { passive: false });
+            document.addEventListener('touchend', gameOverTouchEndListener);
+        }
+        // Add panning logic for two-finger touch if desired later
+    };
+
+    gameOverMouseMoveListener = (event) => {
+        event.preventDefault();
+
+        const deltaX = event.clientX - lastPointerX;
+        const deltaY = event.clientY - lastPointerY;
+
+        // Reset look-at on first move after initiating drag/pan
+        if (isInitialDragMove) {
+            setGameOverLookAtTarget(gameOverLookAtTarget);
+            setIsInitialDragMove(false); // Reset flag after first move
+        }
+
+        if (isDraggingCamera) { // Left mouse button OR 1-finger touch drag = Rotate
+             const rotationSensitivity = 0.005;
+             const azimuthAngle = -deltaX * rotationSensitivity; // Rotation around Y
+             const elevationAngle = -deltaY * rotationSensitivity; // Rotation around local X
+ 
+             const currentOffset = gameOverCameraOffset.clone(); // Get the offset vector from state
+             const yAxis = new THREE.Vector3(0, 1, 0); // World Up
+ 
+             // Calculate the axis for elevation based on the *current* offset and world up
+             const rightAxis = new THREE.Vector3().crossVectors(yAxis, currentOffset).normalize();
+ 
+             // Apply elevation rotation first, around the calculated right axis
+             currentOffset.applyAxisAngle(rightAxis, elevationAngle);
+
+             // Check elevation limits *before* azimuth rotation (simpler clamping)
+             const minPolarAngle = 0.1; 
+             const maxPolarAngle = Math.PI - 0.1; 
+             let currentPolarAngle = Math.acos(THREE.MathUtils.clamp(currentOffset.y / currentOffset.length(), -1, 1));
+             
+             // If limits exceeded, clamp the elevation rotation angle itself
+             let effectiveElevationAngle = elevationAngle;
+             if (currentPolarAngle < minPolarAngle && elevationAngle < 0) { // Trying to look too far up
+                  // Calculate angle needed to reach minPolarAngle and apply that instead
+                 const targetY = currentOffset.length() * Math.cos(minPolarAngle);
+                 const currentY = currentOffset.y;
+                 // This needs a more robust way to calculate the *clamped* angle
+                 // For now, let's revert the invalid rotation
+                 currentOffset.applyAxisAngle(rightAxis, -elevationAngle); // Revert elevation
+                 effectiveElevationAngle = 0; // Mark as no effective rotation
+             } else if (currentPolarAngle > maxPolarAngle && elevationAngle > 0) { // Trying to look too far down
+                  // Similar clamping issue, revert for now
+                 currentOffset.applyAxisAngle(rightAxis, -elevationAngle); // Revert elevation
+                 effectiveElevationAngle = 0; // Mark as no effective rotation
+             }
+             // If we didn't revert, re-apply the valid elevation
+             if (effectiveElevationAngle !== 0) {
+                 currentOffset.applyAxisAngle(rightAxis, effectiveElevationAngle);
+             } // If reverted, currentOffset is already back to pre-elevation state
+
+             // Now apply azimuth rotation around the world Y axis
+             currentOffset.applyAxisAngle(yAxis, azimuthAngle);
+ 
+             setGameOverCameraOffset(currentOffset); // Update state with the final offset
+
+        } else if (isPanningCamera) { // Middle mouse button drag = Pan
+             // Panning logic (adjust sensitivity)
+             const panSensitivity = 0.1;
+             const panVector = new THREE.Vector3();
+
+             // Calculate camera's right and up vectors in world space
+             const cameraRight = new THREE.Vector3().setFromMatrixColumn(camera.matrixWorld, 0);
+             const cameraUp = new THREE.Vector3().setFromMatrixColumn(camera.matrixWorld, 1);
+
+             // Move target based on delta mouse movement relative to camera orientation
+             panVector.addScaledVector(cameraRight, -deltaX * panSensitivity);
+             panVector.addScaledVector(cameraUp, deltaY * panSensitivity);
+
+             const newLookAtTarget = gameOverLookAtTarget.clone().add(panVector);
+             setGameOverLookAtTarget(newLookAtTarget);
+        }
+
+        setLastPointerX(event.clientX);
+        setLastPointerY(event.clientY);
+    };
+
+    gameOverTouchMoveListener = (event) => {
+        event.preventDefault(); // Prevent page scroll/zoom
+        if (event.touches.length === 1) {
+            // Same rotation logic as mouse drag
+             const deltaX = event.touches[0].clientX - lastPointerX;
+             const deltaY = event.touches[0].clientY - lastPointerY;
+ 
+             if (isInitialDragMove) {
+                setGameOverLookAtTarget(gameOverLookAtTarget);
+                setIsInitialDragMove(false); 
+             }
+ 
+             const rotationSensitivity = 0.005;
+             const azimuthAngle = -deltaX * rotationSensitivity;
+             const elevationAngle = -deltaY * rotationSensitivity;
+             const currentOffset = gameOverCameraOffset.clone();
+             const yAxis = new THREE.Vector3(0, 1, 0);
+             
+             const rightAxis = new THREE.Vector3().crossVectors(yAxis, currentOffset).normalize();
+             currentOffset.applyAxisAngle(rightAxis, elevationAngle);
+
+             // Clamp elevation (Simplified: revert if invalid for now)
+             const minPolarAngle = 0.1; 
+             const maxPolarAngle = Math.PI - 0.1; 
+             const currentPolarAngle = Math.acos(THREE.MathUtils.clamp(currentOffset.y / currentOffset.length(), -1, 1));
+             let effectiveElevationAngle = elevationAngle;
+             if (currentPolarAngle < minPolarAngle && elevationAngle < 0) {
+                 currentOffset.applyAxisAngle(rightAxis, -elevationAngle); // Revert
+                 effectiveElevationAngle = 0;
+             } else if (currentPolarAngle > maxPolarAngle && elevationAngle > 0) {
+                 currentOffset.applyAxisAngle(rightAxis, -elevationAngle); // Revert
+                 effectiveElevationAngle = 0;
+             }
+             if (effectiveElevationAngle !== 0) {
+                 currentOffset.applyAxisAngle(rightAxis, effectiveElevationAngle);
+             } // else: already reverted
+
+             // Apply azimuth
+             currentOffset.applyAxisAngle(yAxis, azimuthAngle);
+             
+             setGameOverCameraOffset(currentOffset); 
+ 
+             setLastPointerX(event.touches[0].clientX);
+             setLastPointerY(event.touches[0].clientY);
+        }
+    };
+
+    gameOverMouseUpListener = (event) => {
+        if (event.button === 0) { // Left mouse button
+            setIsDraggingCamera(false);
+        } else if (event.button === 1) { // Middle mouse button
+            setIsPanningCamera(false);
+        }
+        document.removeEventListener('mousemove', gameOverMouseMoveListener);
+        document.removeEventListener('mouseup', gameOverMouseUpListener);
+    };
+
+    gameOverTouchEndListener = (event) => {
+        // Check if the touch ending is the one that started the drag
+        if (isDraggingCamera) { 
+            setIsDraggingCamera(false);
+            document.removeEventListener('touchmove', gameOverTouchMoveListener);
+            document.removeEventListener('touchend', gameOverTouchEndListener);
+        }
+    };
+
+    gameOverWheelListener = (event) => {
+        event.preventDefault();
+        const zoomSensitivity = 0.05;
+        const zoomAmount = event.deltaY * zoomSensitivity;
+
+        // Calculate direction vector from camera to target
+        const direction = new THREE.Vector3().subVectors(gameOverLookAtTarget, camera.position).normalize();
+        
+        // Calculate new offset magnitude
+        let currentMagnitude = gameOverCameraOffset.length();
+        let newMagnitude = currentMagnitude + zoomAmount;
+
+        // Clamp zoom distance (prevent zooming too close or too far)
+        const minZoomDistance = 5; // Example minimum distance
+        const maxZoomDistance = 200; // Example maximum distance
+        newMagnitude = THREE.MathUtils.clamp(newMagnitude, minZoomDistance, maxZoomDistance);
+
+        // Calculate new offset vector based on the direction and new magnitude
+        const newOffset = direction.clone().multiplyScalar(-newMagnitude); // Negate direction to get offset *from* target
+
+        setGameOverCameraOffset(newOffset); // Update state
+    };
+
+    // Attach the listeners
+    document.addEventListener('mousedown', gameOverMouseDownListener);
+    document.addEventListener('touchstart', gameOverTouchStartListener, { passive: false });
+    document.addEventListener('wheel', gameOverWheelListener, { passive: false });
 }
 
-// Function to remove pointer down listeners (exported for resetGame)
+// --- Function to Remove Listeners ---
 export function removeGameOverPointerListeners() {
-    const targetElement = renderer?.domElement || window;
-    console.log(`[${GAME_VERSION}] Removing game over pointer listeners (mousedown, touchstart, wheel)`);
-    targetElement.removeEventListener('mousedown', onGameOverMouseDown);
-    targetElement.removeEventListener('touchstart', onGameOverTouchStart);
-    // Remove wheel listener here
-    window.removeEventListener('wheel', handleGameOverWheel);
+    console.log(`[${GAME_VERSION}] Removing game over pointer listeners`);
+    if (gameOverMouseDownListener) document.removeEventListener('mousedown', gameOverMouseDownListener);
+    if (gameOverTouchStartListener) document.removeEventListener('touchstart', gameOverTouchStartListener);
+    if (gameOverMouseMoveListener) document.removeEventListener('mousemove', gameOverMouseMoveListener); // Ensure move listener is removed
+    if (gameOverTouchMoveListener) document.removeEventListener('touchmove', gameOverTouchMoveListener);
+    if (gameOverMouseUpListener) document.removeEventListener('mouseup', gameOverMouseUpListener);       // Ensure up listener is removed
+    if (gameOverTouchEndListener) document.removeEventListener('touchend', gameOverTouchEndListener);
+    if (gameOverWheelListener) document.removeEventListener('wheel', gameOverWheelListener);
+
+    // Clear listener function variables
+    gameOverMouseDownListener = null;
+    gameOverTouchStartListener = null;
+    gameOverMouseMoveListener = null;
+    gameOverTouchMoveListener = null;
+    gameOverMouseUpListener = null;
+    gameOverTouchEndListener = null;
+    gameOverWheelListener = null;
+
+    // Reset camera interaction state just in case
+    setIsDraggingCamera(false);
+    setIsPanningCamera(false);
 }
 
 // Show Game Over Message (Called from animate)
@@ -311,17 +545,19 @@ export function removeGameOverPointerListeners() {
 export function showGameOverMessage(winnerCode) {
     if (!gameOverTextElement) return;
 
+    // Check if message for this winner code is already set
+    // Convert winnerCode to string for comparison with dataset property
+    if (gameOverTextElement.dataset.winnerCode === String(winnerCode)) {
+        // Ensure dialog is visible even if content is already set
+        gameOverTextElement.style.display = 'block'; 
+        return; // Don't re-populate or reset appearance
+    }
+
+    console.log(`[UI] Populating showGameOverMessage for winnerCode: ${winnerCode}`);
+    gameOverTextElement.dataset.winnerCode = String(winnerCode); // Store as string
+
     const contentContainer = document.getElementById('gameOverContentContainer');
     if (!contentContainer) return;
-
-    // Store winnerCode for potential later use if needed (e.g., for debugging)
-    gameOverTextElement.dataset.winnerCode = winnerCode;
-
-    // --- Calculate and Set Initial Camera Offset ---
-    // This uses the target position calculated in gameLoop's game over logic
-    const initialOffset = gameOverCameraTargetPosition.clone().sub(gameOverLookAtTarget);
-    setGameOverCameraOffset(initialOffset);
-    // --- End Initial Offset Calculation ---
 
     // Populate content (existing code)
     let message = "";
@@ -331,9 +567,12 @@ export function showGameOverMessage(winnerCode) {
     else { message = 'Game Over?'; console.warn("showGameOverMessage called with unknown winnerCode:", winnerCode); }
 
     let scoreMessage = `Final Score: ${scoreP1}`;
-    // Need topScore from state here - Import it at the top
+    // Need topScore from state here
     if (scoreP1 > topScore && (winnerCode === 2 || winnerCode === 3)) {
-        scoreMessage += ` (NEW TOP SCORE!)`;
+        // Check if it's also higher than the score at the start of the game to confirm it's *this* game's achievement
+        if (scoreP1 > topScoreAtGameStart) { 
+             scoreMessage += ` (NEW TOP SCORE!)`;
+        }
     }
 
     const unlockStatus = getUnlockStatusText(topScore); // Needs topScore
@@ -349,27 +588,30 @@ export function showGameOverMessage(winnerCode) {
         `</div>` +
         `<span id="restartText" style="display: block; margin-top: 15px; font-size: clamp(16px, 3vw, 24px); color: #dddddd; cursor: pointer;">Tap or Press Any Key to Restart</span>`;
 
-    // Ensure the dialog starts maximized
-    isGameOverDialogMinimized = false;
-    updateGameOverDialogAppearance();
+    // Ensure the dialog starts maximized - Call AFTER setting content
+    updateGameOverDialogAppearance(); // Call to apply initial (maximized) style
 
     // Make the main dialog visible
     gameOverTextElement.style.display = 'block';
-
-    // --- Add the pointer down listeners ---
-    addGameOverPointerListeners();
 }
 
 // Helper function to update appearance based on minimized state
 function updateGameOverDialogAppearance() {
-    if (!gameOverTextElement) return;
+    console.log(`[GameOver Minimize] updateGameOverDialogAppearance called. Minimized: ${isGameOverDialogMinimized}`); // ADDED Log
+    if (!gameOverTextElement) {
+        console.log("[GameOver Minimize] gameOverTextElement not found in update.");
+        return;
+    }
 
     const minimizeButton = document.getElementById('gameOverMinimizeButton');
     const contentContainer = document.getElementById('gameOverContentContainer'); // Target the container
 
+    if (!minimizeButton) console.log("[GameOver Minimize] minimizeButton not found in update.");
+    if (!contentContainer) console.log("[GameOver Minimize] contentContainer not found in update.");
     if (!minimizeButton || !contentContainer) return; // Safety check
 
     if (isGameOverDialogMinimized) {
+        console.log("[GameOver Minimize] Applying Minimized Styles.");
         // Minimized State - Move to bottom center, shrink
         gameOverTextElement.style.top = 'unset'; // Remove top positioning
         gameOverTextElement.style.bottom = '60px'; // Position near bottom (adjust if needed to avoid itch link)
@@ -391,6 +633,7 @@ function updateGameOverDialogAppearance() {
         minimizeButton.style.right = '5px';
 
     } else {
+        console.log("[GameOver Minimize] Applying Maximized Styles.");
         // Maximized/Normal State - Restore original position and size
         gameOverTextElement.style.top = '50%';
         gameOverTextElement.style.bottom = 'unset'; // Remove bottom positioning

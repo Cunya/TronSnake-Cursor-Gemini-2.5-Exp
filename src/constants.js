@@ -7,9 +7,10 @@ export const GAME_VERSION = "v1.1.35";
 
 // Color Constants
 export const P1_HEAD_COLOR_NORMAL = 0x00ffff; // Cyan
-export const P1_TRAIL_COLOR_NORMAL = 0x00aaaa; // Dark Cyan
-export const P1_HEAD_COLOR_BOOST = 0x80ffff; // Lighter Cyan
-export const P1_TRAIL_COLOR_BOOST = 0x40cccc; // Lighter Dark Cyan
+export const P1_TRAIL_COLOR_NORMAL = 0x00aaaa; // Dark Cyan (Reverted)
+export const P1_HEAD_COLOR_BOOST = 0x80ffff;  // Lighter Cyan (Reverted)
+export const P1_TRAIL_COLOR_BOOST = 0x40cccc; // Lighter Dark Cyan (Reverted)
+export const HEAD_COLOR_LOST = 0xff0000; // Red for lost state
 
 export const AMMO_COLOR = 0xffa500; // Orange
 

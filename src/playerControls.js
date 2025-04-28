@@ -13,6 +13,7 @@ import { resetGame } from './init.js';         // <-- Import resetGame from init
 import { shootProjectile } from './projectile.js'; // <-- Import shootProjectile from projectile.js
 import * as THREE from 'three'; // Need THREE for vector math
 import { MathUtils } from 'three'; // Import MathUtils instead of clamp directly
+import { removeGameOverPointerListeners } from './ui.js'; // Import listener removal
 
 // Temporary placeholders for imports
 // REMOVED: let resetGame = () => console.warn('resetGame not imported yet');
@@ -39,7 +40,9 @@ export function onKeyDown(event) {
     // Log the key press
     // console.log(`[Input] KeyDown: ${event.key}`); // Commented out
 
-    if (isGameOver && gameOverTextElement && gameOverTextElement.style.display === 'block') {
+    // MODIFIED: Allow restart if game is over, regardless of UI state
+    if (isGameOver) { 
+        // Any key press (except modifiers maybe) restarts if game is over
         resetGame();
         return;
     }
@@ -59,14 +62,11 @@ export function onKeyDown(event) {
 
     // Add check: If game is not active, start it on first key press
     if (!gameActive) {
-        // Check for potentially non-gameplay keys if needed, 
-        // but for now, any key (except maybe modifiers?) starts.
-        // We could filter specific keys here if desired.
         startGame();
         return; // First key press only starts the game
     }
 
-    // If we reach here, gameActive is true
+    // If we reach here, gameActive is true and not paused and not game over
     switch (event.key) {
         case 'ArrowLeft':
             snakeDirection1.applyAxisAngle(yAxis, Math.PI / 2);
@@ -76,14 +76,13 @@ export function onKeyDown(event) {
             break;
         case ' ': // Spacebar
             event.preventDefault(); 
-            shootProjectile(); // Reverted: Call without owner, no ammo check here
+            shootProjectile(); 
             break;
         case 'ArrowDown':
             event.preventDefault(); 
             setLookingBack(true);
             break;
     }
-    // Removed the redundant outer if(gameActive) check
 }
 
 export function onKeyUp(event) {

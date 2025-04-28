@@ -14,7 +14,8 @@ import {
     PARTICLE_COUNT, PARTICLE_SIZE, EXPLOSION_FORCE, PARTICLE_GRAVITY, PARTICLE_LIFE, GROUND_Y,
     TEXT_LIFE, TEXT_MOVE_SPEED, TEXT_SIZE, TEXT_HEIGHT_OFFSET, gridLineMaterial,
     sparseTrailMaterial, ammoPickupMaterial, AMMO_COLOR, AMMO_PICKUP_RADIUS, P1_HEAD_COLOR_NORMAL,
-    AI_COLORS // <-- Import AI_COLORS instead of individual AI colors
+    AI_COLORS, // <-- Import AI_COLORS instead of individual AI colors
+    HEAD_COLOR_LOST, // Import the red color
 } from './constants.js';
 import { getGridDimensions } from './utils.js';
 import { FontLoader } from 'three/addons/loaders/FontLoader.js'; // Needed for createFloatingText check
@@ -292,33 +293,42 @@ export function updateLastTrailSegmentsVisibility() {
     });
 }
 
-// Revert snake head colors to normal (e.g., on game over)
+// Reverts all snake head colors back to their normal state
 export function revertHeadColors() {
-    // Add check for snakeHead1 existence
+    // Revert Player 1
+    // ADDED check for snakeHead1 existence
     if (snakeHead1 && headMaterial1) { 
         headMaterial1.color.setHex(P1_HEAD_COLOR_NORMAL);
-    } else if (!snakeHead1) {
-        console.warn("[revertHeadColors] snakeHead1 is null or undefined.");
+    } else {
+        // console.log("[revertHeadColors] snakeHead1 is null or undefined."); // Log removed, expected after explosion
     }
-    
+
+    // Revert AIs
     aiPlayers.forEach(ai => {
-        // Revert to the AI's specific normal color
-        if (ai.head && ai.material && ai.colors) { // Also check ai.material
-            ai.material.color.setHex(ai.colors.normal);
-        } else if (!ai.head) {
-             // console.warn(`[revertHeadColors] AI ${ai.id} head is null or undefined.`); // Optional logging
+        if (ai.head && ai.material && ai.colors && !ai.isSpeedBoostActive) { // Check for existence and boost status
+            ai.material.color.setHex(ai.colors.normal); // Use the AI's specific normal color
+        } else if (ai.head && ai.material && ai.colors && ai.isSpeedBoostActive) {
+            // If boost is still active visually but game is over, maybe revert to boost color?
+            // For now, let's just ensure it doesn't crash. The boost state should ideally be reset elsewhere.
+            // ai.material.color.setHex(ai.colors.boost); 
         }
     });
 }
 
-// Set specific snake head to red (loser color)
+// Sets the head color of a specific owner (1 for player, AI object for AI) to red
 export function setHeadColorToRed(owner) {
-    if (owner === 1 && snakeHead1) {
-        headMaterial1.color.setHex(0xff0000);
-    } else if (owner && typeof owner === 'object' && owner.id.startsWith('ai-')) {
-        if (owner.head) owner.material.color.setHex(0xff0000);
+    if (owner === 1) {
+        // ADDED check for snakeHead1 existence
+        if (snakeHead1 && headMaterial1) { 
+            headMaterial1.color.setHex(HEAD_COLOR_LOST);
+        } else {
+            // console.log(`setHeadColorToRed: Invalid owner 1 (snakeHead1 is null)`); // Log removed, expected after explosion
+        }
+    } else if (owner && typeof owner === 'object' && owner.head && owner.material) {
+        // It's an AI object
+        owner.material.color.setHex(HEAD_COLOR_LOST);
     } else {
-         console.warn("setHeadColorToRed: Invalid owner", owner);
+        console.warn(`setHeadColorToRed: Invalid owner or missing properties:`, owner);
     }
 }
 

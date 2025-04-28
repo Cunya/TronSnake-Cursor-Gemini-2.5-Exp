@@ -66,9 +66,13 @@ export let maxAddAiPickups = 1;
 
 // Game State Flags & Variables
 export let isGameOver = false;
+export let isGameOverCameraActive = false; // Controls game over camera logic activation
 export let gameActive = false; 
 export let isPaused = false; // Added pause state
 export let winner = 0; // 0 = ongoing, 1 = P1 lost, 2 = AI lost, 3 = Draw
+export let playerLostTime = null; // Timestamp when player lost
+export let aiDefeatedTime = null; // ADDED: Timestamp when last AI lost
+export let deathZoomFactor = 1.0; // ADDED: Zoom factor during death delay
 
 // DOM Elements (Initialized in ui.js/init.js)
 export let gameOverTextElement;
@@ -106,7 +110,7 @@ export let textFont = null;
 export let lastFrameTime = 0; 
 
 // Top Score State
-export let topScore = 0;
+export let topScore = localStorage.getItem('tronSnakeTopScore') ? parseInt(localStorage.getItem('tronSnakeTopScore')) : 0;
 export let topScoreAtGameStart = 0; 
 export let pickupsCollectedCounter = 0; 
 
@@ -161,7 +165,7 @@ export function setTopScoreTextElement(elem) { topScoreTextElement = elem; }
 export function setPauseIndicatorElement(elem) { pauseIndicatorElement = elem; } // Added pause indicator setter
 export function setTextFont(font) { textFont = font; }
 export function setLastFrameTime(time) { lastFrameTime = time; }
-export function setTopScore(score) { topScore = score; }
+export function setTopScore(value) { topScore = value; }
 export function setTopScoreAtGameStart(score) { topScoreAtGameStart = score; }
 export function setPickupsCollectedCounter(count) { pickupsCollectedCounter = count; }
 export function setSparseTrailPickupTemplate(template) { sparseTrailPickupTemplate = template; }
@@ -225,3 +229,11 @@ export function setGameOverCameraTargetPosition(value) { gameOverCameraTargetPos
 export function setGameOverLookAtTarget(value) { gameOverLookAtTarget.copy(value); }
 
 export function setIsInitialDragMove(value) { isInitialDragMove = value; } // NEW setter for flag
+
+export function setPlayerLostTime(value) { playerLostTime = value; } // ADDED: Setter
+
+export function setAiDefeatedTime(value) { aiDefeatedTime = value; } // ADDED: Setter
+
+export function setIsGameOverCameraActive(value) { isGameOverCameraActive = value; } // ADDED: Setter
+
+export function setDeathZoomFactor(value) { deathZoomFactor = value; } // ADDED: Setter

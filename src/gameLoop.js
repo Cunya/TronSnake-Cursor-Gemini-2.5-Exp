@@ -30,7 +30,18 @@ import {
     isPanningCamera, // Import isPanningCamera
     lastPointerX, lastPointerY, isInitialDragMove,
     // ...Setters...
-    setGameActive, setIsPaused, setPickupsCollectedCounter
+    setGameActive, setIsPaused, setPickupsCollectedCounter,
+    playerLostTime, // Import playerLostTime state
+    setPlayerLostTime, // Import playerLostTime setter
+    setSnakeHead1, // ADDED Import
+    setAmmoIndicatorP1, // ADDED Import
+    isGameOverCameraActive, // ADDED Import
+    setIsGameOverCameraActive, // ADDED Import
+    setGameOverLookAtTarget, // ADDED Import
+    deathZoomFactor, // ADDED import
+    setDeathZoomFactor, // ADDED import
+    aiDefeatedTime, // ADDED import
+    setAiDefeatedTime, // ADDED import
 } from './state.js';
 import {
     normalUpdateInterval,
@@ -51,7 +62,11 @@ import {
     createTrailSegment, updateLastTrailSegmentsVisibility, revertHeadColors, setHeadColorToRed, 
     createExplosionEffect, updateAmmoIndicatorP1, updateAmmoIndicatorAI 
 } from './visuals.js';
-import { showGameOverMessage, updateScoreDisplay } from './ui.js';
+import { 
+    showGameOverMessage, updateScoreDisplay, 
+    addGameOverPointerListeners, // Keep listener import
+    resetGameOverDialogState // ADDED Import
+} from './ui.js';
 
 const gameOverLerpedLookAtTarget = new THREE.Vector3(); // Temporary vector for smooth lookAt
 
@@ -60,6 +75,7 @@ const gameOverLerpedLookAtTarget = new THREE.Vector3(); // Temporary vector for 
 // Returns object: { winnerCode: 0|1|2|3, p1Lost: bool, aiLostStatus: bool[] }
 function checkCollisions(prevAILostStatus) { 
     let p1Lost = false;
+    let p1LostThisCheck = false; // ADDED: Track if player lost *this specific check*
     // Initialize current status based on previous frame's status
     let currentAILostStatus = [...prevAILostStatus]; 
     const collisionThreshold = segmentSize * 0.45;
@@ -78,11 +94,10 @@ function checkCollisions(prevAILostStatus) {
     // --------------------------------------
 
     // 1. Check Player Boundaries (p1Lost only depends on current frame)
-    if (logicalHeadPos && (logicalHeadPos.x <= boundaryXMin || logicalHeadPos.x >= boundaryXMax || logicalHeadPos.z <= boundaryZMin || logicalHeadPos.z >= boundaryZMax)) {
-        // Only create explosion if not already lost? Player only loses once.
+    if (logicalHeadPos && !p1Lost && (logicalHeadPos.x <= boundaryXMin || logicalHeadPos.x >= boundaryXMax || logicalHeadPos.z <= boundaryZMin || logicalHeadPos.z >= boundaryZMax)) {
         console.log(`[Collision] Player boundary check...`);
         p1Lost = true;
-        // Maybe add explosion effect here for player?
+        p1LostThisCheck = true; // Mark lost this check
     }
 
     // 2. Check AI Boundaries
@@ -121,6 +136,7 @@ function checkCollisions(prevAILostStatus) {
                  console.log(`[Collision] Player lost: Head-on with AI ${ai.id}.`);
                  console.log(`[Collision] AI ${ai.id} lost: Head-on with Player.`);
                 p1Lost = true;
+                p1LostThisCheck = true; // Mark lost this check
                 currentAILostStatus[i] = true; // Mark AI lost this cycle
                 if (!prevAILostStatus[i]) { // Only explode AI if not lost last frame
                     const explosionColor = ai.material ? ai.material.color.getHex() : 0xffa500;
@@ -167,7 +183,9 @@ function checkCollisions(prevAILostStatus) {
             for (let seg of ai.trailSegments) {
                 if (logicalHeadPos.distanceTo(seg.position) < segmentSize * 0.5) { 
                     // console.log(`[Collision] Player vs AI Trail...`);
-                    p1Lost = true; break;
+                    p1Lost = true;
+                    p1LostThisCheck = true; // Mark lost this check
+                    break;
                 }
             }
             if (p1Lost) break;
@@ -179,7 +197,9 @@ function checkCollisions(prevAILostStatus) {
          for (let k = 0; k < checkLength; k++) { 
             if (logicalHeadPos.distanceTo(trailSegments1[k].position) < segmentSize * 0.5) { 
                 // console.log(`[Collision] Player vs Own Trail...`);
-                p1Lost = true; break;
+                p1Lost = true;
+                p1LostThisCheck = true; // Mark lost this check
+                break;
             }
         }
     }
@@ -194,7 +214,8 @@ function checkCollisions(prevAILostStatus) {
         for (let seg of trailSegments1) {
              if (currentAIPos.distanceTo(seg.position) < collisionThreshold) {
                  // console.log(`[Collision] AI ${currentAI.id} lost: Hit player trail.`);
-                 lostToTrail = true; break;
+                 lostToTrail = true;
+                 break;
             }
         }
         // Check against other AI trails
@@ -204,7 +225,8 @@ function checkCollisions(prevAILostStatus) {
                 for (let seg of otherAI.trailSegments) {
                      if (currentAIPos.distanceTo(seg.position) < collisionThreshold) {
                          // console.log(`[Collision] AI ${currentAI.id} lost: Hit trail of AI ${otherAI.id}.`);
-                         lostToTrail = true; break;
+                         lostToTrail = true;
+                         break;
                     }
                 }
                  if (lostToTrail) break; 
@@ -218,8 +240,8 @@ function checkCollisions(prevAILostStatus) {
                  const dist = currentAIPos.distanceTo(seg.position);
                  if (dist < collisionThreshold) {
                      // console.log(`[Collision] AI ${currentAI.id} lost: Hit own trail segment at index ${k}.`);
-                     // console.log(`  -> AI Pos: (${currentAIPos.x.toFixed(1)}, ${currentAIPos.z.toFixed(1)}), Seg Pos: (${seg.position.x.toFixed(1)}, ${seg.position.z.toFixed(1)}), Dist: ${dist.toFixed(3)}`);
-                     lostToTrail = true; break;
+                     lostToTrail = true;
+                     break;
                 }
             }
         }
@@ -232,6 +254,13 @@ function checkCollisions(prevAILostStatus) {
             }
         }
     }
+
+    // --- ADD PLAYER EXPLOSION --- 
+    if (p1LostThisCheck && logicalHeadPos) { // Explode only if lost *this check*
+        console.log(`[Collision] Triggering Player Explosion`);
+        createExplosionEffect(logicalHeadPos, P1_HEAD_COLOR_NORMAL, 3); 
+    }
+    // --- END PLAYER EXPLOSION --- 
 
     // 5. Determine Winner Code (Uses updated currentAILostStatus)
     let winnerCode = 0; // Default: Ongoing
@@ -345,7 +374,7 @@ export function animate(currentTime) {
                     if(setWinner) setWinner(winnerCode);
 
                     // Player Trail
-                    if (playerMoved && !collisionInfo.p1Lost) { 
+                    if (playerMoved && !collisionInfo.p1Lost && !isGameOver) { 
                         const intervalP1 = sparseLevelP1 + 1;
                         // Make previous hidden segment visible if needed
                         if (isSparseTrailActiveP1 && trailCounterP1 % intervalP1 !== 0 && lastTrailSegment1) lastTrailSegment1.visible = true; 
@@ -360,7 +389,7 @@ export function animate(currentTime) {
                     // AI Trail Creation (Loop through AIs)
                     aiPlayers.forEach((ai, index) => {
                         const aiMovedThisTick = aiMovedStatus[index]; 
-                        if (aiMovedThisTick && !currentFrameStatus[index]) { // Check current frame status
+                        if (aiMovedThisTick && !currentFrameStatus[index] && !isGameOver) { 
                              // Handle sparse trail for AI
                              const intervalAI = ai.sparseLevel + 1;
                              // Make previous hidden segment visible if needed
@@ -376,8 +405,11 @@ export function animate(currentTime) {
                     });
 
                     // Game Over Handling
-                    if (winnerCode !== 0) {
+                    if (winnerCode !== 0 && !isGameOver) { // Only trigger game over state *once*
+                        console.log("[Animate] Game Over detected! Setting state.");
                         setIsGameOver(true);
+                        addGameOverPointerListeners(); // Attach listeners immediately ONCE
+                        resetGameOverDialogState(); // ADDED: Reset UI state
                         
                         // --- Explicitly ensure player head & segment behind it are visible --- 
                         if (snakeHead1) {
@@ -402,22 +434,18 @@ export function animate(currentTime) {
                             localStorage.setItem('tronSnakeTopScore', scoreP1.toString());
                         }
 
-                        // --- Calculate and Set Initial Game Over Camera State --- 
-                        const width = boundaryXMax - boundaryXMin, height = boundaryZMax - boundaryZMin;
-                        const centerX = (boundaryXMin + boundaryXMax) / 2, centerZ = (boundaryZMin + boundaryZMax) / 2;
-                        gameOverLookAtTarget.set(centerX, 0, centerZ); // Set the look-at target state
-
-                        // Calculate initial camera height/position (similar to old logic)
-                        const largestDim = Math.max(width, height);
-                        const fovRad = camera.fov * (Math.PI / 180);
-                        let reqHeight = (Math.tan(fovRad / 2) > epsilon) ? (largestDim / 1.8) / Math.tan(fovRad / 2) : 10; // Use 1.8 instead of 2 for slightly wider view
-                        const initialTargetHeight = Math.max(baseCameraHeight + 5, reqHeight * 1.2);
-                        // Set the target position state (used by ui.js to calc offset)
-                        gameOverCameraTargetPosition.set(centerX + 0.01, initialTargetHeight, centerZ); 
-                        // --- End Initial Camera State Setup --- 
+                        // --- Set Game End Timestamps & Reset Death Zoom --- 
+                        if (collisionInfo.p1Lost && playerLostTime === null) { // Player Lost (or Draw)
+                            setPlayerLostTime(currentTime);
+                            setDeathZoomFactor(1.0); // Initialize zoom factor for player loss
+                            console.log(`[Animate] Player lost/draw. Setting playerLostTime: ${currentTime}, Resetting deathZoomFactor.`);
+                        } else if (winnerCode === 2 && aiDefeatedTime === null) { // Player Won (Last AI defeated)
+                            setAiDefeatedTime(currentTime);
+                            setDeathZoomFactor(1.0); // Initialize zoom factor for AI loss
+                            console.log(`[Animate] All AIs defeated. Setting aiDefeatedTime: ${currentTime}, Resetting deathZoomFactor.`);
+                        }
+                        // --- END Timestamps & Zoom Reset --- 
                         
-                        showGameOverMessage(winnerCode); // Show message AFTER setting initial positions
-
                         // Set Head Colors based on detailed status
                         revertHeadColors(); // Start fresh
                         if (collisionInfo.p1Lost) {
@@ -453,6 +481,57 @@ export function animate(currentTime) {
         } // End of if (!isPaused)
     } // End of if(gameActive && !isGameOver)
 
+    // --- Show Game Over Message Conditionally --- 
+    if (isGameOver) {
+        // MODIFIED: Check appropriate timestamp based on winner
+        let timeSinceGameOver = -1;
+        if ((winner === 1 || winner === 3) && playerLostTime !== null) {
+            timeSinceGameOver = currentTime - playerLostTime;
+        } else if (winner === 2 && aiDefeatedTime !== null) {
+            timeSinceGameOver = currentTime - aiDefeatedTime;
+        }
+
+        const shouldShowMessage = timeSinceGameOver >= 5000; // Show if 5 seconds have passed
+
+        if (shouldShowMessage) {
+            // Activate Game Over Camera State WHEN message should show
+            if (!isGameOverCameraActive) { 
+                console.log("[Animate] Activating Game Over Camera.");
+                // Calculate initial target/position here
+                const width = boundaryXMax - boundaryXMin, height = boundaryZMax - boundaryZMin;
+                const centerX = (boundaryXMin + boundaryXMax) / 2, centerZ = (boundaryZMin + boundaryZMax) / 2;
+                const newLookAt = new THREE.Vector3(centerX, 0, centerZ);
+                setGameOverLookAtTarget(newLookAt); // Update state
+
+                const largestDim = Math.max(width, height);
+                const fovRad = camera.fov * (Math.PI / 180);
+                let reqHeight = (Math.tan(fovRad / 2) > epsilon) ? (largestDim / 1.8) / Math.tan(fovRad / 2) : 10;
+                const initialTargetHeight = Math.max(baseCameraHeight + 5, reqHeight * 1.2);
+                const newTargetPos = new THREE.Vector3(centerX + 0.01, initialTargetHeight, centerZ);
+                setGameOverCameraTargetPosition(newTargetPos); // Update state
+
+                // Calculate initial offset based on the new target and lookAt
+                const initialOffset = newTargetPos.clone().sub(newLookAt);
+                setGameOverCameraOffset(initialOffset); // Update state
+
+                setIsGameOverCameraActive(true); // Activate the logic
+            }
+            showGameOverMessage(winner); // Pass the winner code
+        } else {
+            // Optionally hide message if conditions aren't met (e.g., during the delay)
+            if (gameOverTextElement) gameOverTextElement.style.display = 'none';
+        }
+    } else {
+        // Ensure message is hidden if game is not over
+        if (gameOverTextElement) gameOverTextElement.style.display = 'none';
+    }
+    // --- END SHOW GAME OVER MESSAGE LOGIC --- 
+
+    // Update Pause Indicator Visibility
+    if (pauseIndicatorElement) {
+        pauseIndicatorElement.style.display = isPaused ? 'block' : 'none';
+    }
+
     // --- Visual Updates --- (Use state)
     // Lerp snake head visual positions towards target logical positions
     if (snakeHead1 && !isGameOver) {
@@ -470,16 +549,6 @@ export function animate(currentTime) {
        updateLastTrailSegmentsVisibility();
     }
     updateScoreDisplay(); // Update score UI text
-
-    // Update Game Over Dialog Visibility
-    if (gameOverTextElement) { // Check if the element exists in state
-        gameOverTextElement.style.display = isGameOver ? 'block' : 'none';
-    }
-
-    // Update Pause Indicator Visibility
-    if (pauseIndicatorElement) {
-        pauseIndicatorElement.style.display = isPaused ? 'block' : 'none';
-    }
 
     // 6. Update projectile positions & check hits
     for (let i = projectiles.length - 1; i >= 0; i--) {
@@ -597,58 +666,82 @@ export function animate(currentTime) {
     }
 
     // 8. Update camera position
-    if (!isGameOver && snakeHead1 && gameActive && camera) {
+    if (!isGameOver && snakeTargetPosition1 && gameActive && camera) {
         const zoomMult = 1 + (zoomLevelP1 * 0.8); // Calculate zoom multiplier
         const camHeight = isZoomedOutP1 ? baseCameraHeight * zoomMult : baseCameraHeight;
         const camDist = isZoomedOutP1 ? baseCameraDistance * zoomMult : baseCameraDistance;
         let camTargetPos, lookAtLerpTarget;
+        let focusPoint = snakeHead1 ? snakeHead1.position : snakeTargetPosition1; // Use target pos if head is null
         if (isLookingBack) {
             cameraOffset.copy(snakeDirection1).multiplyScalar(+camDist).y = camHeight;
-            camTargetPos = snakeHead1.position.clone().add(cameraOffset);
-            lookAtLerpTarget = snakeHead1.position; // Look at self when looking back
+            camTargetPos = focusPoint.clone().add(cameraOffset);
+            lookAtLerpTarget = focusPoint; // Look at self (or target pos) when looking back
         } else {
             cameraOffset.copy(snakeDirection1).multiplyScalar(-camDist).y = camHeight;
-            camTargetPos = snakeHead1.position.clone().add(cameraOffset);
-            lookAtLerpTarget = snakeHead1.position; // Normally look at self
+            camTargetPos = focusPoint.clone().add(cameraOffset);
+            lookAtLerpTarget = focusPoint; // Normally look at self (or target pos)
         }
         camera.position.lerp(camTargetPos, cameraLag);
         targetLookAt.lerp(lookAtLerpTarget, cameraLag);
         camera.lookAt(targetLookAt);
+
         // Update ammo indicator positions and rotations
-        const indicatorLookTarget = camera.position.clone(); indicatorLookTarget.y += 1;
-        if (ammoIndicatorP1) { ammoIndicatorP1.position.copy(snakeHead1.position).y += segmentSize * 0.7; ammoIndicatorP1.lookAt(indicatorLookTarget); }
+        const indicatorLookTarget = camera.position.clone(); 
+        indicatorLookTarget.y += 1; // Look slightly above camera position
+
+        if (ammoIndicatorP1 && snakeHead1) { 
+            ammoIndicatorP1.position.copy(snakeHead1.position).y += segmentSize * 0.7; 
+            ammoIndicatorP1.lookAt(indicatorLookTarget); 
+        }
         aiPlayers.forEach(ai => {
-            if (ai.ammoIndicator) { // Need to create/manage these indicators
+            if (ai.ammoIndicator && ai.head) { 
                 ai.ammoIndicator.position.copy(ai.head.position).y += segmentSize * 0.7;
-                ai.ammoIndicator.lookAt(indicatorLookTarget);
+                ai.ammoIndicator.lookAt(indicatorLookTarget); // Now accessible
             }
         });
-    } else if (isGameOver && camera) {
-        // Game Over Camera Logic
+    } else if (isGameOver && !isGameOverCameraActive && (playerLostTime !== null || aiDefeatedTime !== null) && snakeTargetPosition1 && camera) {
         
-        // 1. Calculate Target Position using offset from state
-        const desiredPosition = gameOverLookAtTarget.clone().add(gameOverCameraOffset);
+        // Calculate target zoom (Level 3 equivalent)
+        const TARGET_DEATH_ZOOM = 1 + (3 * 0.8); // 3.4
+        // Smoothly interpolate the deathZoomFactor
+        const currentDeathZoom = THREE.MathUtils.lerp(deathZoomFactor, TARGET_DEATH_ZOOM, 0.015); // Slow lerp factor
+        setDeathZoomFactor(currentDeathZoom);
 
-        // 2. Update Camera Position (Lerp if not dragging/panning, jump if dragging/panning)
-        if (isDraggingCamera || isPanningCamera) { // Check for either drag or pan
+        // Calculate camera height/distance using the interpolated death zoom
+        const camHeight = baseCameraHeight * currentDeathZoom;
+        const camDist = baseCameraDistance * currentDeathZoom;
+        
+        // Use the rest of the normal camera follow logic
+        let camTargetPos, lookAtLerpTarget;
+        let focusPoint = snakeHead1 ? snakeHead1.position : snakeTargetPosition1; 
+        if (isLookingBack) {
+            cameraOffset.copy(snakeDirection1).multiplyScalar(+camDist).y = camHeight;
+            camTargetPos = focusPoint.clone().add(cameraOffset);
+            lookAtLerpTarget = focusPoint; 
+        } else {
+            cameraOffset.copy(snakeDirection1).multiplyScalar(-camDist).y = camHeight;
+            camTargetPos = focusPoint.clone().add(cameraOffset);
+            lookAtLerpTarget = focusPoint; 
+        }
+        // Use normal cameraLag during the delay
+        camera.position.lerp(camTargetPos, cameraLag); 
+        targetLookAt.lerp(lookAtLerpTarget, cameraLag);
+        camera.lookAt(targetLookAt);
+    } else if (isGameOverCameraActive && camera) {
+        // Game Over Camera Logic (drag, pan, zoom)
+        const desiredPosition = gameOverLookAtTarget.clone().add(gameOverCameraOffset);
+        if (isDraggingCamera || isPanningCamera) { 
             camera.position.copy(desiredPosition);
         } else {
             camera.position.lerp(desiredPosition, gameOverCameraLag);
         }
-        
-        // 3. Interpolate Look At Target (or set directly if dragging OR panning)
-        if (isDraggingCamera || isPanningCamera) { // Check for either interaction
-            // If dragging or panning, make the look-at target jump instantly
+        if (isDraggingCamera || isPanningCamera) { 
             gameOverLerpedLookAtTarget.copy(gameOverLookAtTarget); 
         } else {
-            // Otherwise (no interaction), smoothly interpolate the look-at target
             gameOverLerpedLookAtTarget.lerp(gameOverLookAtTarget, gameOverCameraLag); 
         }
-
-        // 4. Set Look At using the (potentially instantly updated) interpolated target
         camera.up.set(0, 1, 0);
-        camera.lookAt(gameOverLerpedLookAtTarget); // Use the lerped/copied target
-
+        camera.lookAt(gameOverLerpedLookAtTarget); 
     } else if (!gameActive && camera) {
          // Added: Handle camera for Opening Screen / Pre-Game Start
          // Position camera slightly above and behind the starting position, looking at it
