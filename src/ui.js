@@ -90,7 +90,7 @@ export function createOpeningDialog() {
 
     let dialogHTML =
         `<h2 style="font-size: clamp(24px, 5vw, 32px); margin-top: 0; margin-bottom: 15px; color: #00ffff;">Powerup Tron</h2>` +
-        `<p style="font-size: clamp(16px, 3vw, 20px); margin-bottom: 20px;">Trap the <strong style="color: #ff8800;">Orange AI</strong> opponent. Use <strong style="color: #ffa500;">Ammo</strong> (Spacebar) to clear walls!</p>` +
+        `<p style="font-size: clamp(16px, 3vw, 20px); margin-bottom: 20px;">Collect points to unlock exciting powerups and dominate the arena!</p>` +
         unlockStatus.unlockedHTML +
         unlockStatus.nextUnlockMsg +
         unlockStatus.controlsText +

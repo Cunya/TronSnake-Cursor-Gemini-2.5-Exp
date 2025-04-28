@@ -6,7 +6,7 @@
 
 A simple 3D snake game inspired by the light cycles from Tron, built with Three.js.
 
-This project is part of a series of experiments in LLM-assisted code generation, developed entirely through conversation with Gemini 2.5 pro exp 03-25 using the Cursor editor.
+This project is part of a series of experiments in LLM-assisted code generation, developed entirely through conversations with Gemini 2.5 pro exp 03-25 using the Cursor editor.
 More similar porjects can be found at https://cunya.github.io/github-landing-page/.
 
 ## Features
