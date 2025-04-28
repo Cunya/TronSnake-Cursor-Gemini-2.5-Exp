@@ -15,7 +15,7 @@ It features a player-controlled snake competing against an AI opponent in a dyna
     *   Initializes player and AI snake heads (`snakeHead1`, `snakeHead2`) and their logical positions (`snakeTargetPosition1`, `snakeTargetPosition2`).
     *   Sets up event listeners (resize, keyboard, touch, click).
     *   Loads assets (font) and retrieves top score from `localStorage`.
-    *   **Initializes State:** Sets initial `topScore` and importantly `topScoreAtGameStart`.
+    *   **Initializes State:** Sets initial `topScore`, `topScoreAtGameStart`, resets game over related flags (`isGameOver`, `isGameOverCameraActive`, `playerLostTime`, `aiDefeatedTime`, `deathZoomFactor`).
     *   Creates UI elements (dialogs, score displays).
     *   **Initializes Pickup Templates:** Calls `initializePickupTemplates` *after* font loading.
     *   **Spawns Initial Pickups:** Calls `spawnInitialPickups` *after* templates are initialized.
@@ -34,14 +34,30 @@ It features a player-controlled snake competing against an AI opponent in a dyna
             *   Calls AI logic (`updateAIPlayer`).
             *   Calls pickup collision checks for both player and AI.
             *   Checks for game-ending collisions (`checkCollisions`).
+                *   If collision detected (`winnerCode !== 0`):
+                    *   Sets `isGameOver = true` (only once).
+                    *   Sets appropriate timestamp (`playerLostTime` or `aiDefeatedTime`).
+                    *   Resets `deathZoomFactor` to 1.0.
+                    *   Attaches game over pointer listeners (`addGameOverPointerListeners`).
+                    *   Resets game over dialog UI state (`resetGameOverDialogState`).
+                    *   Updates head colors based on winner/loser.
             *   Conditionally creates trail segments (`createTrailSegment`), accounting for sparse trail effect.
-            *   Handles game over state transition (update score, call `showGameOverMessage`).
+    *   **Game Over Message/Camera Activation (if `isGameOver`):**
+        *   Calculates `timeSinceGameOver` based on the relevant timestamp (`playerLostTime` or `aiDefeatedTime`).
+        *   If `timeSinceGameOver >= 5000` (and message not already shown):
+            *   Activates the game over camera state (`setIsGameOverCameraActive(true)`).
+            *   Calculates initial game over camera target/position/offset.
+            *   Calls `showGameOverMessage(winner)`. // Now safe to show
+        *   If `timeSinceGameOver < 5000`, hides the game over dialog element.
     *   **Visual Updates (Every Frame):**
-        *   Updates visibility of last trail segments.
-        *   Lerps visual snake head positions towards logical target positions.
+        *   Updates visibility of last trail segments (if not `isGameOver`).
+        *   Lerps visual snake head positions (if not `isGameOver`).
         *   Updates score/top score displays (`updateScoreDisplay`).
-        *   **Handles Game Over Dialog visibility:** Shows/hides based on `isGameOver` state.
-        *   Updates camera position and look-at target based on game state (following player, looking back, game over overview).
+        *   Updates camera position and look-at target based on game state:
+            *   **Normal Play:** Follow player, apply player zoom.
+            *   **Game Over Delay (`isGameOver && !isGameOverCameraActive`):** Follow player's last position, apply slow zoom-out effect (`deathZoomFactor` interpolation).
+            *   **Interactive Game Over (`isGameOverCameraActive`):** Use interactive camera controls (drag, pan, zoom) based on `gameOverLookAtTarget` and `gameOverCameraOffset`.
+            *   **Pre-Game:** Static initial view.
         *   Updates projectile positions and particle effects.
         *   Updates ammo indicator positions and rotations.
         *   Calls `renderer.render(scene, camera)`.
@@ -50,20 +66,21 @@ It features a player-controlled snake competing against an AI opponent in a dyna
     *   Exports `let` variables for mutable game state (positions, flags, arrays, UI element references, etc.).
     *   Exports `const` for immutable data (e.g., pickup geometry/materials loaded from `constants.js`).
     *   Provides setter functions (`set...`) for modifying state variables from other modules. This is crucial because ES6 module imports are live bindings but cannot be reassigned directly by the importing module.
-    *   **Key State:** `gameActive`, `isGameOver`, `scoreP1`, `topScore`, `topScoreAtGameStart`, `pickupsCollectedCounter`, player/AI states (position, direction, boost, sparse, ammo), pickup arrays, max pickup counts, particle/text arrays, boundary limits, UI element refs.
+    *   **Key State:** `gameActive`, `isGameOver`, `isGameOverCameraActive`, `playerLostTime`, `aiDefeatedTime`, `deathZoomFactor`, `scoreP1`, `topScore`, `topScoreAtGameStart`, `pickupsCollectedCounter`, player/AI states (position, direction, boost, sparse, ammo), pickup arrays, max pickup counts, particle/text arrays, boundary limits, UI element refs.
     *   **Counter Spawn State:** `nextAmmoSpawnCount`, `nextClearSpawnCount`, `nextAddAiSpawnCount`, `nextExpansionSpawnCount`, `nextMultiSpawnCount` track the next `pickupsCollectedCounter` threshold for spawning these types.
 
 ## 3. Player Control (`playerControls.js`)
 
 *   Exports event handlers (`onKeyDown`, `onTouchStart`, etc.).
-*   **Keyboard (`onKeyDown`, `onKeyUp`):**
-    *   Checks `isGameOver` first; if true, calls `resetGame`.
-    *   Checks `!gameActive` next; if true, calls `startGame` and returns (first key press starts game).
-    *   If `gameActive`: Handles Arrow Keys (turn `snakeDirection1`), Spacebar (`shootProjectile`), Down Arrow (`isLookingBack` flag).
-*   **Touch (`onTouchStart`, `onTouchEnd`):**
-    *   Checks `isGameOver` first; if true, calls `resetGame`.
-    *   Checks `!gameActive` next; if true, calls `startGame` and returns (first touch starts game).
-    *   If `gameActive`: Divides screen into zones (Top: Shoot, Middle: Turn, Bottom: Look Back) and handles input accordingly.
+*   **Keyboard (`onKeyDown`):**
+    *   Checks `isGameOver` first; if true, calls `resetGame` (works during 5s delay).
+    *   Checks pause toggle (`Escape`).
+    *   Checks `!gameActive` next; if true, calls `startGame`.
+    *   Handles gameplay keys (Arrows, Spacebar).
+*   **Touch (`onTouchStart`):**
+    *   Checks `isGameOver` first; if true, initiates potential game over camera drag (`handleGameOverPointerDown`) and returns.
+    *   Checks `!gameActive` next; if true, calls `startGame` and returns.
+    *   Handles gameplay touch zones (Shoot, Turn, Look Back).
 *   **Click (`handleFirstClick`):** Calls `startGame`. Listener removed after first call.
 *   **`startGame` function:** Sets `gameActive` true, hides `openingDialogElement`, removes initial click listener.
 
@@ -107,10 +124,15 @@ It features a player-controlled snake competing against an AI opponent in a dyna
 ## 7. UI Components (`ui.js`)
 
 *   **Creation Functions (`create...`):** Create HTML elements, style them, append to body, and importantly, store references in `state.js` via setters (`setOpeningDialogElement`, etc.).
-*   **Dialogs (`openingDialogElement`, `gameOverTextElement`):** Display controlled by `startGame` (hides opening) and `animate` loop (shows/hides game over based on `isGameOver`). Content updated by `createOpeningDialog` and `showGameOverMessage`.
+*   **Dialogs (`openingDialogElement`, `gameOverTextElement`):** 
+    *   Opening dialog hidden by `startGame`.
+    *   Game Over dialog visibility controlled by `animate` loop based on the 5-second delay logic.
+    *   Game Over dialog content populated by `showGameOverMessage` (called after delay).
+    *   Game Over dialog has internal state (`isGameOverDialogMinimized`) and logic (`updateGameOverDialogAppearance`) for minimize/maximize toggle via its `_`/`+` button.
 *   **Score/Version Displays:** Updated by `updateScoreDisplay` (called in `animate`) and `createVersionText` / `createTopScoreText`.
 *   **Floating Text (`createFloatingText`):** Creates temporary 3D text geometry. Managed in `animate` loop.
 *   **Ammo Indicator (`updateAmmoIndicatorP1`, `updateAmmoIndicatorAI`):** Creates/updates a `THREE.Group` containing cubes above the snake head. Called during init/reset and on ammo count change. Position/rotation updated in `animate`.
+*   **Game Over Pointer Listeners (`addGameOverPointerListeners`, `removeGameOverPointerListeners`):** Functions exported to attach/detach the initial `mousedown`, `touchstart`, `wheel` listeners used for the interactive game over camera. Called from `gameLoop.js` and `init.js` (reset).
 
 ## 8. Visual Effects (`visuals.js`)
 

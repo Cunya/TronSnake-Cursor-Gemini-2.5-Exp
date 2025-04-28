@@ -1,4 +1,4 @@
-# TronSnake 3D - v1.1.15
+# TronSnake 3D - v1.1.35
 
 **[Play Live!](https://cunya.github.io/TronSnake-Cursor-Gemini-2.5-Exp/)**
 
@@ -7,16 +7,16 @@
 A simple 3D snake game inspired by the light cycles from Tron, built with Three.js.
 
 This project is part of a series of experiments in LLM-assisted code generation, developed entirely through conversations with Gemini 2.5 pro exp 03-25 using the Cursor editor.
-More similar porjects can be found at https://cunya.github.io/github-landing-page/.
+More similar projects can be found at https://cunya.github.io/github-landing-page/.
 
 ## Features
 
 *   Classic snake gameplay in 3D.
-*   Player 1 (Cyan, keyboard/touch controlled) vs multiple AI opponents (Orange/Red/Purple/Green).
+*   Player 1 (Cyan, keyboard/touch controlled) vs multiple AI opponents.
 *   Dynamic play area that expands when collecting green cubes.
 *   Multiple power-ups with score thresholds and some with counter-based spawning:
     *   **Blue Cube (Zoom):** Grants 20 pts. Briefly zooms the player's camera out.
-    *   **Pink Cube (Speed Up):** Grants 40 pts. Temporary speed boost for the collecting snake. (Score threshold: 50)
+    *   **Pink Cube (Speed Up):** Grants 40 pts. Temporary speed boost (Lighter Cyan effect). (Score threshold: 50)
     *   **Yellow Blocks (Sparse Trail):** Grants 60 pts. Leave gaps in your trail. (Score threshold: 200)
     *   **Orange Sphere (Ammo):** Grants 80 pts. Allows player/AI to shoot trails (Spacebar/Touch). (Score threshold: 300, Spawns every 10 pickups)
     *   **White Cube (Clear Walls):** Grants 100 pts. Removes all existing snake trails. (Score threshold: 500, Spawns every 5 pickups)
@@ -24,12 +24,24 @@ More similar porjects can be found at https://cunya.github.io/github-landing-pag
     *   **Green Cube (Expand):** Grants 150 pts. Expands play area boundaries. (Score threshold: 1500, Spawns every 15 pickups)
     *   **Purple Gems (More!):** Grants 200 pts. Increases max count of some pickups & spawns 2 others. (Score threshold: 2000, Spawns every 15 pickups)
 *   Visual effects for pickup collection (particle explosion, floating text).
+*   Player death explosion effect (head remains visible until restart).
 *   Multiple AI opponents with basic pathfinding and shooting behavior.
 *   Smooth camera follow, with look-back capability.
+*   **Delayed Game Over Sequence:**
+    *   When the game ends (player loss or last AI defeated), there is a 5-second delay before the Game Over dialog appears.
+    *   During the delay, the camera slowly zooms out from the final viewpoint.
+    *   Pressing any key during the delay immediately restarts the game.
+*   **Interactive Game Over Camera:** After the 5-second delay, the camera switches to an interactive mode where you can:
+    *   **Rotate:** Left-click and drag / Touch and drag.
+    *   **Pan:** Middle-click and drag.
+    *   **Zoom:** Mouse wheel scroll.
+*   **Game Over Dialog:**
+    *   Displays final score, top score, and unlocked powerups.
+    *   Includes a minimize/maximize button (`_`/`+`).
 *   Pause functionality (Escape key).
 *   Game automatically pauses if the browser tab loses focus.
 *   Persistent Top Score tracking using `localStorage`.
-*   Link to GitHub repository in the UI.
+*   Links to GitHub repository and itch.io page in the UI.
 
 ## Controls
 
@@ -38,7 +50,9 @@ More similar porjects can be found at https://cunya.github.io/github-landing-pag
 *   **Shoot:** Spacebar OR Touch Top area of screen.
 *   **Look Backwards:** Hold Down Arrow Key OR Touch Bottom area of screen.
 *   **Pause / Unpause:** Escape Key.
-*   **Restart Game (after Game Over):** Press Any Key or Tap.
+*   **Restart Game (after Game Over):** Press Any Key (works immediately during the 5s delay or after dialog appears) or Tap the dialog text.
+*   **Game Over Camera:** Left-Drag (Rotate), Middle-Drag (Pan), Scroll (Zoom).
+*   **Toggle Game Over Dialog:** Click the `_`/`+` button on the dialog.
 
 ## Setup & Running
 
