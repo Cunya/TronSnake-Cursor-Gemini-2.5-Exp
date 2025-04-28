@@ -306,4 +306,30 @@ export function createGitHubLink() {
 
     document.body.appendChild(linkElement);
     // No need to store this in state unless we plan to update it
+}
+
+// NEW: Create Itch.io Link Element
+export function createItchLink() {
+    const linkElement = document.createElement('a');
+    linkElement.href = "https://tamasmartinec.itch.io/powerup-tron";
+    linkElement.target = "_blank"; // Open in new tab
+    linkElement.rel = "noopener noreferrer"; // Security best practice
+    linkElement.textContent = "Support the project on itch.io";
+
+    // Style similar to version/score text, but centered at bottom
+    linkElement.style.position = 'absolute';
+    linkElement.style.bottom = '10px';
+    linkElement.style.left = '50%';
+    linkElement.style.transform = 'translateX(-50%)'; // Center horizontally
+    linkElement.style.color = 'rgba(255, 255, 255, 0.9)';
+    linkElement.style.backgroundColor = 'rgba(0, 0, 0, 0.5)';
+    linkElement.style.padding = '5px 10px';
+    linkElement.style.borderRadius = '5px';
+    linkElement.style.fontSize = '18px';
+    linkElement.style.fontFamily = 'Arial, sans-serif';
+    linkElement.style.textDecoration = 'none';
+    linkElement.style.zIndex = '10'; // Ensure it's on top
+
+    document.body.appendChild(linkElement);
+    // No need to store this in state unless we plan to update it
 } 

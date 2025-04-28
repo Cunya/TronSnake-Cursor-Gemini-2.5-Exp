@@ -46,7 +46,7 @@ import { snapToGridCenter } from './utils.js';
 import { onKeyDown, onKeyUp, onTouchStart, onTouchEnd, handleFirstClick, startGame } from './playerControls.js';
 import { spawnInitialPickups } from './pickups.js';
 import { createPlayAreaVisuals, initializePickupTemplates, updateAmmoIndicatorP1, updateAmmoIndicatorAI, clearAllTrails, clearFloatingTexts, clearExplosionParticles, revertHeadColors } from './visuals.js';
-import { createOpeningDialog, createGameOverText, createVersionText, createScoreText, createTopScoreText, createPauseIndicator, createGitHubLink } from './ui.js';
+import { createOpeningDialog, createGameOverText, createVersionText, createScoreText, createTopScoreText, createPauseIndicator, createGitHubLink, createItchLink } from './ui.js';
 import { clearAllProjectiles } from './projectile.js';
 import { animate } from './gameLoop.js';
 import { isPositionSafe } from './ai.js';
@@ -365,6 +365,7 @@ export function init() {
     createScoreText();
     createPauseIndicator();
     createGitHubLink();
+    createItchLink();
     // Top score text created after loading score
 
     // Timing Init
