@@ -186,38 +186,13 @@ function trySpawn(typeToSpawn) {
         const worldY = GROUND_Y + (pickupHeight / 2.0); 
         const potentialPos = new THREE.Vector3(worldX, worldY, worldZ);
         
-        // Original check using isPositionSafe (checks boundaries, pickups, maybe heads if not overridden)
-        const baseSafe = isPositionSafe(potentialPos, null, true, false); // Pass null for aiToCheck, check pickups, don't check heads
-
-        // Explicit trail check with larger threshold for pickup spawning
-        let trailCollision = false;
-        const pickupSpawnTrailThreshold = segmentSize * 0.45; // Use the larger threshold
-        const snappedPotentialPos = new THREE.Vector3(snapToGridCenter(potentialPos.x, 'x'), 0, snapToGridCenter(potentialPos.z, 'z')); // Check snapped ground pos
-        // Check player trail
-        for (let segment of trailSegments1) {
-            if (snappedPotentialPos.distanceTo(segment.position) < pickupSpawnTrailThreshold) {
-                trailCollision = true;
-                // console.log(`  [trySpawn attempt ${attempt+1}] Rejected: Too close to player trail.`);
-                break;
-            }
-        }
-        // Check AI trails if no player trail collision found yet
-        if (!trailCollision) {
-            for (const ai of aiPlayers) {
-                for (let segment of ai.trailSegments) {
-                    if (snappedPotentialPos.distanceTo(segment.position) < pickupSpawnTrailThreshold) {
-                        trailCollision = true;
-                        // console.log(`  [trySpawn attempt ${attempt+1}] Rejected: Too close to AI ${ai.id} trail.`);
-                        break;
-                    }
-                }
-                if (trailCollision) break;
-            }
-        }
+        // Use isPositionSafe with isSpawnCheck=true (checks boundaries, pickups, and trails with larger threshold)
+        const baseSafe = isPositionSafe(potentialPos, null, true, false, true); // ADDED: isSpawnCheck = true
 
         const adjacent = isCellAdjacentToWall(gridX, gridZ);
 
-        if (baseSafe && !trailCollision) { // Check both base safety and our specific trail check
+        // Use only baseSafe result now
+        if (baseSafe) { 
             if (!adjacent) {
                 const pickup = pickupVisual.clone();
                 pickup.position.copy(potentialPos);
@@ -248,9 +223,7 @@ function trySpawn(typeToSpawn) {
             }
         } else {
              // Add reason for rejection to log
-             let rejectionReason = "Position not safe";
-             if (!baseSafe) rejectionReason = "isPositionSafe check failed (boundary/pickup)";
-             else if (trailCollision) rejectionReason = "Too close to trail (pickup check)";
+             let rejectionReason = "isPositionSafe check failed (boundary/pickup/trail)"; 
              // console.log(`  [trySpawn attempt ${attempt+1}] Rejected: ${rejectionReason}.`);
         }
     }

@@ -18,9 +18,11 @@ import { aiShootProjectile } from './projectile.js';
 
 // --- Position Safety Check ---
 // Now needs to check against player and ALL OTHER AIs
-export function isPositionSafe(pos, aiToCheck, checkOwnTrail = true, checkHeads = true) {
+export function isPositionSafe(pos, aiToCheck, checkOwnTrail = true, checkHeads = true, isSpawnCheck = false) {
     const checkPos = new THREE.Vector3(snapToGridCenter(pos.x, 'x'), 0, snapToGridCenter(pos.z, 'z'));
-    const collisionThreshold = segmentSize * epsilon;
+    // Use smaller threshold for movement/collision, larger for spawning near trails
+    const trailCollisionThreshold = isSpawnCheck ? segmentSize * 0.5 : segmentSize * epsilon;
+    const headCollisionThreshold = segmentSize * epsilon; // Keep head check tight
 
     // Check boundaries
     if (checkPos.x < boundaryXMin + epsilon ||
@@ -32,7 +34,8 @@ export function isPositionSafe(pos, aiToCheck, checkOwnTrail = true, checkHeads 
 
     // Check player trail
     for (let segment of trailSegments1) {
-        if (checkPos.distanceTo(segment.position) < collisionThreshold) return false;
+        // Use appropriate threshold
+        if (checkPos.distanceTo(segment.position) < trailCollisionThreshold) return false; 
     }
 
     // Check AI trails (own and others)
@@ -40,7 +43,8 @@ export function isPositionSafe(pos, aiToCheck, checkOwnTrail = true, checkHeads 
         // Only check own trail if specified and if it's the AI we are checking against
         if (ai.id === aiToCheck?.id && !checkOwnTrail) continue; // Added null check for aiToCheck
         for (let segment of ai.trailSegments) {
-            if (checkPos.distanceTo(segment.position) < collisionThreshold) return false;
+             // Use appropriate threshold
+            if (checkPos.distanceTo(segment.position) < trailCollisionThreshold) return false;
         }
     }
 
@@ -49,7 +53,8 @@ export function isPositionSafe(pos, aiToCheck, checkOwnTrail = true, checkHeads 
         // Player head (ensure snakeHead1 exists)
         if (snakeHead1) {
             const head1SnappedPos = new THREE.Vector3(snapToGridCenter(snakeHead1.position.x, 'x'), 0, snapToGridCenter(snakeHead1.position.z, 'z'));
-            if (checkPos.distanceTo(head1SnappedPos) < collisionThreshold) return false;
+            // Use specific head threshold
+            if (checkPos.distanceTo(head1SnappedPos) < headCollisionThreshold) return false; 
         }
         // Other AI heads
         for (const ai of aiPlayers) {
@@ -57,10 +62,30 @@ export function isPositionSafe(pos, aiToCheck, checkOwnTrail = true, checkHeads 
             if (aiToCheck && ai.id === aiToCheck.id) continue;
             if (ai.head) { // Ensure AI head exists
                  const headSnappedPos = new THREE.Vector3(snapToGridCenter(ai.head.position.x, 'x'), 0, snapToGridCenter(ai.head.position.z, 'z'));
-                 if (checkPos.distanceTo(headSnappedPos) < collisionThreshold) return false;
+                 // Use specific head threshold
+                 if (checkPos.distanceTo(headSnappedPos) < headCollisionThreshold) return false;
             }
         }
     }
+
+    // --- ADDED: Check against existing pickups --- 
+    const allPickups = [
+        ...scorePickups, ...expansionPickups, ...clearPickups,
+        ...zoomPickups, ...sparseTrailPickups, ...multiSpawnPickups,
+        ...addAiPickups, ...ammoPickups
+    ];
+    const pickupCollisionThreshold = segmentSize; // Use segmentSize for a larger exclusion zone
+    for (const pickup of allPickups) {
+        // Check distance on the XZ plane only, ignoring potential Y difference of pickup center
+        const checkPosXZ = new THREE.Vector3(checkPos.x, 0, checkPos.z);
+        const pickupPosXZ = new THREE.Vector3(pickup.position.x, 0, pickup.position.z);
+        if (checkPosXZ.distanceTo(pickupPosXZ) < pickupCollisionThreshold) {
+            // console.log(`isPositionSafe: False - Too close to pickup at (${pickup.position.x.toFixed(1)}, ${pickup.position.z.toFixed(1)})`); // DEBUG
+            return false;
+        }
+    }
+    // ------------------------------------------- 
+
     return true;
 }
 
@@ -293,4 +318,5 @@ function updateSingleAIPlayer(aiObject) {
 // REMOVED: let ammoPickups = []; // Placeholder for findTargetPickup
 
 
+// AI logic (updateAIPlayer and helpers) will be moved here 
 // AI logic (updateAIPlayer and helpers) will be moved here 
