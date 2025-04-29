@@ -81,6 +81,7 @@ import {
     addGameOverPointerListeners, // Keep listener import
     resetGameOverDialogState // ADDED Import
 } from './ui.js';
+import { createAISpawnRingEffect } from './init.js'; // <<< ADDED import
 
 const gameOverLerpedLookAtTarget = new THREE.Vector3(); // Temporary vector for smooth lookAt
 
@@ -304,6 +305,19 @@ export function animate(currentTime) {
     
     // --- Game Logic Update ---
     if (gameActive && !isPaused && !isGameOver) {
+
+        // <<< ADDED: Check for and trigger deferred AI spawn effects >>>
+        aiPlayers.forEach(ai => {
+            if (ai.needsSpawnEffect) {
+                const effectPosition = ai.targetPosition.clone(); // Use current target position
+                const markerCenterY = -segmentSize / 2 + 0.01; 
+                effectPosition.y = markerCenterY;
+                createAISpawnRingEffect(effectPosition, ai.colors ? ai.colors.normal : 0xffffff); // Use AI color or fallback
+                ai.needsSpawnEffect = false; // Mark as done
+                console.log(`[animate] Triggered spawn effect for AI ${ai.id}`); // Keep log for verification
+            }
+        });
+        // <<< END ADDED Check >>>
 
         // 3. Update player/AI movement & Handle pickup timers
         // Player 1 Update
@@ -636,14 +650,16 @@ export function animate(currentTime) {
                 // --- REVERTED: Remove multiplier, use exact spawnDuration --- 
                 const requiredSpawnTime = ai.spawnDuration;
                 if (elapsedSpawnTime >= requiredSpawnTime) { 
+                    // <<< ADD LOGGING >>>
+                    console.log(`[SpawnComplete] AI ${ai.id} Time Check Passed (${elapsedSpawnTime.toFixed(0)} >= ${requiredSpawnTime}). Adding head.`);
+                    // <<< END LOGGING >>>
                     // Add the AI's head mesh to the scene
-                    // <<< FIX: Ensure head mesh position matches current logical position when added >>>
                     ai.head.position.copy(ai.targetPosition); 
                     if (scene) {
                          scene.add(ai.head);
-                         // console.log(`[Animate] Added head for AI ${ai.id} after spawn delay.`);
-                         // Optionally create ammo indicator here if needed immediately on spawn
-                         // updateAmmoIndicatorAI(ai); // Might need adjustment if visuals module needs AI object
+                         // <<< ADD LOGGING >>>
+                         console.log(`[SpawnComplete] AI ${ai.id} head added to scene. Parent: ${ai.head.parent?.type}`);
+                         // <<< END LOGGING >>>
                     } else {
                         console.error(`[Animate] Scene not found when trying to add AI head ${ai.id}`);
                     }
@@ -668,119 +684,130 @@ export function animate(currentTime) {
         updateLastTrailSegmentsVisibility();
     }
 
-    // 7. Update visual effects (particles, text)
-    if (gameActive && !isPaused) {
-        // Explosion Particles
-        for (let i = explosionParticles.length - 1; i >= 0; i--) {
-            const particle = explosionParticles[i];
-            particle.life -= deltaTimeSeconds;
-            if (particle.life <= 0) {
-                if (scene) scene.remove(particle.mesh);
-                explosionParticles.splice(i, 1);
-            } else {
-                particle.mesh.position.addScaledVector(particle.velocity, deltaTimeSeconds);
-                particle.velocity.y += PARTICLE_GRAVITY * deltaTimeSeconds; // Apply gravity
-                 // Ground collision (basic)
-                 if (particle.mesh.position.y < GROUND_Y) {
-                    particle.mesh.position.y = GROUND_Y;
-                    particle.velocity.y *= -0.4; // Bounce with damping
-                    particle.velocity.x *= 0.8;
-                    particle.velocity.z *= 0.8;
-                }
-                const progress = 1 - (particle.life / particle.initialLife);
-                if(particle.mesh.material) particle.mesh.material.opacity = Math.max(0, 1 - progress);
+    // <<< SECTION MOVED: Update visual effects (particles, text) >>>
+    // Moved this block outside the (gameActive && !isPaused) check 
+    // so effects like explosions can finish after game over.
+    // <<< ADD LOGGING >>>
+    // console.log(`[animate] Updating Visual Effects. Particles: ${explosionParticles.length}, Texts: ${floatingTexts.length}`);
+    // <<< END LOGGING >>>
+
+    // Explosion Particles
+    for (let i = explosionParticles.length - 1; i >= 0; i--) {
+        const particle = explosionParticles[i];
+        // <<< ADD LOGGING >>>
+        // console.log(`[animate] Processing particle ${i}. Life: ${particle.life.toFixed(2)}`);
+        // <<< END LOGGING >>>
+        particle.life -= deltaTimeSeconds;
+        if (particle.life <= 0) {
+            if (scene) scene.remove(particle.mesh);
+            explosionParticles.splice(i, 1);
+        } else {
+            particle.mesh.position.addScaledVector(particle.velocity, deltaTimeSeconds);
+            particle.velocity.y += PARTICLE_GRAVITY * deltaTimeSeconds; // Apply gravity
+             // Ground collision (basic)
+             if (particle.mesh.position.y < GROUND_Y) {
+                particle.mesh.position.y = GROUND_Y;
+                particle.velocity.y *= -0.4; // Bounce with damping
+                particle.velocity.x *= 0.8;
+                particle.velocity.z *= 0.8;
             }
-        }
-
-        // Floating Text
-        for (let i = floatingTexts.length - 1; i >= 0; i--) {
-            const text = floatingTexts[i];
-            text.life -= deltaTimeSeconds;
-            if (text.life <= 0) {
-                if(scene) scene.remove(text.mesh);
-                floatingTexts.splice(i, 1);
-            } else {
-                text.mesh.position.y += TEXT_MOVE_SPEED * deltaTimeSeconds;
-                const progress = 1 - (text.life / text.initialLife);
-                if (text.mesh.material) text.mesh.material.opacity = Math.max(0, 1 - progress);
-                // <<< RESTORED: Make text face the camera >>>
-                if (camera && text.mesh) text.mesh.lookAt(camera.position);
-            }
-        }
-
-        // Projectile Trail Particle Update
-        for (let i = allTrailParticles.length - 1; i >= 0; i--) {
-            const particle = allTrailParticles[i];
-            particle.life -= deltaTimeSeconds;
-            if (particle.life <= 0) {
-                if (scene) scene.remove(particle.mesh);
-                allTrailParticles.splice(i, 1);
-            } else {
-                const progress = 1 - (particle.life / particle.initialLife);
-                if(particle.mesh.material) particle.mesh.material.opacity = Math.max(0, 1 - progress);
-            }
-        }
-
-        // Pickup Spawn Particle Update
-        for (let i = pickupSpawnParticles.length - 1; i >= 0; i--) {
-            const p = pickupSpawnParticles[i];
-            const elapsedTime = (currentTime - p.startTime); // Keep in ms for phase calcs
-
-            // Lifetime Check (using deltaTimeSeconds for consistency)
-            p.life -= deltaTimeSeconds;
-            const totalDurationMs = (p.expandDuration + p.lingerDuration + p.contractDuration) * 1000; // Convert phase durations to ms
-
-            if (p.life <= 0 || elapsedTime >= totalDurationMs) {
-                if(p.mesh && scene) scene.remove(p.mesh); 
-                pickupSpawnParticles.splice(i, 1);
-                continue;
-            }
-            
-            if (!p.mesh || !p.mesh.material) {
-                 pickupSpawnParticles.splice(i, 1);
-                 continue;
-            }
-
-            // Calculate current phase progress (elapsedTime is in ms)
-            let phaseProgress = 0;
-            let currentRadius = 0;
-            let currentScale = p.startScale;
-            const expandDurationMs = p.expandDuration * 1000;
-            const lingerDurationMs = p.lingerDuration * 1000;
-            const contractDurationMs = p.contractDuration * 1000;
-
-            if (elapsedTime < expandDurationMs) {
-                // Expanding phase
-                phaseProgress = elapsedTime / expandDurationMs;
-                currentRadius = THREE.MathUtils.lerp(0, p.maxRadius, phaseProgress);
-                currentScale = THREE.MathUtils.lerp(p.startScale, p.maxScale, phaseProgress);
-            } else if (elapsedTime < expandDurationMs + lingerDurationMs) {
-                // Lingering phase
-                currentRadius = p.maxRadius;
-                currentScale = p.maxScale;
-            } else {
-                // Contracting phase
-                const contractTimeMs = elapsedTime - (expandDurationMs + lingerDurationMs);
-                phaseProgress = Math.max(0, Math.min(1, contractTimeMs / contractDurationMs)); // Clamp progress 0-1
-                currentRadius = THREE.MathUtils.lerp(p.maxRadius, 0, phaseProgress);
-                currentScale = THREE.MathUtils.lerp(p.maxScale, p.startScale, phaseProgress); // Contract scale too
-            }
-
-            // Move along direction, scaled by radius, AND rotate over time
-            const baseOffset = p.direction.clone().multiplyScalar(currentRadius);
-            const angle = (elapsedTime / 1000) * SPAWN_EFFECT_ROTATION_SPEED; // Rotation based on time in seconds
-            baseOffset.applyAxisAngle(yAxis, angle); // Rotate around Y axis
-            p.mesh.position.copy(p.center).add(baseOffset);
-
-            // Update scale
-            p.mesh.scale.set(currentScale, currentScale, currentScale);
-
-            // Update opacity (fade out towards end of life or end of animation)
-            const lifeRatio = Math.max(0, Math.min(1, p.life / p.initialLife)); // p.life is in seconds
-            const timeRatio = Math.max(0, 1 - (elapsedTime / totalDurationMs));
-            p.mesh.material.opacity = Math.min(lifeRatio, timeRatio);
+            const progress = 1 - (particle.life / particle.initialLife);
+            if(particle.mesh.material) particle.mesh.material.opacity = Math.max(0, 1 - progress);
         }
     }
+
+    // Floating Text
+    for (let i = floatingTexts.length - 1; i >= 0; i--) {
+        const text = floatingTexts[i];
+        // <<< ADD LOGGING >>>
+        // console.log(`[animate] Processing text ${i}. Life: ${text.life.toFixed(2)}`);
+        // <<< END LOGGING >>>
+        text.life -= deltaTimeSeconds;
+        if (text.life <= 0) {
+            if(scene) scene.remove(text.mesh);
+            floatingTexts.splice(i, 1);
+        } else {
+            text.mesh.position.y += TEXT_MOVE_SPEED * deltaTimeSeconds;
+            const progress = 1 - (text.life / text.initialLife);
+            if (text.mesh.material) text.mesh.material.opacity = Math.max(0, 1 - progress);
+            // <<< RESTORED: Make text face the camera >>>
+            if (camera && text.mesh) text.mesh.lookAt(camera.position);
+        }
+    }
+
+    // Projectile Trail Particle Update
+    for (let i = allTrailParticles.length - 1; i >= 0; i--) {
+        const particle = allTrailParticles[i];
+        particle.life -= deltaTimeSeconds;
+        if (particle.life <= 0) {
+            if (scene) scene.remove(particle.mesh);
+            allTrailParticles.splice(i, 1);
+        } else {
+            const progress = 1 - (particle.life / particle.initialLife);
+            if(particle.mesh.material) particle.mesh.material.opacity = Math.max(0, 1 - progress);
+        }
+    }
+
+    // Pickup Spawn Particle Update
+    for (let i = pickupSpawnParticles.length - 1; i >= 0; i--) {
+        const p = pickupSpawnParticles[i];
+        const elapsedTime = (currentTime - p.startTime); // Keep in ms for phase calcs
+
+        // Lifetime Check (using deltaTimeSeconds for consistency)
+        p.life -= deltaTimeSeconds;
+        const totalDurationMs = (p.expandDuration + p.lingerDuration + p.contractDuration) * 1000; // Convert phase durations to ms
+
+        if (p.life <= 0 || elapsedTime >= totalDurationMs) {
+            if(p.mesh && scene) scene.remove(p.mesh); 
+            pickupSpawnParticles.splice(i, 1);
+            continue;
+        }
+        
+        if (!p.mesh || !p.mesh.material) {
+             pickupSpawnParticles.splice(i, 1);
+             continue;
+        }
+
+        // Calculate current phase progress (elapsedTime is in ms)
+        let phaseProgress = 0;
+        let currentRadius = 0;
+        let currentScale = p.startScale;
+        const expandDurationMs = p.expandDuration * 1000;
+        const lingerDurationMs = p.lingerDuration * 1000;
+        const contractDurationMs = p.contractDuration * 1000;
+
+        if (elapsedTime < expandDurationMs) {
+            // Expanding phase
+            phaseProgress = elapsedTime / expandDurationMs;
+            currentRadius = THREE.MathUtils.lerp(0, p.maxRadius, phaseProgress);
+            currentScale = THREE.MathUtils.lerp(p.startScale, p.maxScale, phaseProgress);
+        } else if (elapsedTime < expandDurationMs + lingerDurationMs) {
+            // Lingering phase
+            currentRadius = p.maxRadius;
+            currentScale = p.maxScale;
+        } else {
+            // Contracting phase
+            const contractTimeMs = elapsedTime - (expandDurationMs + lingerDurationMs);
+            phaseProgress = Math.max(0, Math.min(1, contractTimeMs / contractDurationMs)); // Clamp progress 0-1
+            currentRadius = THREE.MathUtils.lerp(p.maxRadius, 0, phaseProgress);
+            currentScale = THREE.MathUtils.lerp(p.maxScale, p.startScale, phaseProgress); // Contract scale too
+        }
+
+        // Move along direction, scaled by radius, AND rotate over time
+        const baseOffset = p.direction.clone().multiplyScalar(currentRadius);
+        const angle = (elapsedTime / 1000) * SPAWN_EFFECT_ROTATION_SPEED; // Rotation based on time in seconds
+        baseOffset.applyAxisAngle(yAxis, angle); // Rotate around Y axis
+        p.mesh.position.copy(p.center).add(baseOffset);
+
+        // Update scale
+        p.mesh.scale.set(currentScale, currentScale, currentScale);
+
+        // Update opacity (fade out towards end of life or end of animation)
+        const lifeRatio = Math.max(0, Math.min(1, p.life / p.initialLife)); // p.life is in seconds
+        const timeRatio = Math.max(0, 1 - (elapsedTime / totalDurationMs));
+        p.mesh.material.opacity = Math.min(lifeRatio, timeRatio);
+    }
+    // <<< END SECTION MOVED >>>
 
     // --- Pickup Fade-In Update --- 
     const allPickupArrays = [scorePickups, expansionPickups, clearPickups, zoomPickups, sparseTrailPickups, multiSpawnPickups, addAiPickups, ammoPickups];
@@ -788,16 +815,29 @@ export function animate(currentTime) {
         for (let i = pickupArray.length - 1; i >= 0; i--) { 
             const pickup = pickupArray[i];
 
-            // Only process if isSpawning is explicitly true and material exists
-            if (pickup.isSpawning === true && pickup.material) {
+            // Only process if isSpawning is explicitly true
+            if (pickup.isSpawning === true) {
                 const fadeElapsed = currentTime - pickup.spawnStartTime;
                 const fadeProgress = Math.min(1, fadeElapsed / pickup.spawnFadeInDuration);
-                pickup.material.opacity = fadeProgress;
+
+                // Apply opacity to material OR traverse children for Groups
+                if (pickup.material) {
+                    // Standard mesh
+                    pickup.material.opacity = fadeProgress;
+                } else if (pickup.isGroup) {
+                    // Group (like sparse trail pickup)
+                    pickup.traverse((child) => {
+                        if (child.isMesh && child.material) {
+                            child.material.opacity = fadeProgress;
+                        }
+                    });
+                }
 
                 if (fadeProgress >= 1) {
                     pickup.isSpawning = false; 
-                    // Optional: Set transparent back to false if needed
-                    // pickup.material.transparent = false; 
+                    // Optional: Reset transparency/opacity if needed after fade-in
+                    // if (pickup.material) pickup.material.transparent = false;
+                    // else if (pickup.isGroup) { ... traverse and set transparent=false ... }
                 }
             }
         }

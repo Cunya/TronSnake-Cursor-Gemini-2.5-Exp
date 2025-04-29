@@ -185,18 +185,18 @@ export function createNewAIPlayer(startX, startZ, startDirX, startDirZ) {
         isSpawning: true,             // <<< ADDED: Flag to indicate spawning state
         spawnStartTime: performance.now(), // <<< ADDED: Timestamp when spawning started
         spawnDuration: AI_SPAWN_DURATION, // <<< ADDED: Duration of the spawn effect/delay
+        needsSpawnEffect: true,       // <<< ADDED: Flag to trigger visual effect creation later
     };
 
     // scene.add(aiHeadMesh); // <<< DEFERRED (Removed from original location too)
     aiPlayers.push(newAI);
     setAiPlayers([...aiPlayers]); // Update state
 
-    // Trigger the visual spawn effect at the AI's starting position
-    const effectPosition = startPos.clone();
-    // <<< MODIFIED: Set Y to match grid line level >>>
-    const markerCenterY = -segmentSize / 2 + 0.01; 
-    effectPosition.y = markerCenterY;
-    createAISpawnRingEffect(effectPosition, assignedColors.normal);
+    // <<< DEFERRED: Trigger the visual spawn effect later, not here >>>
+    // const effectPosition = startPos.clone();
+    // const markerCenterY = -segmentSize / 2 + 0.01; 
+    // effectPosition.y = markerCenterY;
+    // createAISpawnRingEffect(effectPosition, assignedColors.normal);
 
     return newAI; // Return the created AI object
 }
@@ -537,12 +537,10 @@ export function init() {
     newScene.add(newSnakeHead1);
     if(setSnakeHead1) setSnakeHead1(newSnakeHead1);
 
-    // --- Initialize First AI --- 
-    // MODIFIED: Call new signature, AI is pushed to state inside function
-    const aiStartX = snapToGridCenter(boundaryXMax - segmentSize, 'x');
-    const aiStartZ = snapToGridCenter(0, 'z');
-    createNewAIPlayer(aiStartX, aiStartZ, -1, 0); 
-    // aiPlayers.push(firstAI); // No longer needed here
+    // --- MOVE First AI Initialization LATER --- 
+    // const aiStartX = snapToGridCenter(boundaryXMax - segmentSize, 'x');
+    // const aiStartZ = snapToGridCenter(0, 'z');
+    // createNewAIPlayer(aiStartX, aiStartZ, -1, 0); // <<< MOVED >>>
     
     // Initial camera position
     targetLookAt.copy(snakeTargetPosition1);
@@ -617,9 +615,16 @@ export function init() {
             updateAmmoIndicatorP1(); 
             // updateAmmoIndicatorAI(); // Needs rework
             
+            // <<< CREATE Initial AI HERE, just before starting loop >>>
+            const aiStartX = snapToGridCenter(boundaryXMax - segmentSize, 'x');
+            const aiStartZ = snapToGridCenter(0, 'z');
+            createNewAIPlayer(aiStartX, aiStartZ, -1, 0); 
+            console.log(`[Init] Initial AI created after font load.`);
+            // <<< END Initial AI Creation >>>
+
             spawnInitialPickups(); 
 
-            // Start the animation loop AFTER font, score, UI, and initial pickups are ready
+            // Start the animation loop AFTER font, score, UI, AI, and initial pickups are ready
             animate(performance.now());
         },
         // onProgress callback (optional)
@@ -636,6 +641,14 @@ export function init() {
              updateAmmoIndicatorP1(); 
              createTopScoreText(); 
              createOpeningDialog(); 
+
+             // <<< ALSO CREATE Initial AI HERE in error case >>>
+             const aiStartX = snapToGridCenter(boundaryXMax - segmentSize, 'x');
+             const aiStartZ = snapToGridCenter(0, 'z');
+             createNewAIPlayer(aiStartX, aiStartZ, -1, 0); 
+             console.log(`[Init] Initial AI created in font error fallback.`);
+             // <<< END Initial AI Creation >>>
+
              spawnInitialPickups(); // <-- Also call here in error case if templates might partially work?
              animate(performance.now());
         }

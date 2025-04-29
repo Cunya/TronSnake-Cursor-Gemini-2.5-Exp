@@ -6,14 +6,17 @@ import { isGameOver, gameActive, snakeDirection1, setLookingBack, setLookBackTou
     gameOverLookAtTarget, setGameOverLookAtTarget,
     camera,
     isInitialDragMove, setIsInitialDragMove,
-    isPanningCamera, setIsPanningCamera
+    isPanningCamera, setIsPanningCamera,
+    aiPlayers,
+    scorePickups, expansionPickups, clearPickups, zoomPickups, sparseTrailPickups, multiSpawnPickups, addAiPickups, ammoPickups
 } from './state.js';
-import { yAxis, CAMERA_ROTATION_SPEED, CAMERA_PANNING_SPEED, CAMERA_ZOOM_SPEED, MIN_ZOOM_DISTANCE, MAX_ZOOM_DISTANCE, GAME_VERSION } from './constants.js';
-import { resetGame } from './init.js';         // <-- Import resetGame from init.js
-import { shootProjectile } from './projectile.js'; // <-- Import shootProjectile from projectile.js
-import * as THREE from 'three'; // Need THREE for vector math
-import { MathUtils } from 'three'; // Import MathUtils instead of clamp directly
-import { removeGameOverPointerListeners } from './ui.js'; // Import listener removal
+import { yAxis, CAMERA_ROTATION_SPEED, CAMERA_PANNING_SPEED, CAMERA_ZOOM_SPEED, MIN_ZOOM_DISTANCE, MAX_ZOOM_DISTANCE, GAME_VERSION, segmentSize, sparseTrailMaterial } from './constants.js';
+import { resetGame, createAISpawnRingEffect } from './init.js';
+import { shootProjectile } from './projectile.js';
+import { createPickupSpawnEffect } from './visuals.js';
+import * as THREE from 'three';
+import { MathUtils } from 'three';
+import { removeGameOverPointerListeners } from './ui.js';
 
 // Temporary placeholders for imports
 // REMOVED: let resetGame = () => console.warn('resetGame not imported yet');
@@ -26,6 +29,43 @@ export function startGame() {
     if(openingDialogElement) openingDialogElement.style.display = 'none';
     // lastUpdateTimeP1 = performance.now(); // Reset P1 timer - Needs setter
     // lastUpdateTimeAI = performance.now(); // Reset AI timer - Needs setter
+    
+    // --- <<< ADD: Trigger Deferred Visuals >>> ---
+    const now = performance.now();
+
+    // Trigger AI Spawn Effects
+    aiPlayers.forEach(ai => {
+        if (ai.needsSpawnEffect) {
+            ai.spawnStartTime = now; // Reset spawn timer
+            const effectPosition = ai.targetPosition.clone(); // Use current target position
+            const markerCenterY = -segmentSize / 2 + 0.01; 
+            effectPosition.y = markerCenterY;
+            createAISpawnRingEffect(effectPosition, ai.colors ? ai.colors.normal : 0xffffff); // Use AI color or fallback
+            ai.needsSpawnEffect = false; // Mark as done
+            console.log(`[startGame] Triggered spawn effect for AI ${ai.id}`);
+        }
+    });
+
+    // Trigger Pickup Fade-Ins and Spawn Particle Effects
+    const allPickupArrays = [scorePickups, expansionPickups, clearPickups, zoomPickups, sparseTrailPickups, multiSpawnPickups, addAiPickups, ammoPickups];
+    allPickupArrays.forEach(arr => {
+        arr.forEach(pickup => {
+            // Start Fade-in
+            if (pickup.needsFadeIn) {
+                pickup.isSpawning = true;
+                pickup.spawnStartTime = now;
+                pickup.needsFadeIn = false;
+            }
+            // Create Spawn Particle Effect
+            if (pickup.needsSpawnParticles) {
+                const effectColor = pickup.material ? pickup.material.color : sparseTrailMaterial.color; // Use pickup color or fallback
+                createPickupSpawnEffect(pickup.position, effectColor);
+                pickup.needsSpawnParticles = false;
+            }
+        });
+    });
+    console.log(`[startGame] Deferred visual effects triggered.`);
+    // --- <<< END Trigger Deferred Visuals >>> ---
     
     // Remove the initial interaction listeners once the game starts
     window.removeEventListener('click', handleFirstClick);

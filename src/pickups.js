@@ -9,6 +9,7 @@ import {
     trailSegments1, // Needed for wall checks
     // Pickup Templates
     sparseTrailPickupTemplate, ammoPickupTemplate,
+    gameActive, // <<< ADD gameActive import
     // State Setters
     setSpeedBoostActiveP1, setSpeedBoostEndTimeP1, setIsZoomedOutP1, setZoomOutEndTimeP1, setZoomLevelP1, 
     setIsSparseTrailActiveP1, setSparseTrailEndTimeP1, setTrailCounterP1, setSparseLevelP1, 
@@ -104,12 +105,12 @@ function isCellAdjacentToWall(gridX, gridZ) {
 }
 
 // Helper function to contain the actual spawning logic (Internal)
-// Returns boolean indicating success/failure
+// MODIFIED: Returns object { success: boolean, pickup: object | null }
 function trySpawn(typeToSpawn) {
     console.log(`  [trySpawn] Attempting to spawn type: ${typeToSpawn}`); // <<< UNCOMMENTED Log entry
     if (!typeToSpawn) {
         console.warn("  [trySpawn] Called with no type.");
-        return false; 
+        return { success: false, pickup: null };
     }
 
     let geometry, material, targetArray, pickupHeight;
@@ -160,19 +161,19 @@ function trySpawn(typeToSpawn) {
             break;
         default:
             console.error(`trySpawn: Unknown pickup type requested: ${typeToSpawn}`);
-            return false;
+            return { success: false, pickup: null };
     }
 
     if (!pickupVisual) {
         console.error(`  [trySpawn] Could not create visual for type: ${typeToSpawn}. Template might be missing.`);
-        return false;
+        return { success: false, pickup: null };
     }
 
     const currentMax = getMaxForType(typeToSpawn);
     // console.log(`  [trySpawn] Check: Current count ${targetArray.length}, Max allowed ${currentMax} for type ${typeToSpawn}`); // Keep commented
     if (targetArray.length >= currentMax) {
         console.log(`  [trySpawn] Max reached for type ${typeToSpawn}.`);
-        return false;
+        return { success: false, pickup: null };
     }
 
     const maxAttempts = 50;
@@ -199,27 +200,38 @@ function trySpawn(typeToSpawn) {
                 const pickup = pickupVisual.clone();
                 pickup.position.copy(potentialPos);
 
-                // Make pickup initially invisible for fade-in
-                if (pickup.material) {
+                // Make pickup initially invisible, flag for later fade-in
+                if (typeToSpawn === "sparse") {
+                     // Special handling for Sparse Trail Group
+                    pickup.traverse((child) => {
+                        if (child.isMesh && child.material) {
+                            child.material = child.material.clone(); // Ensure unique material for opacity
+                            child.material.transparent = true;
+                            child.material.opacity = 0;
+                        }
+                    });
+                    pickup.needsFadeIn = true;
+                    pickup.spawnFadeInDuration = (SPAWN_EFFECT_DURATION_EXPAND + SPAWN_EFFECT_DURATION_LINGER) * 3000; 
+                } else if (pickup.material) {
+                    // Standard handling for single meshes
                     pickup.material.transparent = true;
                     pickup.material.opacity = 0;
-                    pickup.isSpawning = true; // Flag for fade-in
-                    pickup.spawnStartTime = performance.now(); // Record start time
-                    // Make fade-in 3x slower than expand+linger
-                    pickup.spawnFadeInDuration = (SPAWN_EFFECT_DURATION_EXPAND + SPAWN_EFFECT_DURATION_LINGER) * 3000; // Duration in ms (1000 * 3.0)
+                    pickup.needsFadeIn = true;
+                    pickup.spawnFadeInDuration = (SPAWN_EFFECT_DURATION_EXPAND + SPAWN_EFFECT_DURATION_LINGER) * 3000; 
                 } else {
-                    // Handle groups like sparse trail - maybe just appear instantly?
+                    // Handle objects without material (if any others exist) - appear instantly
                     pickup.isSpawning = false; 
+                    pickup.needsFadeIn = false;
                 }
 
                 scene.add(pickup);
                 targetArray.push(pickup);
                 // Determine color: Use pickup's material color if available, otherwise use sparseTrailMaterial color (yellow)
                 const effectColor = pickup.material ? pickup.material.color : sparseTrailMaterial.color; 
-                createPickupSpawnEffect(potentialPos, effectColor);
+                pickup.needsSpawnParticles = true;
                 console.log(`  [trySpawn] SUCCESS on attempt ${attempt+1} for ${spawnTypeName}! Spawning at (${potentialPos.x.toFixed(1)}, ${potentialPos.z.toFixed(1)})`); // <<< UNCOMMENTED Log success AND position
                 logTotalPickupCount(`Spawned ${spawnTypeName}`); // Keep this useful one
-                return true;
+                return { success: true, pickup: pickup };
             } else {
                  console.log(`  [trySpawn attempt ${attempt+1}] Rejected: Adjacent to wall.`); // <<< UNCOMMENTED Log rejection reason
             }
@@ -231,7 +243,7 @@ function trySpawn(typeToSpawn) {
     }
     console.warn(`  [trySpawn] Could not find empty space for pickup type ${spawnTypeName} after ${maxAttempts} attempts.`); // <<< UNCOMMENTED Log failure
     logTotalPickupCount(`Failed spawn ${spawnTypeName}`); // Keep this useful one
-    return false;
+    return { success: false, pickup: null };
 }
 
 // --- New function to handle counter-based spawns ---
@@ -248,7 +260,7 @@ function checkAndSpawnCounterPickups(currentPickupCount) {
     if (currentPickupCount >= nextAmmoSpawnCount && ammoPickups.length < maxAmmoPickups) {
         console.log(` -> Counter threshold met for AMMO (${currentPickupCount} >= ${nextAmmoSpawnCount})`);
         if (isUnlocked('ammo')) {
-            if (trySpawn("ammo")) {
+            if (trySpawn("ammo").success) {
                 const nextCount = nextAmmoSpawnCount + AMMO_PICKUP_THRESHOLD;
                 if (setNextAmmoSpawnCount) setNextAmmoSpawnCount(nextCount);
                 console.log(`    -> Spawned Ammo, next check at ${nextCount}`);
@@ -264,7 +276,7 @@ function checkAndSpawnCounterPickups(currentPickupCount) {
     if (currentPickupCount >= nextClearSpawnCount && clearPickups.length < maxClearPickups) {
          console.log(` -> Counter threshold met for CLEAR (${currentPickupCount} >= ${nextClearSpawnCount})`);
          if (isUnlocked('clear')) {
-            if (trySpawn("clear")) {
+            if (trySpawn("clear").success) {
                 const nextCount = nextClearSpawnCount + CLEAR_WALL_PICKUP_THRESHOLD;
                 if (setNextClearSpawnCount) setNextClearSpawnCount(nextCount);
                  console.log(`    -> Spawned Clear, next check at ${nextCount}`);
@@ -280,7 +292,7 @@ function checkAndSpawnCounterPickups(currentPickupCount) {
     if (currentPickupCount >= nextAddAiSpawnCount && addAiPickups.length < maxAddAiPickups) {
         console.log(` -> Counter threshold met for ADD_AI (${currentPickupCount} >= ${nextAddAiSpawnCount})`);
         if (isUnlocked('add_ai')) {
-            if (trySpawn("add_ai")) {
+            if (trySpawn("add_ai").success) {
                 const nextCount = nextAddAiSpawnCount + ADD_AI_PICKUP_THRESHOLD;
                 if (setNextAddAiSpawnCount) setNextAddAiSpawnCount(nextCount);
                 console.log(`    -> Spawned Add AI, next check at ${nextCount}`);
@@ -296,7 +308,7 @@ function checkAndSpawnCounterPickups(currentPickupCount) {
     if (currentPickupCount >= nextExpansionSpawnCount && expansionPickups.length < maxExpansionPickups) {
         console.log(` -> Counter threshold met for EXPANSION (${currentPickupCount} >= ${nextExpansionSpawnCount})`);
         if (isUnlocked('expansion')) {
-            if (trySpawn("expansion")) {
+            if (trySpawn("expansion").success) {
                 const nextCount = nextExpansionSpawnCount + EXPAND_PICKUP_THRESHOLD;
                 if (setNextExpansionSpawnCount) setNextExpansionSpawnCount(nextCount);
                  console.log(`    -> Spawned Expansion, next check at ${nextCount}`);
@@ -312,7 +324,7 @@ function checkAndSpawnCounterPickups(currentPickupCount) {
     if (currentPickupCount >= nextMultiSpawnCount && multiSpawnPickups.length < maxMultiSpawnPickups) {
         console.log(` -> Counter threshold met for MULTI (${currentPickupCount} >= ${nextMultiSpawnCount})`);
         if (isUnlocked('multi')) {
-            if (trySpawn("multi")) {
+            if (trySpawn("multi").success) {
                 const nextCount = nextMultiSpawnCount + MULTI_PICKUP_THRESHOLD;
                 if (setNextMultiSpawnCount) setNextMultiSpawnCount(nextCount);
                  console.log(`    -> Spawned Multi, next check at ${nextCount}`);
@@ -365,10 +377,40 @@ export function spawnPickup(forceType = null) {
 
     // Primary Spawn Attempt (Only non-counter types)
     console.log(`  -> Attempting primary spawn: ${pickupType}`);
-    const primarySpawnSuccess = trySpawn(pickupType);
+    const spawnResult = trySpawn(pickupType);
+
+    // <<< ADD Trigger for deferred effects >>>
+    if (spawnResult.success && gameActive) { // Check if spawn succeeded AND game is active
+        const pickup = spawnResult.pickup;
+        const now = performance.now();
+
+        // Start Fade-in
+        if (pickup.needsFadeIn) {
+            pickup.isSpawning = true;
+            pickup.spawnStartTime = now;
+            pickup.needsFadeIn = false;
+            console.log(`[spawnPickup] Triggered immediate fade-in for respawned ${pickupType}`);
+        }
+        // Create Spawn Particle Effect
+        if (pickup.needsSpawnParticles) {
+            // Determine color (handle potential group material access)
+            let effectColor = 0xffffff; // Default fallback
+            if (pickup.material) { // Standard mesh
+                effectColor = pickup.material.color;
+            } else if (pickup.isGroup && pickup.children.length > 0 && pickup.children[0].material) { // Group like sparse
+                effectColor = pickup.children[0].material.color; // Use first child's material color
+            } else if (pickupType === 'sparse') { // Specific fallback for sparse if needed
+                 effectColor = sparseTrailMaterial.color;
+            }
+            createPickupSpawnEffect(pickup.position, effectColor);
+            pickup.needsSpawnParticles = false;
+             console.log(`[spawnPickup] Triggered immediate spawn particles for respawned ${pickupType}`);
+        }
+    }
+    // <<< END Trigger >>>
 
     console.log(`--- spawnPickup finished for type: ${pickupType} ---`);
-    return primarySpawnSuccess;
+    return spawnResult.success; // Return only the success boolean
 }
 
 // Spawn Initial Pickups (Called from init)
@@ -890,7 +932,7 @@ function checkAIMultiSpawnPickupCollision(aiObject) {
                     const typeScoreThreshold = typeUnlockInfo ? typeUnlockInfo.score : 0; 
                     
                     if (topScore >= typeScoreThreshold) {
-                        if (trySpawn(randomType)) {
+                        if (trySpawn(randomType).success) {
                            spawnedCount++;
                         }
                     } else {

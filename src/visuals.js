@@ -102,6 +102,7 @@ export function createExplosionEffect(position, color, scale = 1) {
         });
         scene.add(particleMesh);
     }
+    console.log(`[createExplosionEffect] Created ${scaledParticleCount} particles. Total now: ${explosionParticles.length}`);
 }
 
 export function createFloatingText(text, position, color) {
@@ -134,6 +135,7 @@ export function createFloatingText(text, position, color) {
         initialLife: TEXT_LIFE
     });
     scene.add(textMesh);
+    console.log(`[createFloatingText] Created text: "${text}". Total now: ${floatingTexts.length}`);
 }
 
 // <<< ADDED: Placeholder for Pickup Spawn Effect >>>
