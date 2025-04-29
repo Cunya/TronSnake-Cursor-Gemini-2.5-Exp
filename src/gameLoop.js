@@ -224,7 +224,7 @@ function checkCollisions(prevAILostStatus) {
         let lostToTrail = false;
         // Check against player trail
         for (let seg of trailSegments1) {
-             if (currentAIPos.distanceTo(seg.position) < collisionThreshold) {
+             if (currentAIPos.distanceTo(seg.position) < segmentSize * 0.5) {
                  lostToTrail = true;
                  break;
             }
@@ -234,7 +234,7 @@ function checkCollisions(prevAILostStatus) {
             for (let otherAI of aiPlayers) {
                 if (otherAI.id === currentAI.id) continue; 
                 for (let seg of otherAI.trailSegments) {
-                     if (currentAIPos.distanceTo(seg.position) < collisionThreshold) {
+                     if (currentAIPos.distanceTo(seg.position) < segmentSize * 0.5) {
                          lostToTrail = true;
                          break;
                     }
@@ -248,7 +248,7 @@ function checkCollisions(prevAILostStatus) {
              for (let k = 0; k < aiCheckLength; k++) {
                  const seg = currentAI.trailSegments[k];
                  const dist = currentAIPos.distanceTo(seg.position);
-                 if (dist < collisionThreshold) {
+                 if (dist < segmentSize * 0.5) {
                      lostToTrail = true;
                      break;
                 }
@@ -483,7 +483,8 @@ export function animate(currentTime) {
                 if (currentFrameStatus[index] && !statusFromPrevFrame[index]) { 
                     if (ai.head && scene) {
                         // console.log(`[animate] Removing head for newly lost AI: ${ai.id}`);
-                        scene.remove(ai.head);
+                        // <<< COMMENTED OUT: Keep head visible on game over screen >>>
+                        // scene.remove(ai.head);
                         // MODIFIED: Do not null the head reference here. Let resetGame handle it.
                         // ai.head = null; 
                     }
@@ -559,8 +560,71 @@ export function animate(currentTime) {
             if (proj.life <= 0) {
                 remove = true;
             } else {
-                 // <<< TODO: Add collision checks for projectiles >>>
-                 // Check against player head, AI heads, player trail, AI trails
+                 // <<< RE-ADDED Projectile Collision Logic >>>
+                let hit = false;
+                const collisionDist = segmentSize * 0.6; 
+
+                if (proj.owner === 'player') {
+                    // Check against AI trails
+                    for (const ai of aiPlayers) {
+                        if (!ai.trailSegments || ai.lost) continue; // Skip if no trail or AI is lost
+                        for (let j = ai.trailSegments.length - 1; j >= 0; j--) {
+                            const segment = ai.trailSegments[j];
+                            if (segment && proj.mesh.position.distanceTo(segment.position) < collisionDist) { 
+                                createExplosionEffect(segment.position, ai.color); // Explosion uses AI color
+                                if (scene) scene.remove(segment);
+                                ai.trailSegments.splice(j, 1);
+                                hit = true;
+                                break; // Only hit one segment per frame per projectile
+                            }
+                        }
+                        if (hit) break; // Projectile hit an AI trail
+                    }
+                } else { // Projectile owned by AI
+                    // --- RESTRUCTURED AI Projectile Collision Checks ---
+                    // Check against player trail first
+                    if(trailSegments1) {
+                        for (let j = trailSegments1.length - 1; j >= 0; j--) {
+                            const segment = trailSegments1[j];
+                            if (segment && proj.mesh.position.distanceTo(segment.position) < collisionDist) {
+                                createExplosionEffect(segment.position, P1_TRAIL_COLOR_NORMAL);
+                                if (scene) scene.remove(segment);
+                                trailSegments1.splice(j, 1);
+                                hit = true;
+                                break;
+                            }
+                        }
+                    }
+                    
+                    // Now check against ALL AI trails (including own)
+                    // This runs regardless of whether the player trail was hit, but respects the 'hit' flag for the projectile
+                    if (!hit) { // Only check AI trails if player trail wasn't hit
+                        for (const targetAI of aiPlayers) { 
+                            // Skip check only if the target AI has no trail or is lost
+                            if (!targetAI.trailSegments || targetAI.lost) continue;
+
+                            for (let j = targetAI.trailSegments.length - 1; j >= 0; j--) {
+                                const segment = targetAI.trailSegments[j];
+                                if (segment && proj.mesh.position.distanceTo(segment.position) < collisionDist) {
+                                    // Use the color of the AI whose trail was hit
+                                    createExplosionEffect(segment.position, targetAI.color); 
+                                    if (scene) scene.remove(segment);
+                                    // Remove segment from the correct AI's trail array
+                                    targetAI.trailSegments.splice(j, 1); 
+                                    hit = true;
+                                    break; // Only hit one segment per frame per projectile
+                                }
+                            }
+                            if (hit) break; // Projectile hit an AI trail, stop checking other AIs
+                        }
+                    }
+                     // --- END RESTRUCTURED AI Projectile Collision Checks ---
+                }
+
+                if (hit) {
+                    remove = true; // Mark projectile for removal if it hit something
+                }
+                 // <<< END RE-ADDED Projectile Collision Logic >>>
             }
 
             // Emit trail particles
@@ -942,6 +1006,9 @@ export function animate(currentTime) {
     if (pauseIndicatorElement) {
         pauseIndicatorElement.style.display = isPaused ? 'block' : 'none';
     }
+
+    // <<< ADDED: Update Score Display >>>
+    updateScoreDisplay();
 
     // 9. Render the scene (always render)
     if(renderer && scene && camera) renderer.render(scene, camera);

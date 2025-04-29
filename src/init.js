@@ -571,7 +571,8 @@ export function init() {
     const now = performance.now();
     if(setLastUpdateTimeP1) setLastUpdateTimeP1(now);
 
-    // --- Add Download Button ---
+    // --- Add Download Button --- (COMMENTING OUT)
+    /*
     const downloadBtn = document.createElement('button');
     downloadBtn.textContent = 'Download Error Log';
     downloadBtn.style.position = 'fixed';
@@ -580,6 +581,7 @@ export function init() {
     downloadBtn.style.zIndex = '1000'; // Ensure it's visible
     downloadBtn.onclick = downloadErrorLogFile; // Use the function defined above
     document.body.appendChild(downloadBtn);
+    */
     // --- End Download Button ---
 
     // Load Font -> Then Load Top Score -> Then Create remaining UI -> Spawn Pickups -> Start Game

@@ -666,14 +666,17 @@ export function updateScoreDisplay() {
         const originalSize = topScoreTextElement.dataset.originalFontSize || '18px'; // Fallback
         const originalColor = topScoreTextElement.dataset.originalColor || 'rgba(255, 255, 255, 0.9)'; // Fallback
 
-        // Check if current score exceeds the top score recorded AT THE START of this game
-        if (scoreP1 > topScoreAtGameStart) {
-            topScoreTextElement.textContent = `Top Score: ${scoreP1}`; // Show current score as potential new top
+        // 1. Determine which score value to display
+        const scoreToDisplay = Math.max(scoreP1, topScore); // Show the higher of current or overall top
+        topScoreTextElement.textContent = `Top Score: ${scoreToDisplay}`;
+
+        // 2. Determine styling based on whether the current score matches or exceeds the overall top score
+        if (scoreP1 >= topScore && topScore > 0) { // Also ensure topScore is not 0
+            // Style for current score being the top score
             topScoreTextElement.style.fontSize = '36px'; // Make it bigger
             topScoreTextElement.style.color = '#ffd700'; // Make it gold
         } else {
-            // Otherwise, display the actual current top score and use normal style
-            topScoreTextElement.textContent = `Top Score: ${topScore}`; // Show the actual top score
+            // Style for normal display (no new top score this game)
             topScoreTextElement.style.fontSize = originalSize;
             topScoreTextElement.style.color = originalColor;
         }
