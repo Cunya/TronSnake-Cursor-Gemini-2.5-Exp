@@ -489,7 +489,7 @@ window.downloadErrorLog = downloadErrorLogFile;
 
 // <<< ADDED: Diagnostic function for orphaned segments >>>
 export function diagnoseOrphanedSegments() {
-    console.log("[Diagnose] Running orphan segment check...");
+    // console.log("[Diagnose] Running orphan segment check..."); // <<< COMMENTED OUT
     let orphanCount = 0;
 
     // Get IDs of currently active AIs
@@ -522,9 +522,9 @@ export function diagnoseOrphanedSegments() {
     });
 
     if (orphanCount > 0) {
-        console.warn(`[Diagnose] Orphan check complete. Found ${orphanCount} orphaned segment(s).`);
+        // console.warn(`[Diagnose] Orphan check complete. Found ${orphanCount} orphaned segment(s).`); // <<< COMMENTED OUT
     } else {
-        console.log("[Diagnose] Orphan check complete. No orphaned segments found.");
+        // console.log("[Diagnose] Orphan check complete. No orphaned segments found."); // <<< COMMENTED OUT
     }
 }
 // <<< END ADDED >>>

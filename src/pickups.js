@@ -672,9 +672,9 @@ function checkExpansionPickupCollision() {
 function checkClearPickupCollision() {
      for (let i = clearPickups.length - 1; i >= 0; i--) {
         const pickup = clearPickups[i];
-        console.log(`[Check P1 Clear Collision] Checking pickup ${pickup.uuid} at ${pickup.position.x.toFixed(1)},${pickup.position.z.toFixed(1)} against P1 at ${snakeTargetPosition1.x.toFixed(1)},${snakeTargetPosition1.z.toFixed(1)}`);
+        // console.log(`[Check P1 Clear Collision] Checking pickup ${pickup.uuid} at ${pickup.position.x.toFixed(1)},${pickup.position.z.toFixed(1)} against P1 at ${snakeTargetPosition1.x.toFixed(1)},${snakeTargetPosition1.z.toFixed(1)}`); // <<< COMMENTED OUT
         if (snakeTargetPosition1.distanceToSquared(pickup.position) < PICKUP_COLLISION_THRESHOLD_SQ * 1.1) {
-            console.log("[Check P1 Clear Collision] Collision DETECTED!");
+            // console.log("[Check P1 Clear Collision] Collision DETECTED!"); // <<< COMMENTED OUT
             const pos = pickup.position.clone(); const col = pickup.material.color.clone();
             createExplosionEffect(pos, col); 
              // Calculate boosted score for text
@@ -956,9 +956,9 @@ function checkAIExpansionPickupCollision(aiObject) {
 function checkAIClearPickupCollision(aiObject) {
     for (let i = clearPickups.length - 1; i >= 0; i--) {
         const pickup = clearPickups[i];
-        console.log(`[Check AI Clear Collision] AI ${aiObject.id} checking pickup ${pickup.uuid} at ${pickup.position.x.toFixed(1)},${pickup.position.z.toFixed(1)} against AI at ${aiObject.targetPosition.x.toFixed(1)},${aiObject.targetPosition.z.toFixed(1)}`);
+        // console.log(`[Check AI Clear Collision] AI ${aiObject.id} checking pickup ${pickup.uuid} at ${pickup.position.x.toFixed(1)},${pickup.position.z.toFixed(1)} against AI at ${aiObject.targetPosition.x.toFixed(1)},${aiObject.targetPosition.z.toFixed(1)}`); // <<< COMMENTED OUT
         if (aiObject.targetPosition.distanceToSquared(pickup.position) < PICKUP_COLLISION_THRESHOLD_SQ * 1.1) {
-            console.log(`[Check AI Clear Collision] Collision DETECTED for AI ${aiObject.id}!`);
+            // console.log(`[Check AI Clear Collision] Collision DETECTED for AI ${aiObject.id}!`); // <<< COMMENTED OUT
             createExplosionEffect(pickup.position.clone(), pickup.material.color.clone());
             scene.remove(pickup); clearPickups.splice(i, 1); logTotalPickupCount("Collected AI Clear");
             // logSceneMeshes(`Before AI ${aiObject.id} Clear Pickup`); // <<< COMMENTED OUT

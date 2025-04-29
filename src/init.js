@@ -335,16 +335,16 @@ export function resetGame() {
 
     // --- Reset AI Players --- 
     // Remove existing AI visuals and clear the array
-    console.log(`[resetGame] Cleaning up ${aiPlayers.length} AI objects...`); // <<< ADDED LOG
+    // console.log(`[resetGame] Cleaning up ${aiPlayers.length} AI objects...`); // <<< COMMENTED OUT
     aiPlayers.forEach(ai => {
-        console.log(`[resetGame] Processing AI ${ai.id}. Head Exists: ${!!ai.head}, Is Lost: ${ai.lost}`); // <<< ADDED LOG
+        // console.log(`[resetGame] Processing AI ${ai.id}. Head Exists: ${!!ai.head}, Is Lost: ${ai.lost}`); // <<< COMMENTED OUT
         if (ai.head && scene) {
-            console.log(`[resetGame] Attempting to remove head for AI ${ai.id}`); // <<< ADDED LOG
+            // console.log(`[resetGame] Attempting to remove head for AI ${ai.id}`); // <<< COMMENTED OUT
             scene.remove(ai.head);
-            console.log(`[resetGame] Called scene.remove for AI ${ai.id} head.`); // <<< ADDED LOG
+            // console.log(`[resetGame] Called scene.remove for AI ${ai.id} head.`); // <<< COMMENTED OUT
         }
         if (ai.ammoIndicator && scene) {
-            console.log(`[resetGame] Removing ammo indicator for AI ${ai.id}`); // <<< ADDED LOG
+            // console.log(`[resetGame] Removing ammo indicator for AI ${ai.id}`); // <<< COMMENTED OUT
             scene.remove(ai.ammoIndicator);
         }
         // Clear AI trails individually if needed, or rely on clearAllTrails

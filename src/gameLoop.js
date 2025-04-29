@@ -292,7 +292,7 @@ function checkCollisions(prevAILostStatus) {
     currentAILostStatus.forEach((lostStatus, index) => {
         if (lostStatus && aiPlayers[index] && !aiPlayers[index].lost) { // If lost now and not already marked
             aiPlayers[index].lost = true;
-            console.log(`[CheckCollisions] Marked AI ${aiPlayers[index].id} as lost.`); // Optional log
+            // console.log(`[CheckCollisions] Marked AI ${aiPlayers[index].id} as lost.`); // <<< COMMENTED OUT
         }
     });
     // <<< END ADDED >>>
