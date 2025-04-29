@@ -245,9 +245,10 @@ export function updateAmmoIndicatorP1() {
     const count = ammoCountP1; 
     // console.log(`[updateAmmoIndicatorP1] Current ammoCountP1 from state: ${count}`);
 
-    const indicatorSize = 0.2;
+    const indicatorRadius = 0.1; // Adjusted size for sphere
     const indicatorSpacing = 0.25;
-    const indicatorGeometry = new THREE.BoxGeometry(indicatorSize, indicatorSize, indicatorSize);
+    // Change to SphereGeometry
+    const indicatorGeometry = new THREE.SphereGeometry(indicatorRadius, 8, 6); // Use fewer segments for performance
     const indicatorMaterial = new THREE.MeshPhongMaterial({ color: AMMO_COLOR });
 
     // Add new indicators
@@ -276,18 +277,19 @@ export function updateAmmoIndicatorAI(aiObject) {
 
     // Create new indicator group
     const indicatorGroup = new THREE.Group();
-    const cubeSize = segmentSize * 0.15;
-    const spacing = cubeSize * 1.3;
-    const ammoGeometry = new THREE.BoxGeometry(cubeSize, cubeSize, cubeSize);
+    const indicatorRadiusAI = 0.08; // Smaller radius for AI
+    const spacing = indicatorRadiusAI * 2.6; // Adjust spacing based on radius
+    // Change to SphereGeometry
+    const ammoGeometry = new THREE.SphereGeometry(indicatorRadiusAI, 6, 4); // Even fewer segments for AI
     const ammoMaterial = new THREE.MeshPhongMaterial({ color: AMMO_COLOR, emissive: 0x553300 });
 
     const totalWidth = (aiObject.ammoCount - 1) * spacing;
     const startX = -totalWidth / 2;
 
     for (let i = 0; i < aiObject.ammoCount; i++) {
-        const ammoCube = new THREE.Mesh(ammoGeometry, ammoMaterial);
-        ammoCube.position.x = startX + i * spacing;
-        indicatorGroup.add(ammoCube);
+        const ammoSphere = new THREE.Mesh(ammoGeometry, ammoMaterial); // Rename variable
+        ammoSphere.position.x = startX + i * spacing;
+        indicatorGroup.add(ammoSphere);
     }
 
     indicatorGroup.position.copy(aiObject.head.position).y += segmentSize * 0.7; 

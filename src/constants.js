@@ -13,6 +13,7 @@ export const P1_TRAIL_COLOR_BOOST = 0x40cccc; // Lighter Dark Cyan (Reverted)
 export const HEAD_COLOR_LOST = 0xff0000; // Red for lost state
 
 export const AMMO_COLOR = 0xffa500; // Orange
+export const AMMO_TRAIL_COLOR = 0xff4500; // Reddish-Orange for projectile trail
 
 // Game Settings
 export const segmentSize = 1;
@@ -119,7 +120,10 @@ export const SPAWN_EFFECT_ROTATION_SPEED = Math.PI * 4; // Radians per second fo
 export const PROJECTILE_SPEED = 20;
 export const PROJECTILE_SIZE = 0.3;
 export const projectileGeometry = new THREE.SphereGeometry(PROJECTILE_SIZE, 8, 8);
-export const projectileMaterial = new THREE.MeshPhongMaterial({ color: 0xffffff, emissive: 0xaaaaaa });
+export const projectileMaterial = new THREE.MeshPhongMaterial({ 
+    color: AMMO_COLOR, 
+    emissive: new THREE.Color(AMMO_COLOR).multiplyScalar(0.5) // Make emissive a darker shade of AMMO_COLOR
+});
 
 // Projectile Trail Particle Constants
 export const TRAIL_PARTICLE_COUNT_PER_FRAME = 2;
@@ -127,7 +131,7 @@ export const TRAIL_PARTICLE_SIZE = 0.08;
 export const TRAIL_PARTICLE_LIFE = 0.3;
 export const trailParticleGeometry = new THREE.BoxGeometry(TRAIL_PARTICLE_SIZE, TRAIL_PARTICLE_SIZE, TRAIL_PARTICLE_SIZE);
 export const trailParticleMaterial = new THREE.MeshBasicMaterial({
-    color: 0xffddaa, 
+    color: AMMO_TRAIL_COLOR,
     transparent: true,
     opacity: 0.8
 });
