@@ -46,6 +46,15 @@ This file tracks potential tasks, improvements, and features for the Powerup Tro
 *   [ ] **Background Music:** Add optional background music.
 *   [ ] **Visual Polish:** Improve styling of dialogs, buttons, score displays.
 *   [ ] **Mobile Controls:** Further testing and refinement of touch zones.
+*   [ ] **Pickup Spawn Effect:** Add a visual effect (e.g., particle flash, scaling animation) when a new pickup appears.
+*   [ ] **Scene Visual Enhancements:**
+    *   [ ] **Ground:** Add texture or shader detail to the ground plane instead of flat color.
+    *   [ ] **Background/Skybox:** Replace the plain background color with a skybox or other dynamic background.
+    *   [ ] **Lighting:** Experiment with more dynamic lighting, potentially adding shadows (consider performance impact).
+    *   [ ] **Trail Effects:** Add emissive properties or subtle glow effects to snake trails.
+    *   [ ] **Pickup Visuals:** Enhance pickup models/materials further.
+    *   [ ] **Boundary Visuals:** Make the play area boundaries more visually distinct (e.g., glowing walls, force field effect).
+    *   [ ] **Post-Processing:** Explore simple post-processing effects like bloom for glowing elements (consider performance).
 
 ## Code Quality & Refactoring
 
