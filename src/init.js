@@ -305,7 +305,7 @@ export function resetGame() {
     clearFloatingTexts();
     clearExplosionParticles();
     clearAllProjectiles();
-    revertHeadColors(); // Reset head colors to normal
+    // MOVED: revertHeadColors(); // Reset head colors to normal
 
     // --> ADD CLEARING FOR PICKUPS <--
     console.log("[resetGame] Clearing existing pickup objects...");
@@ -450,6 +450,9 @@ export function resetGame() {
         camera.position.copy(snakeTargetPosition1).add(cameraOffset);
         camera.lookAt(targetLookAt);
     }
+
+    // --- MOVED: Call revertHeadColors AFTER player and AI heads are setup ---
+    revertHeadColors(); 
 
     // Reset trackers and timers
     if(setLastTrailSegment1) setLastTrailSegment1(null);
