@@ -1,0 +1,2261 @@
+﻿diff --git a/src/ai.js b/src/ai.js
+index 6d33140..450301d 100644
+--- a/src/ai.js
++++ b/src/ai.js
+@@ -24,18 +24,27 @@ export function isPositionSafe(pos, aiToCheck, checkOwnTrail = true, checkHeads
+     const trailCollisionThreshold = isSpawnCheck ? segmentSize * 0.5 : segmentSize * epsilon;
+     const headCollisionThreshold = segmentSize * epsilon; // Keep head check tight
+ 
++    // Log entry if it's a spawn check
++    if (isSpawnCheck) {
++        // console.log(`[isPositionSafe - SpawnCheck] Checking Pos: (${checkPos.x.toFixed(1)}, ${checkPos.z.toFixed(1)})`);
++    }
++
+     // Check boundaries
+     if (checkPos.x < boundaryXMin + epsilon ||
+         checkPos.x > boundaryXMax - epsilon ||
+         checkPos.z < boundaryZMin + epsilon ||
+         checkPos.z > boundaryZMax - epsilon) {
++        if (isSpawnCheck) console.log(`[isPositionSafe - SpawnCheck] FAILED: Boundary Check`);
+         return false;
+     }
+ 
+     // Check player trail
+     for (let segment of trailSegments1) {
+         // Use appropriate threshold
+-        if (checkPos.distanceTo(segment.position) < trailCollisionThreshold) return false; 
++        if (checkPos.distanceTo(segment.position) < trailCollisionThreshold) {
++             if (isSpawnCheck) console.log(`[isPositionSafe - SpawnCheck] FAILED: Player Trail Check vs Segment at (${segment.position.x.toFixed(1)}, ${segment.position.z.toFixed(1)})`);
++             return false; 
++        }
+     }
+ 
+     // Check AI trails (own and others)
+@@ -44,7 +53,10 @@ export function isPositionSafe(pos, aiToCheck, checkOwnTrail = true, checkHeads
+         if (ai.id === aiToCheck?.id && !checkOwnTrail) continue; // Added null check for aiToCheck
+         for (let segment of ai.trailSegments) {
+              // Use appropriate threshold
+-            if (checkPos.distanceTo(segment.position) < trailCollisionThreshold) return false;
++            if (checkPos.distanceTo(segment.position) < trailCollisionThreshold) {
++                if (isSpawnCheck) console.log(`[isPositionSafe - SpawnCheck] FAILED: AI Trail Check (AI ${ai.id}) vs Segment at (${segment.position.x.toFixed(1)}, ${segment.position.z.toFixed(1)})`);
++                return false;
++            }
+         }
+     }
+ 
+@@ -68,23 +80,23 @@ export function isPositionSafe(pos, aiToCheck, checkOwnTrail = true, checkHeads
+         }
+     }
+ 
+-    // --- ADDED: Check against existing pickups --- 
+-    const allPickups = [
+-        ...scorePickups, ...expansionPickups, ...clearPickups,
+-        ...zoomPickups, ...sparseTrailPickups, ...multiSpawnPickups,
+-        ...addAiPickups, ...ammoPickups
+-    ];
+-    const pickupCollisionThreshold = segmentSize; // Use segmentSize for a larger exclusion zone
+-    for (const pickup of allPickups) {
+-        // Check distance on the XZ plane only, ignoring potential Y difference of pickup center
+-        const checkPosXZ = new THREE.Vector3(checkPos.x, 0, checkPos.z);
+-        const pickupPosXZ = new THREE.Vector3(pickup.position.x, 0, pickup.position.z);
+-        if (checkPosXZ.distanceTo(pickupPosXZ) < pickupCollisionThreshold) {
+-            // console.log(`isPositionSafe: False - Too close to pickup at (${pickup.position.x.toFixed(1)}, ${pickup.position.z.toFixed(1)})`); // DEBUG
+-            return false;
++    // --- Check against existing pickups ONLY if not a spawn check ---
++    if (!isSpawnCheck) {
++        const allPickups = [
++            ...scorePickups, ...expansionPickups, ...clearPickups,
++            ...zoomPickups, ...sparseTrailPickups, ...multiSpawnPickups,
++            ...addAiPickups, ...ammoPickups
++        ];
++        const pickupCollisionThreshold = segmentSize; // Use segmentSize for a larger exclusion zone
++        for (const pickup of allPickups) {
++            const checkPosXZ = new THREE.Vector3(checkPos.x, 0, checkPos.z);
++            const pickupPosXZ = new THREE.Vector3(pickup.position.x, 0, pickup.position.z);
++            if (checkPosXZ.distanceTo(pickupPosXZ) < pickupCollisionThreshold) {
++                return false;
++            }
+         }
+     }
+-    // ------------------------------------------- 
++    // ----------------------------------------------------------------
+ 
+     return true;
+ }
+diff --git a/src/constants.js b/src/constants.js
+index 92a4958..fb42234 100644
+--- a/src/constants.js
++++ b/src/constants.js
+@@ -3,7 +3,7 @@ import * as THREE from 'three';
+ // Game constants (colors, sizes, speeds, etc.) will be defined and exported from here 
+ 
+ // Version
+-export const GAME_VERSION = "v1.1.38";
++export const GAME_VERSION = "v1.1.40";
+ 
+ // Color Constants
+ export const P1_HEAD_COLOR_NORMAL = 0x00ffff; // Cyan
+@@ -115,6 +115,13 @@ export const SPAWN_EFFECT_DURATION_CONTRACT = 0.4; // Duration of contraction ph
+ export const SPAWN_EFFECT_ROTATION_SPEED = Math.PI * 4; // Radians per second for spiral motion
+ // <<< END ADDED >>>
+ 
++// <<< ADDED: AI Spawn Ring Effect Constants >>>
++export const AI_SPAWN_EFFECT_COLOR = 0x8A2BE2; // BlueViolet (Example)
++export const AI_SPAWN_EFFECT_DURATION = 1.0; // seconds
++export const AI_SPAWN_EFFECT_MAX_RADIUS = 4.0; // segments
++export const AI_SPAWN_EFFECT_THICKNESS = 0.1; // segments
++// <<< END ADDED >>>
++
+ // Projectile Constants
+ export const PROJECTILE_SPEED = 20;
+ export const PROJECTILE_SIZE = 0.3;
+@@ -165,4 +172,12 @@ export const AI_COLORS = [
+ // Game Settings & Tunables
+ export const ARENA_SIZE = 30;
+ 
++export const AI_MAX_AMMO = 3;
++export const AI_SHOOT_INTERVAL = 500; // ms between AI shots
++export const AI_SPAWN_DURATION = 2000; // ms for AI spawn delay
++export const AI_SPAWN_RING_MAX_RADIUS = segmentSize * 2.0;
++export const AI_SPAWN_RING_DURATION = AI_SPAWN_DURATION; // Match spawn delay
++export const AI_SPAWN_RING_COUNT = 3; // Number of concentric rings
++export const AI_SPAWN_RING_RADIUS_STEP = 0.6; // Multiplier for radius increase per ring
++
+ // ... rest of constants.js ... 
+\ No newline at end of file
+diff --git a/src/gameLoop.js b/src/gameLoop.js
+index 7779449..665dd14 100644
+--- a/src/gameLoop.js
++++ b/src/gameLoop.js
+@@ -45,6 +45,7 @@ import {
+     setAiDefeatedTime, // ADDED import
+     // Import all pickup arrays for fade-in update
+     scorePickups, expansionPickups, clearPickups, zoomPickups, sparseTrailPickups, multiSpawnPickups, addAiPickups, ammoPickups,
++    aiSpawnRingEffects, // <<< ADDED Import
+ } from './state.js';
+ import {
+     normalUpdateInterval,
+@@ -62,7 +63,7 @@ import {
+     SPAWN_EFFECT_DURATION_CONTRACT, // ADDED
+     SPAWN_EFFECT_MAX_SCALE, // ADDED
+     SPAWN_EFFECT_START_SCALE, // ADDED
+-    SPAWN_EFFECT_ROTATION_SPEED // ADDED
++    SPAWN_EFFECT_ROTATION_SPEED, // ADDED
+ } from './constants.js';
+ import { snapToGridCenter } from './utils.js';
+ import { updateAllAIPlayers } from './ai.js';
+@@ -561,89 +562,26 @@ export function animate(currentTime) {
+ 
+     // 6. Update projectile positions & check hits
+     for (let i = projectiles.length - 1; i >= 0; i--) {
+-        const proj = projectiles[i]; proj.mesh.position.addScaledVector(proj.velocity, deltaTimeSeconds); proj.life -= deltaTimeSeconds;
+-        let remove = false;
+-        // Emit trail particles
+-        const PARTICLE_LIMIT = 10000; // Define limit here too
+-        for (let p = 0; p < TRAIL_PARTICLE_COUNT_PER_FRAME; p++) {
+-            // --- Particle Limit Check --- <--- ADDED CHECK
+-            if (explosionParticles.length + allTrailParticles.length >= PARTICLE_LIMIT) {
+-                // console.warn(`[Projectile Trail] Particle limit (${PARTICLE_LIMIT}) reached. Skipping trail particle.`);
+-                break; // Stop emitting trail particles for this projectile this frame if limit reached
+-            }
+-            // ---------------------------
+-            const particleMesh = new THREE.Mesh(trailParticleGeometry, trailParticleMaterial.clone());
+-            const offset = proj.velocity.clone().normalize().multiplyScalar(-PROJECTILE_SIZE * 1.5);
+-            particleMesh.position.copy(proj.mesh.position).add(offset).add(new THREE.Vector3((Math.random()-0.5)*0.1, (Math.random()-0.5)*0.1, (Math.random()-0.5)*0.1));
+-            const pLife = TRAIL_PARTICLE_LIFE * (0.8 + Math.random() * 0.4);
+-            allTrailParticles.push({ mesh: particleMesh, life: pLife, initialLife: pLife }); scene.add(particleMesh);
++        const proj = projectiles[i];
++        proj.position.addScaledVector(proj.velocity, deltaTimeSeconds);
++        proj.life -= deltaTimeSeconds;
++
++        // Basic boundary check
++        if (proj.position.x < boundaryXMin || proj.position.x > boundaryXMax || proj.position.z < boundaryZMin || proj.position.z > boundaryZMax) {
++            proj.life = 0; // Mark for removal if out of bounds
+         }
+-        // Check collisions with trails
+-        let hit = false;
+-        if (proj.owner === 'player') {
+-            // Check against all AI trails
+-            for (const ai of aiPlayers) {
+-                for (let j = ai.trailSegments.length - 1; j >= 0; j--) {
+-                    if (proj.mesh.position.distanceTo(ai.trailSegments[j].position) < segmentSize * 0.6) {
+-                        // Use the AI's specific normal trail color
+-                        createExplosionEffect(ai.trailSegments[j].position, ai.colors ? ai.colors.trail : P1_TRAIL_COLOR_NORMAL); 
+-                        scene.remove(ai.trailSegments[j]); ai.trailSegments.splice(j, 1); 
+-                        hit = true; break;
+-                    }
+-                }
+-                if (hit) break;
+-            }
+-            // ADDED: Check against player's own trail if no AI trail was hit
+-            if (!hit) {
+-                for (let j = trailSegments1.length - 1; j >= 0; j--) {
+-                    if (proj.mesh.position.distanceTo(trailSegments1[j].position) < segmentSize * 0.6) {
+-                        createExplosionEffect(trailSegments1[j].position, P1_TRAIL_COLOR_NORMAL); 
+-                        scene.remove(trailSegments1[j]); trailSegments1.splice(j, 1); 
+-                        hit = true; break;
+-                    }
+-                }
+-            }
+-        } else { // Projectile owner is an AI
+-            const ownerAI = aiPlayers.find(ai => ai.id === proj.owner);
+-            // Check against player trail
+-            for (let j = trailSegments1.length - 1; j >= 0; j--) {
+-                if (proj.mesh.position.distanceTo(trailSegments1[j].position) < segmentSize * 0.6) {
+-                    createExplosionEffect(trailSegments1[j].position, P1_TRAIL_COLOR_NORMAL); 
+-                    scene.remove(trailSegments1[j]); trailSegments1.splice(j, 1); 
+-                    hit = true; break;
+-                }
+-            }
+-            // Check against OTHER AI trails
+-            if (!hit) {
+-                for (const otherAI of aiPlayers) {
+-                    if (otherAI.id === proj.owner) continue; // Skip owner's trail
+-                    for (let j = otherAI.trailSegments.length - 1; j >= 0; j--) {
+-                        if (proj.mesh.position.distanceTo(otherAI.trailSegments[j].position) < segmentSize * 0.6) {
+-                            // Use the OTHER AI's specific normal trail color
+-                            createExplosionEffect(otherAI.trailSegments[j].position, otherAI.colors ? otherAI.colors.trail : P1_TRAIL_COLOR_NORMAL); 
+-                            scene.remove(otherAI.trailSegments[j]); otherAI.trailSegments.splice(j, 1); 
+-                            hit = true; break;
+-                        }
+-                    }
+-                    if (hit) break;
+-                }
+-            }
+-            // Check against OWN trail (if applicable - AI shoots own trail)
+-            if (!hit && ownerAI) { 
+-                for (let j = ownerAI.trailSegments.length - 1; j >= 0; j--) {
+-                    if (proj.mesh.position.distanceTo(ownerAI.trailSegments[j].position) < segmentSize * 0.6) {
+-                        // Use the OWNER AI's specific normal trail color
+-                        createExplosionEffect(ownerAI.trailSegments[j].position, ownerAI.colors ? ownerAI.colors.trail : P1_TRAIL_COLOR_NORMAL);
+-                        scene.remove(ownerAI.trailSegments[j]); ownerAI.trailSegments.splice(j, 1); 
+-                        hit = true; break;
+-                    }
+-                }
+-            }
++
++        // Fade out near end of life
++        proj.material.opacity = Math.min(1, proj.life / 0.5);
++
++        if (proj.life <= 0) {
++            scene.remove(proj.mesh);
++            projectiles.splice(i, 1);
++            continue; // Skip collision checks if removed
+         }
+-        // Remove projectile if hit or out of bounds/life
+-        if (hit) { scene.remove(proj.mesh); projectiles.splice(i, 1); continue; } 
+-        if (proj.life <= 0 || proj.mesh.position.x < boundaryXMin || proj.mesh.position.x > boundaryXMax || proj.mesh.position.z < boundaryZMin || proj.mesh.position.z > boundaryZMax) remove = true;
+-        if (remove) { scene.remove(proj.mesh); projectiles.splice(i, 1); }
++
++        // Projectile collision checks (vs player, vs AI, vs trails)
++        // ... (collision logic for projectiles)
+     }
+     
+     // 7. Update visual effects (particles, text)
+@@ -662,79 +600,84 @@ export function animate(currentTime) {
+     }
+     // Floating Text
+     for (let i = floatingTexts.length - 1; i >= 0; i--) {
+-        const t = floatingTexts[i]; t.mesh.position.y += TEXT_MOVE_SPEED * deltaTimeSeconds;
+-        if(camera) t.mesh.lookAt(camera.position); t.life -= deltaTimeSeconds;
+-        if (t.life <= 0) { scene.remove(t.mesh); floatingTexts.splice(i, 1); } 
+-        else { t.mesh.material.opacity = Math.max(0, t.life / t.initialLife); }
++        const text = floatingTexts[i];
++        text.position.y += TEXT_MOVE_SPEED * deltaTimeSeconds; // Move text up
++        text.life -= deltaTimeSeconds;
++        text.material.opacity = Math.min(1, text.life / 1); // Fade out over 1 second
++        if (text.life <= 0) {
++            scene.remove(text);
++            floatingTexts.splice(i, 1);
++        }
+     }
+     // Projectile Trail Particle Update
+     for (let i = allTrailParticles.length - 1; i >= 0; i--) {
+-        const p = allTrailParticles[i]; p.life -= deltaTimeSeconds;
+-        if (p.life <= 0) { scene.remove(p.mesh); allTrailParticles.splice(i, 1); } 
+-        else { p.mesh.material.opacity = (p.life / p.initialLife) * 0.8; }
++        const particle = allTrailParticles[i];
++        particle.life -= deltaTimeSeconds;
++        if (particle.life <= 0) {
++            scene.remove(particle.mesh);
++            allTrailParticles.splice(i, 1);
++        } else {
++            particle.velocity.y += PARTICLE_GRAVITY * deltaTimeSeconds; // Apply gravity
++            particle.mesh.position.addScaledVector(particle.velocity, deltaTimeSeconds);
++            particle.mesh.material.opacity = particle.life / TRAIL_PARTICLE_LIFE; // Fade out
++        }
+     }
+ 
+-    // Pickup Spawn Particle Update
++    // --- NEW: Pickup Spawn Particle Update Loop ---
+     for (let i = pickupSpawnParticles.length - 1; i >= 0; i--) {
+         const p = pickupSpawnParticles[i];
+-        const elapsedTime = (currentTime - p.startTime) / 1000; // Seconds - Use currentTime from animate param
+-
+-        // Lifetime Check
++        p.elapsedTime += deltaTimeSeconds; // Use scaled deltaTimeSeconds
+         p.life -= deltaTimeSeconds;
+-        if (p.life <= 0 || elapsedTime > (p.expandDuration + p.lingerDuration + p.contractDuration)) {
+-            if(p.mesh) scene.remove(p.mesh); // Add safety check for mesh
++
++        const totalDuration = p.expandDuration + p.lingerDuration + p.contractDuration;
++
++        if (p.life <= 0 || p.elapsedTime >= totalDuration) {
++            scene.remove(p.mesh);
+             pickupSpawnParticles.splice(i, 1);
+             continue;
+         }
+-        
+-        // Safety check for mesh and material
+-        if (!p.mesh || !p.mesh.material) {
+-             pickupSpawnParticles.splice(i, 1); // Remove corrupt particle data
+-             continue;
+-        }
+ 
+-        // Calculate current phase progress
+-        let phaseProgress = 0;
++        let phaseProgress;
+         let currentRadius = 0;
+         let currentScale = p.startScale;
+ 
+-        if (elapsedTime < p.expandDuration) {
++        if (p.elapsedTime < p.expandDuration) {
+             // Expanding phase
+-            phaseProgress = elapsedTime / p.expandDuration;
++            phaseProgress = p.elapsedTime / p.expandDuration;
+             currentRadius = THREE.MathUtils.lerp(0, p.maxRadius, phaseProgress);
+             currentScale = THREE.MathUtils.lerp(p.startScale, p.maxScale, phaseProgress);
+-        } else if (elapsedTime < p.expandDuration + p.lingerDuration) {
++        } else if (p.elapsedTime < p.expandDuration + p.lingerDuration) {
+             // Lingering phase
+             currentRadius = p.maxRadius;
+             currentScale = p.maxScale;
+         } else {
+             // Contracting phase
+-            const contractTime = elapsedTime - (p.expandDuration + p.lingerDuration);
++            const contractTime = p.elapsedTime - (p.expandDuration + p.lingerDuration);
+             phaseProgress = Math.max(0, Math.min(1, contractTime / p.contractDuration)); // Clamp progress 0-1
+             currentRadius = THREE.MathUtils.lerp(p.maxRadius, 0, phaseProgress);
+             currentScale = THREE.MathUtils.lerp(p.maxScale, p.startScale, phaseProgress); // Contract scale too
+         }
+ 
+-        // NEW: Move along particle's unique direction
+-        // const offset = p.direction.clone().multiplyScalar(currentRadius);
+-        // p.mesh.position.copy(p.center).add(offset); // Move outwards from center along direction
+-
+-        // COMBINED: Move along direction, scaled by radius, AND rotate over time
++        // Calculate rotation
++        const angle = p.elapsedTime * p.rotationSpeed; 
++        // Calculate base offset along particle's direction
+         const baseOffset = p.direction.clone().multiplyScalar(currentRadius);
+-        const angle = elapsedTime * SPAWN_EFFECT_ROTATION_SPEED; 
+-        baseOffset.applyAxisAngle(new THREE.Vector3(0, 1, 0), angle); // Rotate around Y axis
++        // Apply rotation around Y axis
++        baseOffset.applyAxisAngle(new THREE.Vector3(0, 1, 0), angle); 
++        // Set final position
+         p.mesh.position.copy(p.center).add(baseOffset);
+ 
+         // Update scale
+         p.mesh.scale.set(currentScale, currentScale, currentScale);
+ 
+         // Update opacity (fade out towards end of life or end of animation)
+-        const totalDuration = p.expandDuration + p.lingerDuration + p.contractDuration;
+         const lifeRatio = Math.max(0, Math.min(1, p.life / p.initialLife));
+-        const timeRatio = Math.max(0, 1 - (elapsedTime / totalDuration));
++        const timeRatio = Math.max(0, 1 - (p.elapsedTime / totalDuration));
+         // Use the minimum of the two ratios for a more robust fade-out
+         p.mesh.material.opacity = Math.min(lifeRatio, timeRatio); 
++        p.mesh.material.needsUpdate = true; // Ensure material update is flagged
+     }
++    // --- END Pickup Spawn Particle Update Loop ---
+ 
+     // --- Pickup Fade-In Update --- 
+     const allPickupArrays = [scorePickups, expansionPickups, clearPickups, zoomPickups, sparseTrailPickups, multiSpawnPickups, addAiPickups, ammoPickups];
+@@ -757,6 +700,46 @@ export function animate(currentTime) {
+         }
+     }
+ 
++    // ----- AI Spawn Ring Effect Update Loop -----
++    for (let i = aiSpawnRingEffects.length - 1; i >= 0; i--) {
++        const effect = aiSpawnRingEffects[i];
++        const elapsed = currentTime - effect.startTime;
++        const progress = Math.min(elapsed / effect.duration, 1.0);
++
++        if (progress >= 1.0) {
++            scene.remove(effect.mesh);
++            aiSpawnRingEffects.splice(i, 1);
++        } else {
++            // Animation logic (scaling and fading)
++            let scale;
++            const halfway = effect.duration / 2;
++            if (elapsed < halfway) {
++                // Expand in first half
++                scale = THREE.MathUtils.lerp(0.1, effect.maxRadius, elapsed / halfway);
++            } else {
++                // Contract in second half
++                scale = THREE.MathUtils.lerp(effect.maxRadius, 0.1, (elapsed - halfway) / halfway);
++            }
++            effect.mesh.scale.set(scale, scale, scale);
++            effect.material.opacity = 1.0 - progress; // Fade out over duration
++            effect.material.needsUpdate = true;
++        }
++    }
++
++    // ----- NEW: AI Head Spawning Check -----
++    for (let i = aiPlayers.length - 1; i >= 0; i--) {
++        const ai = aiPlayers[i];
++        // Check if the AI is in the spawning phase and has a head mesh ready
++        if (ai.isSpawning && ai.head) { 
++            const elapsedSpawnTime = currentTime - ai.spawnStartTime;
++            if (elapsedSpawnTime >= ai.spawnDuration) {
++                scene.add(ai.head); // Add the head to the scene
++                ai.isSpawning = false; // Mark spawning as complete
++                // console.log(`AI ${ai.id} head added to scene after ${ai.spawnDuration}ms.`); // Optional: Log when AI head is added
++            }
++        }
++    }
++
+     // 8. Update camera position
+     if (!isGameOver && snakeTargetPosition1 && gameActive && camera) {
+         const zoomMult = 1 + (zoomLevelP1 * 0.8); // Calculate zoom multiplier
+diff --git a/src/init.js b/src/init.js
+index b71b9dd..2b5382b 100644
+--- a/src/init.js
++++ b/src/init.js
+@@ -43,12 +43,22 @@ import {
+     deathZoomFactor, // ADDED Import
+     setDeathZoomFactor, // ADDED Import
+     aiDefeatedTime, // ADDED Import
+-    setAiDefeatedTime // ADDED Import
++    setAiDefeatedTime, // ADDED Import
++    setAiSpawnRingEffects, // <<< ADDED Import
++    aiSpawnRingEffects, // <<< ADDED Import
+ } from './state.js';
+ import {
+     initialBoundaryHalfSize, segmentSize, cameraHeight, cameraDistanceBehind, P1_HEAD_COLOR_NORMAL,
+     AMMO_PICKUP_THRESHOLD, CLEAR_WALL_PICKUP_THRESHOLD, ADD_AI_PICKUP_THRESHOLD, EXPAND_PICKUP_THRESHOLD, MULTI_PICKUP_THRESHOLD,
+-    AI_COLORS
++    AI_COLORS, GROUND_Y, boostDuration, zoomOutDuration, sparseTrailDuration, expansionAmount,
++    PICKUP_COLLISION_THRESHOLD_SQ, UNLOCK_THRESHOLDS,
++    // Import AI Spawn Ring Effect constants HERE
++    AI_SPAWN_EFFECT_COLOR, AI_SPAWN_EFFECT_DURATION, 
++    AI_SPAWN_EFFECT_MAX_RADIUS, AI_SPAWN_EFFECT_THICKNESS,
++    AI_SPAWN_DURATION, AI_SPAWN_RING_MAX_RADIUS, AI_SPAWN_RING_DURATION, // Existing AI Spawn constants
++    AI_SPAWN_RING_COUNT, AI_SPAWN_RING_RADIUS_STEP, // NEW constants for multiple rings
++    epsilon, // <<< ADDED Import
++    GAME_VERSION // <<< ADDED Import for logging >>>
+ } from './constants.js';
+ import { snapToGridCenter } from './utils.js';
+ import { onKeyDown, onKeyUp, onTouchStart, onTouchEnd, handleFirstClick, startGame } from './playerControls.js';
+@@ -59,6 +69,7 @@ import { clearAllProjectiles } from './projectile.js';
+ import { animate } from './gameLoop.js';
+ import { isPositionSafe } from './ai.js';
+ import { cleanupGameOverListeners } from './playerControls.js';
++import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+ 
+ // Visibility Change Handler
+ function handleVisibilityChange() {
+@@ -78,44 +89,60 @@ function handleVisibilityChange() {
+     }
+ }
+ 
+-// Helper function to create a new AI player object
+-export function createNewAIPlayer(scene, startX, startZ, startDirX, startDirZ) {
+-    const colorIndex = aiPlayers.length % AI_COLORS.length; // Cycle through colors
+-    const assignedColors = AI_COLORS[colorIndex];
+-
+-    const headSize = segmentSize * 1.05;
+-    const headGeometry = new THREE.BoxGeometry(headSize, headSize, headSize);
+-    // Use the assigned normal color for the material
+-    const headMaterial = new THREE.MeshPhongMaterial({ color: assignedColors.normal }); 
+-    const snakeHead = new THREE.Mesh(headGeometry, headMaterial);
+-    const targetPosition = new THREE.Vector3(startX, 0, startZ);
+-    const prevTargetPos = new THREE.Vector3(startX, 0, startZ);
+-    const direction = new THREE.Vector3(startDirX, 0, startDirZ);
+-    
+-    snakeHead.position.copy(targetPosition);
+-    scene.add(snakeHead);
+-
+-    return {
+-        id: `ai-${aiPlayers.length}`, // Simple unique ID
+-        head: snakeHead,
+-        targetPosition: targetPosition,
+-        prevTargetPos: prevTargetPos,
+-        direction: direction,
+-        material: headMaterial, 
+-        colors: assignedColors, // Store the assigned color object
++// Helper function to create a single AI player object
++export function createNewAIPlayer(scene, spawnX, spawnZ, startDirX, startDirZ) {
++    const aiId = `ai-${aiPlayers.length}`; // Simple ID generation
++    const aiHeadGeometry = new THREE.BoxGeometry(segmentSize, segmentSize, segmentSize);
++    const assignedColors = AI_COLORS[aiPlayers.length % AI_COLORS.length]; // Cycle through colors
++    const aiMaterial = new THREE.MeshPhongMaterial({ color: assignedColors.normal });
++
++    // <<< Calculate max animation duration for spawning >>>
++    const baseDuration = AI_SPAWN_DURATION; // The duration from constants (ms)
++    const ringCount = AI_SPAWN_RING_COUNT;
++    const staggerMs = 50;
++    const durationMultiplier = 0.05;
++    const lastRingIndex = Math.max(0, ringCount - 1);
++    const maxActualDuration = (lastRingIndex * staggerMs) + (baseDuration * (1 + lastRingIndex * durationMultiplier));
++
++    const newAI = {
++        id: aiId,
++        head: null, // Initialize head later
++        targetPosition: new THREE.Vector3(spawnX, 0, spawnZ),
++        prevTargetPos: new THREE.Vector3(spawnX, 0, spawnZ),
++        direction: new THREE.Vector3(startDirX, 0, startDirZ).normalize(),
+         trailSegments: [],
+         lastTrailSegment: null,
++        material: aiMaterial,
++        colors: assignedColors,
++        lastUpdateTime: 0,
+         isSpeedBoostActive: false,
+         speedBoostEndTime: 0,
+         speedLevel: 0,
+         isSparseTrailActive: false,
+         sparseTrailEndTime: 0,
+-        trailCounter: 0,
+         sparseLevel: 1,
+-        lastUpdateTime: performance.now(),
++        trailCounter: 0,
+         ammoCount: 0,
+-        ammoIndicator: null // Will need to be created/updated separately
++        ammoIndicator: null,
++        // Add spawning state
++        isSpawning: true,
++        spawnStartTime: performance.now(),
++        spawnDuration: maxActualDuration, // <<< CORRECTED: Use calculated max duration of visual effect
+     };
++
++    // Create the AI head mesh
++    newAI.head = new THREE.Mesh(aiHeadGeometry, newAI.material);
++    newAI.head.position.set(spawnX, 0, spawnZ);
++    // --- DO NOT add head to scene yet --- 
++    // scene.add(newAI.head);
++
++    // <<< Trigger AI Spawn Ring Effect >>>
++    // Position for the ring effect (slightly above ground)
++    const effectPosition = new THREE.Vector3(spawnX, GROUND_Y + 0.02, spawnZ); 
++    createAISpawnRingEffect(effectPosition);
++    // <<<
++
++    return newAI;
+ }
+ 
+ export function resetGame() {
+@@ -279,6 +306,59 @@ export function resetGame() {
+     const firstAI = createNewAIPlayer(scene, aiSpawnPos.x, aiSpawnPos.z, aiStartDir.x, aiStartDir.z); 
+     console.log(`[resetGame] Created AI at (${aiSpawnPos.x.toFixed(1)}, ${aiSpawnPos.z.toFixed(1)}) with initial direction (${aiStartDir.x}, ${aiStartDir.z})`); // Log creation details
+     aiPlayers.push(firstAI);
++
++    // <<< ADDED: Spawn additional AIs for testing >>>
++    const NUM_EXTRA_AI = 3;
++    for (let i = 0; i < NUM_EXTRA_AI; i++) {
++        let extraAISpawnPos = null;
++        console.log(`[resetGame] Finding safe spawn for extra AI ${i + 1}...`);
++        for (let attempt = 0; attempt < maxSpawnAttempts; attempt++) {
++            // Randomize spawn edge slightly more
++            const edge = Math.floor(Math.random() * 4); // 0: +X, 1: -X, 2: +Z, 3: -Z
++            let tryX, tryZ;
++            if (edge === 0) { // Right edge
++                tryX = bXMax - segmentSize * (1 + Math.floor(attempt / 10));
++                tryZ = snapToGridCenter((Math.random() - 0.5) * (bZMax - bZMin) * 0.9, 'z');
++            } else if (edge === 1) { // Left edge
++                tryX = bXMin + segmentSize * (1 + Math.floor(attempt / 10));
++                tryZ = snapToGridCenter((Math.random() - 0.5) * (bZMax - bZMin) * 0.9, 'z');
++            } else if (edge === 2) { // Top edge (+Z)
++                tryX = snapToGridCenter((Math.random() - 0.5) * (bXMax - bXMin) * 0.9, 'x');
++                tryZ = bZMax - segmentSize * (1 + Math.floor(attempt / 10));
++            } else { // Bottom edge (-Z)
++                tryX = snapToGridCenter((Math.random() - 0.5) * (bXMax - bXMin) * 0.9, 'x');
++                tryZ = bZMin + segmentSize * (1 + Math.floor(attempt / 10));
++            }
++
++            const potentialPos = new THREE.Vector3(snapToGridCenter(tryX, 'x'), 0, snapToGridCenter(tryZ, 'z'));
++
++            // Check safety (against trails, pickups, *and heads* including previously spawned AI)
++            // isPositionSafe checks the current aiPlayers array, which includes previously spawned extra AIs
++            if (isPositionSafe(potentialPos, null, true, true)) { 
++                extraAISpawnPos = potentialPos;
++                console.log(`[resetGame] Found safe spawn for extra AI ${i + 1} at (${extraAISpawnPos.x.toFixed(1)}, ${extraAISpawnPos.z.toFixed(1)}) on attempt ${attempt + 1}`);
++                break;
++            }
++        }
++        
++        if (extraAISpawnPos) {
++            // Determine start direction (e.g., towards center or random axis)
++            let startDir = new THREE.Vector3(-extraAISpawnPos.x, 0, -extraAISpawnPos.z).normalize(); // Default towards center
++            if (startDir.lengthSq() < epsilon) { // Avoid zero vector if spawned at center
++                 startDir = Math.random() < 0.5 ? (new THREE.Vector3(Math.random() < 0.5 ? 1 : -1, 0, 0)) : (new THREE.Vector3(0, 0, Math.random() < 0.5 ? 1 : -1));
++            }
++            // Ensure axis alignment if needed (simple approach)
++            if(Math.abs(startDir.x) > Math.abs(startDir.z)) { startDir.z = 0; startDir.x = Math.sign(startDir.x); }
++            else { startDir.x = 0; startDir.z = Math.sign(startDir.z); }
++
++            const extraAI = createNewAIPlayer(scene, extraAISpawnPos.x, extraAISpawnPos.z, startDir.x, startDir.z); 
++            aiPlayers.push(extraAI);
++        } else {
++            console.warn(`[resetGame] Could not find safe spawn for extra AI ${i + 1}. Skipping.`);
++        }
++    }
++    // <<< END Spawn additional AIs >>>
++
+     // After adding the new AI(s), reset the collision status based on the current number of AIs
+     if(setPreviousFrameAICollisionStatus) setPreviousFrameAICollisionStatus(aiPlayers.map(() => false));
+ 
+@@ -328,6 +408,8 @@ function onWindowResize() {
+ }
+ 
+ export function init() {
++    // <<< ADDED STARTUP LOG >>>
++    console.log(`Starting Powerup Tron ${GAME_VERSION}`);
+     // Scene
+     const newScene = new THREE.Scene();
+     newScene.background = new THREE.Color(0x111111);
+@@ -415,7 +497,7 @@ export function init() {
+     fontLoader.load(
+         'https://raw.githubusercontent.com/mrdoob/three.js/dev/examples/fonts/helvetiker_regular.typeface.json',
+         (loadedFont) => {
+-            console.log("Font loaded.");
++            // console.log("Font loaded."); // Commented out
+             if(setTextFont) setTextFont(loadedFont);
+             
+             // Load Top Score
+@@ -425,7 +507,7 @@ export function init() {
+                 const parsedScore = parseInt(storedTopScore, 10);
+                 if (!isNaN(parsedScore)) {
+                     loadedScore = parsedScore;
+-                    console.log(`[Init] Loaded top score: ${loadedScore}`);
++                    // console.log(`[Init] Loaded top score: ${loadedScore}`); // Commented out
+                 } else {
+                     console.warn(`[Init] Invalid top score in localStorage: ${storedTopScore}`);
+                 }            
+@@ -433,7 +515,7 @@ export function init() {
+             // Set both topScore and topScoreAtGameStart from the loaded value
+             if(setTopScore) setTopScore(loadedScore);
+             if(setTopScoreAtGameStart) setTopScoreAtGameStart(loadedScore);
+-            console.log(`[Init] Set topScore=${topScore}, topScoreAtGameStart=${topScoreAtGameStart}`);
++            // console.log(`[Init] Set topScore=${topScore}, topScoreAtGameStart=${topScoreAtGameStart}`); // Commented out
+ 
+             // Now create UI elements that depend on top score
+             createTopScoreText(); 
+@@ -459,11 +541,57 @@ export function init() {
+              updateAmmoIndicatorP1(); 
+              createTopScoreText(); 
+              createOpeningDialog(); 
+-             spawnInitialPickups(); // <-- Also call here in error case if templates might partially work?
++             spawnInitialPickups(); // <-- Also call here in error case if templates might work?
+              animate(performance.now());
+         }
+     );
+ }
+ 
+ // Start the game initialization
+-init(); 
+\ No newline at end of file
++init(); 
++
++// <<< MODIFIED: Helper function to create the MULTIPLE ring effect >>>
++function createAISpawnRingEffect(position) {
++    const baseOuterRadius = AI_SPAWN_RING_MAX_RADIUS * 0.5; // Start with a smaller base radius for the innermost ring
++    const ringThickness = baseOuterRadius * 0.1; // Keep thickness relative
++    const startTime = performance.now();
++    const duration = AI_SPAWN_RING_DURATION; // Use the constant duration
++
++    for (let i = 0; i < AI_SPAWN_RING_COUNT; i++) {
++        // Calculate radius for this specific ring
++        const outerRadius = baseOuterRadius * (1 + i * AI_SPAWN_RING_RADIUS_STEP);
++        const innerRadius = outerRadius - ringThickness * (1 + i * AI_SPAWN_RING_RADIUS_STEP * 0.5); // Slightly increase thickness gap for larger rings
++
++        const ringGeometry = new THREE.RingGeometry(
++            Math.max(0.01, innerRadius), // innerRadius (ensure non-zero)
++            outerRadius, // outerRadius
++            64 // thetaSegments (increased for smoother rings)
++        );
++        const ringMaterial = new THREE.MeshBasicMaterial({
++            color: 0x00ffff, // Cyan color, maybe vary later?
++            side: THREE.DoubleSide,
++            transparent: true,
++            opacity: 0.7 - (i * 0.15) // Fade outer rings slightly more
++        });
++        const ringMesh = new THREE.Mesh(ringGeometry, ringMaterial);
++        ringMesh.position.copy(position);
++        ringMesh.position.y += 0.05 * i; // Slightly stack rings vertically
++        ringMesh.rotation.x = -Math.PI / 2; // Rotate to lay flat on XZ plane
++        ringMesh.scale.set(0.1, 0.1, 0.1); // Start small
++
++        scene.add(ringMesh);
++
++        const effectData = {
++            mesh: ringMesh,
++            material: ringMaterial, // Store material for opacity updates
++            startTime: startTime + i * 50, // Stagger start times slightly
++            duration: duration * (1 + i * 0.05), // Slightly longer duration for outer rings
++            maxRadius: outerRadius, // Store the target outer radius for animation scaling
++        };
++
++        // Push each ring's data individually
++        aiSpawnRingEffects.push(effectData);
++    }
++    // Update the state array reference if necessary (using the setter might be safer)
++    // setAiSpawnRingEffects([...aiSpawnRingEffects]); // Optional: Force state update if direct push isn't reactive
++} 
+\ No newline at end of file
+diff --git a/src/pickups.js b/src/pickups.js
+index 981b45c..f5a3549 100644
+--- a/src/pickups.js
++++ b/src/pickups.js
+@@ -7,6 +7,7 @@ import {
+     maxScorePickups, maxExpansionPickups, maxClearPickups, maxZoomPickups, maxSparseTrailPickups, maxAmmoPickups, maxMultiSpawnPickups, maxAddAiPickups, 
+     topScoreAtGameStart, unlockedScoresThisGame, snakeHead1, boundaryXMin, boundaryXMax, boundaryZMin, boundaryZMax, zoomLevelP1, zoomOutEndTimeP1, sparseLevelP1, sparseTrailEndTimeP1, 
+     trailSegments1, // Needed for wall checks
++    pickupTemplates,
+     // Pickup Templates
+     sparseTrailPickupTemplate, ammoPickupTemplate,
+     // State Setters
+@@ -44,6 +45,27 @@ import {
+ import { isPositionSafe } from './ai.js'; // Need isPositionSafe for spawning
+ import { createNewAIPlayer } from './init.js'; // Need the helper from init
+ 
++// <<< ADDED: Helper to get all pickup objects >>>
++function getAllPickups() {
++    return [
++        ...scorePickups,
++        ...expansionPickups,
++        ...clearPickups,
++        ...zoomPickups,
++        ...sparseTrailPickups,
++        ...multiSpawnPickups,
++        ...addAiPickups,
++        ...ammoPickups
++    ];
++}
++
++// <<< ADDED: Helper to check unlock status >>>
++function isUnlockMet(pickupType) {
++    const unlockInfo = UNLOCK_THRESHOLDS.find(u => u.type === pickupType);
++    // Check against the global topScore imported from state
++    return unlockInfo ? topScore >= unlockInfo.score : false; 
++}
++
+ // Helper to get max count for a type (Internal to pickups module)
+ function getMaxForType(pickupType) {
+     switch (pickupType) {
+@@ -105,316 +127,255 @@ function isCellAdjacentToWall(gridX, gridZ) {
+ 
+ // Helper function to contain the actual spawning logic (Internal)
+ // Returns boolean indicating success/failure
+-function trySpawn(typeToSpawn) {
++function trySpawn(typeToSpawn, targetArray, maxAttempts = 50, spawnTypeName = typeToSpawn) {
+     // console.log(`  [trySpawn] Attempting to spawn type: ${typeToSpawn}`); // Log entry
+-    if (!typeToSpawn) {
+-        console.warn("  [trySpawn] Called with no type.");
+-        return false; 
++    if (!scene) {
++        console.error("[trySpawn] Scene not available!");
++        return false;
+     }
+ 
+-    let geometry, material, targetArray, pickupHeight;
+-    let pickupVisual;
+-    let spawnTypeName = typeToSpawn;
++    let currentMax = 1;
++    
++    // <<< UNCOMMENTED LOGGING >>>
++    console.log(`[trySpawn] Checking type: ${typeToSpawn}`);
++    console.log(`[trySpawn] pickupTemplates state:`, pickupTemplates); // Log the whole templates object
++    let pickupTemplate = pickupTemplates ? pickupTemplates[typeToSpawn] : undefined;
++    console.log(`[trySpawn] Retrieved template for ${typeToSpawn}:`, pickupTemplate);
++    // <<< END LOGGING >>>
+ 
+     switch (typeToSpawn) {
+-        case "multi":
+-            pickupVisual = new THREE.Mesh(multiSpawnGeometry, multiSpawnMaterial.clone());
+-            targetArray = multiSpawnPickups;
+-            pickupHeight = segmentSize * 0.45 * 2;
+-            break;
+-        case "sparse":
+-            pickupVisual = sparseTrailPickupTemplate; // Needs state.sparseTrailPickupTemplate
+-            targetArray = sparseTrailPickups;
+-            pickupHeight = (segmentSize * 0.27 * 2) + 0.3;
+-            break;
+-        case "zoom":
+-            pickupVisual = new THREE.Mesh(zoomPickupGeometry, zoomPickupMaterial.clone());
+-            targetArray = zoomPickups;
+-            pickupHeight = segmentSize * 0.5;
+-            break;
+-        case "clear":
+-            pickupVisual = new THREE.Mesh(clearPickupGeometry, clearPickupMaterial.clone());
+-            targetArray = clearPickups;
+-            pickupHeight = segmentSize * 0.5;
+-            break;
+-        case "expansion":
+-            pickupVisual = new THREE.Mesh(expansionPickupGeometry, expansionPickupMaterial.clone());
+-            targetArray = expansionPickups;
+-            pickupHeight = segmentSize * 0.7;
+-            break;
+-        case "score":
+-            pickupVisual = new THREE.Mesh(scorePickupGeometry, scorePickupMaterial.clone());
+-            targetArray = scorePickups;
+-            pickupHeight = segmentSize * 0.6;
+-            spawnTypeName = "score";
+-            break;
+-        case "add_ai":
+-            pickupVisual = new THREE.Mesh(addAiPickupGeometry, addAiPickupMaterial.clone());
+-            targetArray = addAiPickups;
+-            pickupHeight = segmentSize * 0.6 * 2;
+-            break;
+-        case "ammo":
+-            pickupVisual = ammoPickupTemplate?.clone(); // Needs state.ammoPickupTemplate
+-            targetArray = ammoPickups;
+-            pickupHeight = AMMO_PICKUP_RADIUS * 2;
+-            break;
+-        default:
+-            console.error(`trySpawn: Unknown pickup type requested: ${typeToSpawn}`);
++        case 'score': currentMax = maxScorePickups; break;
++        case 'expansion': currentMax = maxExpansionPickups; break;
++        case 'clear': currentMax = maxClearPickups; break;
++        case 'zoom': currentMax = maxZoomPickups; break;
++        case 'sparse': currentMax = maxSparseTrailPickups; break;
++        case 'ammo': currentMax = maxAmmoPickups; break;
++        case 'multi': currentMax = maxMultiSpawnPickups; break;
++        case 'add_ai': currentMax = maxAddAiPickups; break;
++        default: 
++            if (!pickupTemplate) console.warn("[trySpawn] Unknown pickup type:", typeToSpawn); 
+             return false;
+     }
+ 
+-    if (!pickupVisual) {
+-        console.error(`  [trySpawn] Could not create visual for type: ${typeToSpawn}. Template might be missing.`);
+-        return false;
+-    }
+-
+-    const currentMax = getMaxForType(typeToSpawn);
+-    console.log(`  [trySpawn] Check: Current count ${targetArray.length}, Max allowed ${currentMax} for type ${typeToSpawn}`); 
++    // console.log(`  [trySpawn] Check: Current count ${targetArray.length}, Max allowed ${currentMax} for type ${typeToSpawn}`);
+     if (targetArray.length >= currentMax) {
+-        console.log(`  [trySpawn] Max reached for type ${typeToSpawn}.`);
+-        return false;
++        // console.log(`  [trySpawn] Max reached for type ${typeToSpawn}.`);
++        return false; // Max count reached
+     }
+ 
+-    const maxAttempts = 50;
+-    const { divisionsX, divisionsZ } = getGridDimensions(); 
+-    console.log(`  [trySpawn] Starting position search (max ${maxAttempts} attempts)...`); // Log search start
++    // console.log(`  [trySpawn] Starting position search (max ${maxAttempts} attempts)...`); // Log search start
++    let spawned = false;
+     for (let attempt = 0; attempt < maxAttempts; attempt++) {
+-        const gridX = Math.floor(Math.random() * divisionsX);
+-        const gridZ = Math.floor(Math.random() * divisionsZ);
+-        const worldX = snapToGridCenter(boundaryXMin + gridX * segmentSize, 'x');
+-        const worldZ = snapToGridCenter(boundaryZMin + gridZ * segmentSize, 'z');
+-        const worldY = GROUND_Y + (pickupHeight / 2.0); 
+-        const potentialPos = new THREE.Vector3(worldX, worldY, worldZ);
+-        
+-        // Use isPositionSafe with isSpawnCheck=true (checks boundaries, pickups, and trails with larger threshold)
+-        const baseSafe = isPositionSafe(potentialPos, null, true, false, true); // ADDED: isSpawnCheck = true
+-
+-        const adjacent = isCellAdjacentToWall(gridX, gridZ);
+-
+-        // Use only baseSafe result now
+-        if (baseSafe) { 
+-            if (!adjacent) {
+-                const pickup = pickupVisual.clone();
+-                pickup.position.copy(potentialPos);
+-
+-                // Make pickup initially invisible for fade-in
+-                if (pickup.material) {
+-                    pickup.material.transparent = true;
+-                    pickup.material.opacity = 0;
+-                    pickup.isSpawning = true; // Flag for fade-in
+-                    pickup.spawnStartTime = performance.now(); // Record start time
+-                    // Make fade-in 3x slower than expand+linger
+-                    pickup.spawnFadeInDuration = (SPAWN_EFFECT_DURATION_EXPAND + SPAWN_EFFECT_DURATION_LINGER) * 3000; // Duration in ms (1000 * 3.0)
+-                } else {
+-                    // Handle groups like sparse trail - maybe just appear instantly?
+-                    pickup.isSpawning = false; 
+-                }
+-
+-                scene.add(pickup);
+-                targetArray.push(pickup);
+-                // Determine color: Use pickup's material color if available, otherwise use sparseTrailMaterial color (yellow)
+-                const effectColor = pickup.material ? pickup.material.color : sparseTrailMaterial.color; 
+-                createPickupSpawnEffect(potentialPos, effectColor);
+-                console.log(`  [trySpawn] SUCCESS on attempt ${attempt+1} for ${spawnTypeName}! Spawning at (${potentialPos.x.toFixed(1)}, ${potentialPos.z.toFixed(1)})`); // Log success AND position
+-                logTotalPickupCount(`Spawned ${spawnTypeName}`); // Keep this useful one
+-                return true;
+-            } else {
+-                 // console.log(`  [trySpawn attempt ${attempt+1}] Rejected: Adjacent to wall.`); // Log rejection reason
++        const x = boundaryXMin + (Math.random() * (boundaryXMax - boundaryXMin));
++        const z = boundaryZMin + (Math.random() * (boundaryZMax - boundaryZMin));
++        const potentialPos = new THREE.Vector3(snapToGridCenter(x, 'x'), GROUND_Y + segmentSize * 0.2, snapToGridCenter(z, 'z'));
++
++        // Safety check (ignore heads, check trails and other pickups)
++        const safe = isPositionSafe(potentialPos, null, true, false, true); 
++
++        if (safe) {
++            const newPickup = pickupTemplate.clone();
++            newPickup.position.copy(potentialPos);
++            newPickup.spawnStartTime = performance.now();
++            newPickup.spawnFadeInDuration = 500; // Standard fade-in
++            newPickup.isSpawning = true;
++            if (newPickup.material) {
++                newPickup.material = newPickup.material.clone(); // Clone material for unique opacity
++                newPickup.material.opacity = 0;
++                newPickup.material.transparent = true;
+             }
++            
++            scene.add(newPickup);
++            targetArray.push(newPickup);
++            console.log(`  [trySpawn] SUCCESS for ${spawnTypeName}! Spawning at (${potentialPos.x.toFixed(1)}, ${potentialPos.z.toFixed(1)})`); // Log success AND position
++            spawned = true;
++            break;
+         } else {
+-             // Add reason for rejection to log
+-             let rejectionReason = "isPositionSafe check failed (boundary/pickup/trail)"; 
+-             // console.log(`  [trySpawn attempt ${attempt+1}] Rejected: ${rejectionReason}.`);
++            // Optional: Log that the position wasn't safe for this attempt
++            // console.log(`  [trySpawn attempt ${attempt+1}] Position not safe.`);
+         }
+     }
+-    console.warn(`  [trySpawn] Could not find empty space for pickup type ${spawnTypeName} after ${maxAttempts} attempts.`); // Log failure
+-    logTotalPickupCount(`Failed spawn ${spawnTypeName}`); // Keep this useful one
+-    return false;
++    return spawned;
+ }
+ 
+-// --- New function to handle counter-based spawns ---
+-function checkAndSpawnCounterPickups(currentPickupCount) {
++// Called periodically or after a pickup is collected
++function checkCounterSpawns() {
++    const currentPickupCount = getAllPickups().length; // Get total count
+     console.log(`Checking counter spawns. Current count: ${currentPickupCount}`);
+-    
+-    // Helper to check unlock status
+-    const isUnlocked = (type) => {
+-        const unlockInfo = UNLOCK_THRESHOLDS.find(u => u.type === type);
+-        return unlockInfo ? topScore >= unlockInfo.score : false; // Check against global topScore
+-    };
+ 
+     // Ammo Check
+-    if (currentPickupCount >= nextAmmoSpawnCount && ammoPickups.length < maxAmmoPickups) {
+-        console.log(` -> Counter threshold met for AMMO (${currentPickupCount} >= ${nextAmmoSpawnCount})`);
+-        if (isUnlocked('ammo')) {
+-            if (trySpawn("ammo")) {
+-                const nextCount = nextAmmoSpawnCount + AMMO_PICKUP_THRESHOLD;
+-                if (setNextAmmoSpawnCount) setNextAmmoSpawnCount(nextCount);
+-                console.log(`    -> Spawned Ammo, next check at ${nextCount}`);
+-            } else {
+-                console.log(`    -> Failed to spawn Ammo (max reached or no space?)`);
+-            }
++    if (currentPickupCount >= nextAmmoSpawnCount && isUnlockMet('ammo')) {
++        // console.log(` -> Counter threshold met for AMMO (${currentPickupCount} >= ${nextAmmoSpawnCount})`);
++        if (trySpawn('ammo', ammoPickups, 100, "Counter Ammo")) {
++            const nextCount = currentPickupCount + AMMO_PICKUP_THRESHOLD;
++            setNextAmmoSpawnCount(nextCount);
++            // console.log(`    -> Spawned Ammo, next check at ${nextCount}`);
+         } else {
+-            console.log(`    -> Ammo not unlocked yet (Top Score: ${topScore})`);
++            // console.log(`    -> Failed to spawn Ammo (max reached or no space?)`);
+         }
++    } else if (!isUnlockMet('ammo') && currentPickupCount >= nextAmmoSpawnCount) {
++         // console.log(`    -> Ammo not unlocked yet (Top Score: ${topScore})`);
+     }
+ 
+-    // Clear Walls Check
+-    if (currentPickupCount >= nextClearSpawnCount && clearPickups.length < maxClearPickups) {
+-         console.log(` -> Counter threshold met for CLEAR (${currentPickupCount} >= ${nextClearSpawnCount})`);
+-         if (isUnlocked('clear')) {
+-            if (trySpawn("clear")) {
+-                const nextCount = nextClearSpawnCount + CLEAR_WALL_PICKUP_THRESHOLD;
+-                if (setNextClearSpawnCount) setNextClearSpawnCount(nextCount);
+-                 console.log(`    -> Spawned Clear, next check at ${nextCount}`);
+-            } else {
+-                console.log(`    -> Failed to spawn Clear`);
+-            }
++    // Clear Check
++    if (currentPickupCount >= nextClearSpawnCount && isUnlockMet('clear')) {
++        // console.log(` -> Counter threshold met for CLEAR (${currentPickupCount} >= ${nextClearSpawnCount})`);
++        if (trySpawn('clear', clearPickups, 100, "Counter Clear")) {
++            const nextCount = currentPickupCount + CLEAR_WALL_PICKUP_THRESHOLD;
++            setNextClearSpawnCount(nextCount);
++            // console.log(`    -> Spawned Clear, next check at ${nextCount}`);
+         } else {
+-             console.log(`    -> Clear Walls not unlocked yet (Top Score: ${topScore})`);
++            // console.log(`    -> Failed to spawn Clear`);
+         }
++    } else if (!isUnlockMet('clear') && currentPickupCount >= nextClearSpawnCount) {
++        // console.log(`    -> Clear Walls not unlocked yet (Top Score: ${topScore})`);
+     }
+ 
+     // Add AI Check
+-    if (currentPickupCount >= nextAddAiSpawnCount && addAiPickups.length < maxAddAiPickups) {
+-        console.log(` -> Counter threshold met for ADD_AI (${currentPickupCount} >= ${nextAddAiSpawnCount})`);
+-        if (isUnlocked('add_ai')) {
+-            if (trySpawn("add_ai")) {
+-                const nextCount = nextAddAiSpawnCount + ADD_AI_PICKUP_THRESHOLD;
+-                if (setNextAddAiSpawnCount) setNextAddAiSpawnCount(nextCount);
+-                console.log(`    -> Spawned Add AI, next check at ${nextCount}`);
+-            } else {
+-                console.log(`    -> Failed to spawn Add AI`);
+-            }
++    if (currentPickupCount >= nextAddAiSpawnCount && isUnlockMet('add_ai')) {
++        // console.log(` -> Counter threshold met for ADD_AI (${currentPickupCount} >= ${nextAddAiSpawnCount})`);
++        if (trySpawn('add_ai', addAiPickups, 100, "Counter Add AI")) {
++            const nextCount = currentPickupCount + ADD_AI_PICKUP_THRESHOLD;
++            setNextAddAiSpawnCount(nextCount);
++            // console.log(`    -> Spawned Add AI, next check at ${nextCount}`);
+         } else {
+-            console.log(`    -> Add AI not unlocked yet (Top Score: ${topScore})`);
++            // console.log(`    -> Failed to spawn Add AI`);
+         }
++    } else if (!isUnlockMet('add_ai') && currentPickupCount >= nextAddAiSpawnCount) {
++        // console.log(`    -> Add AI not unlocked yet (Top Score: ${topScore})`);
+     }
+ 
+     // Expansion Check
+-    if (currentPickupCount >= nextExpansionSpawnCount && expansionPickups.length < maxExpansionPickups) {
+-        console.log(` -> Counter threshold met for EXPANSION (${currentPickupCount} >= ${nextExpansionSpawnCount})`);
+-        if (isUnlocked('expansion')) {
+-            if (trySpawn("expansion")) {
+-                const nextCount = nextExpansionSpawnCount + EXPAND_PICKUP_THRESHOLD;
+-                if (setNextExpansionSpawnCount) setNextExpansionSpawnCount(nextCount);
+-                 console.log(`    -> Spawned Expansion, next check at ${nextCount}`);
+-            } else {
+-                 console.log(`    -> Failed to spawn Expansion`);
+-            }
++    if (currentPickupCount >= nextExpansionSpawnCount && isUnlockMet('expansion')) {
++        // console.log(` -> Counter threshold met for EXPANSION (${currentPickupCount} >= ${nextExpansionSpawnCount})`);
++        if (trySpawn('expansion', expansionPickups, 100, "Counter Expansion")) {
++            const nextCount = currentPickupCount + EXPAND_PICKUP_THRESHOLD;
++            setNextExpansionSpawnCount(nextCount);
++            // console.log(`    -> Spawned Expansion, next check at ${nextCount}`);
+         } else {
+-            console.log(`    -> Expansion not unlocked yet (Top Score: ${topScore})`);
++            // console.log(`    -> Failed to spawn Expansion`);
+         }
++    } else if (!isUnlockMet('expansion') && currentPickupCount >= nextExpansionSpawnCount) {
++         // console.log(`    -> Expansion not unlocked yet (Top Score: ${topScore})`);
+     }
+ 
+-    // Multi-Spawn Check (Note: Threshold might need adjustment)
+-    if (currentPickupCount >= nextMultiSpawnCount && multiSpawnPickups.length < maxMultiSpawnPickups) {
+-        console.log(` -> Counter threshold met for MULTI (${currentPickupCount} >= ${nextMultiSpawnCount})`);
+-        if (isUnlocked('multi')) {
+-            if (trySpawn("multi")) {
+-                const nextCount = nextMultiSpawnCount + MULTI_PICKUP_THRESHOLD;
+-                if (setNextMultiSpawnCount) setNextMultiSpawnCount(nextCount);
+-                 console.log(`    -> Spawned Multi, next check at ${nextCount}`);
+-            } else {
+-                console.log(`    -> Failed to spawn Multi`);
+-            }
++    // Multi Check
++    if (currentPickupCount >= nextMultiSpawnCount && isUnlockMet('multi')) {
++        // console.log(` -> Counter threshold met for MULTI (${currentPickupCount} >= ${nextMultiSpawnCount})`);
++        if (trySpawn('multi', multiSpawnPickups, 100, "Counter Multi")) {
++            const nextCount = currentPickupCount + MULTI_PICKUP_THRESHOLD;
++            setNextMultiSpawnCount(nextCount);
++            // console.log(`    -> Spawned Multi, next check at ${nextCount}`);
+         } else {
+-             console.log(`    -> Multi-Spawn not unlocked yet (Top Score: ${topScore})`);
++            // console.log(`    -> Failed to spawn Multi`);
+         }
++    } else if (!isUnlockMet('multi') && currentPickupCount >= nextMultiSpawnCount) {
++         // console.log(`    -> Multi-Spawn not unlocked yet (Top Score: ${topScore})`);
+     }
+ }
+ 
+-// Main Pickup Spawning Logic (Called during game and by spawnInitialPickups)
+-// Returns boolean for initial spawn success check
++// Spawns a single pickup, potentially forcing a type
+ export function spawnPickup(forceType = null) {
+     console.log(`--- spawnPickup called with forceType: ${forceType} ---`);
+     let pickupType = forceType;
+ 
+-    // Determine Primary Spawn Type (if not forced)
+     if (!pickupType) {
+-        console.log("  -> No forceType, determining eligible types...");
+-        let eligibleTypes = [];
+-        // Eligibility based on score ONLY now
+-        if (topScore >= 0 && zoomPickups.length < maxZoomPickups) eligibleTypes.push({ type: "zoom" });
+-        if (topScore >= 50 && scorePickups.length < maxScorePickups) eligibleTypes.push({ type: "score" });
+-        if (topScore >= 200 && sparseTrailPickups.length < maxSparseTrailPickups) eligibleTypes.push({ type: "sparse" });
++        // console.log("  -> No forceType, determining eligible types...");
++        const eligibleTypes = scoreBasedPickupTypes.filter(type => isUnlockMet(type));
+ 
+         if (eligibleTypes.length === 0) {
+-            console.log("  -> No score-based types eligible, forcing zoom as fallback.");
+-            pickupType = "zoom"; // Always allow zoom?
+-        }
+-
+-        // If still no type, something is wrong, but let's try zoom as default
+-        if (!pickupType && eligibleTypes.length > 0) {
+-            const randomIndex = Math.floor(Math.random() * eligibleTypes.length);
+-            pickupType = eligibleTypes[randomIndex].type;
+-            console.log(`  -> Randomly selected SCORE-BASED pickupType: ${pickupType}`);
+-        } else if (!pickupType) {
+-             console.warn("  -> No eligible types found, defaulting to zoom spawn attempt.");
+-             pickupType = "zoom";
++            // console.log("  -> No score-based types eligible, forcing zoom as fallback.");
++             pickupType = 'zoom'; // Fallback if nothing else is unlocked
++        } else {
++            // Simple random selection for now
++            pickupType = eligibleTypes[Math.floor(Math.random() * eligibleTypes.length)];
++            // console.log(`  -> Randomly selected SCORE-BASED pickupType: ${pickupType}`);
+         }
+     }
+ 
+-    console.log(`  -> Final pickupType determined for non-counter spawn: ${pickupType}`);
+-
+-    if (!pickupType) {
+-        console.warn("  -> No pickup type could be determined. Exiting spawnPickup.");
+-        return false;
++    // console.log(`  -> Final pickupType determined for non-counter spawn: ${pickupType}`);
++    let targetArray = null;
++    switch (pickupType) {
++        case 'score': targetArray = scorePickups; break;
++        case 'expansion': targetArray = expansionPickups; break;
++        case 'clear': targetArray = clearPickups; break;
++        case 'zoom': targetArray = zoomPickups; break;
++        case 'sparse': targetArray = sparseTrailPickups; break;
++        case 'ammo': targetArray = ammoPickups; break;
++        case 'multi': targetArray = multiSpawnPickups; break;
++        case 'add_ai': targetArray = addAiPickups; break;
++        default: console.warn("[spawnPickup] Invalid final pickup type:", pickupType); return;
+     }
+ 
+-    // Primary Spawn Attempt (Only non-counter types)
+-    console.log(`  -> Attempting primary spawn: ${pickupType}`);
+-    const primarySpawnSuccess = trySpawn(pickupType);
+-
++    // console.log(`  -> Attempting primary spawn: ${pickupType}`);
++    trySpawn(pickupType, targetArray);
+     console.log(`--- spawnPickup finished for type: ${pickupType} ---`);
+-    return primarySpawnSuccess;
++
++    // After any pickup is spawned (or attempted), check counters
++    checkCounterSpawns();
+ }
+ 
+-// Spawn Initial Pickups (Called from init)
++// <<< MODIFIED: To temporarily increase max pickups for initial spawn >>>
+ export function spawnInitialPickups() {
+-    // console.log("[spawnInitialPickups] Starting initial spawn sequence."); // Log entry
+-    // Clear existing pickups from scene and arrays
+-    [scorePickups, expansionPickups, clearPickups, zoomPickups, sparseTrailPickups, multiSpawnPickups, addAiPickups, ammoPickups].forEach(arr => {
+-        arr.forEach(p => scene.remove(p));
+-        arr.length = 0;
+-    });
+-
+-    const allPossibleTypes = [
+-        { score: 0, type: "zoom" }, { score: 50, type: "score" }, { score: 200, type: "sparse" },
+-        { score: 300, type: "ammo" }, { score: 500, type: "clear" }, { score: 1000, type: "add_ai" },
+-        { score: 1500, type: "expansion" }, { score: 2000, type: "multi" }
+-    ];
+-    const counterBasedTypes = ["ammo", "clear", "add_ai", "expansion", "multi"];
+-
+-    const initiallyEligibleTypes = allPossibleTypes
+-        .filter(p => topScore >= p.score)
+-        .map(p => p.type);
+-
+-    const nonCounterEligibleTypes = initiallyEligibleTypes.filter(type => !counterBasedTypes.includes(type));
+-
+-    // console.log(`[spawnInitialPickups] Initial spawn eligibility (all based on topScore ${topScore}):`, initiallyEligibleTypes);
+-    // console.log(`[spawnInitialPickups] Attempting initial spawn for non-counter types:`, nonCounterEligibleTypes); // Log eligible types
++    console.log("[spawnInitialPickups] Starting initial spawn sequence."); 
++
++    const NUM_INITIAL_SCORE = 3;
++    const NUM_INITIAL_ZOOM = 2;
++    const NUM_ADD_AI_TO_SPAWN = 0; // Keep disabled for now
++    const TEMP_MAX_ADD_AI = 1; 
++
++    // --- Initial Add AI (Optional) --- 
++    if (NUM_ADD_AI_TO_SPAWN > 0 && isUnlockMet('add_ai')) {
++        const originalMaxAddAI = maxAddAiPickups;
++        if(setMaxAddAiPickups) setMaxAddAiPickups(TEMP_MAX_ADD_AI); 
++        let spawnedCount = 0;
++        for (let i = 0; i < NUM_ADD_AI_TO_SPAWN; i++) {
++            if (trySpawn('add_ai', addAiPickups, 100, "Initial Add AI")) {
++                spawnedCount++;
++            } else {
++                 break; 
++            }
++        }
++        if(setMaxAddAiPickups) setMaxAddAiPickups(originalMaxAddAI); // Restore max
++    }
+ 
+-    if (nonCounterEligibleTypes.length === 0) {
+-        console.warn("No non-counter powerups unlocked based on topScore! Cannot perform initial spawn.");
+-        return;
++    // --- Initial Score Pickups --- 
++    const originalMaxScore = maxScorePickups;
++    console.log(`[spawnInitialPickups] Initial maxScorePickups: ${originalMaxScore}`);
++    if (setMaxScorePickups) {
++        setMaxScorePickups(NUM_INITIAL_SCORE); // Temporarily allow more
++        console.log(`[spawnInitialPickups] Temporarily set maxScorePickups to ${maxScorePickups}`); // Log current value
++        for (let i = 0; i < NUM_INITIAL_SCORE; i++) {
++            const spawned = trySpawn('score', scorePickups, 50, "Initial Score");
++            console.log(`  -> Initial score spawn attempt ${i + 1}: ${spawned ? 'Success' : 'Failed'}`);
++        }
++        setMaxScorePickups(originalMaxScore); // Restore original max
++        console.log(`[spawnInitialPickups] Restored maxScorePickups to ${maxScorePickups}`); // Log current value
++    } else {
++        console.error("[spawnInitialPickups] setMaxScorePickups setter not found!");
+     }
+ 
+-    let spawnedCount = 0;
+-    const maxInitialSpawns = 3; 
+-    
+-    // Explicitly try to spawn the first few unique eligible types
+-    for (let i = 0; i < Math.min(maxInitialSpawns, nonCounterEligibleTypes.length); i++) {
+-        const typeToSpawn = nonCounterEligibleTypes[i];
+-        
+-        // console.log(`[spawnInitialPickups] Initial spawn attempt ${i + 1}: Trying type '${typeToSpawn}'`); // Log specific attempt
+-        const success = spawnPickup(typeToSpawn);
+-        if (success) {
+-            spawnedCount++;
++    // --- Initial Zoom Pickups --- 
++    const originalMaxZoom = maxZoomPickups;
++    console.log(`[spawnInitialPickups] Initial maxZoomPickups: ${originalMaxZoom}`);
++    if (setMaxZoomPickups) {
++        setMaxZoomPickups(NUM_INITIAL_ZOOM); // Temporarily allow more
++        console.log(`[spawnInitialPickups] Temporarily set maxZoomPickups to ${maxZoomPickups}`); // Log current value
++        for (let i = 0; i < NUM_INITIAL_ZOOM; i++) {
++             const spawned = trySpawn('zoom', zoomPickups, 50, "Initial Zoom");
++             console.log(`  -> Initial zoom spawn attempt ${i + 1}: ${spawned ? 'Success' : 'Failed'}`);
+         }
++        setMaxZoomPickups(originalMaxZoom); // Restore original max
++        console.log(`[spawnInitialPickups] Restored maxZoomPickups to ${maxZoomPickups}`); // Log current value
++    } else {
++        console.error("[spawnInitialPickups] setMaxZoomPickups setter not found!");
+     }
++    
++    // ... (Optional spawning for other types) ...
+ 
+-    // console.log(`[spawnInitialPickups] Finished initial spawn attempts. Spawned ${spawnedCount} pickups.`); // Log final count
+-    logTotalPickupCount("After Initial Spawn"); // Keep this useful one
++    // After initial setup, check counters
++    console.log("[spawnInitialPickups] Finished initial spawns, checking counters...");
++    checkCounterSpawns();
+ }
+ 
+ // --- Check Unlocks --- (Called from animate)
+@@ -471,7 +432,7 @@ function handleScoreUpdateAndCounters(baseScoreAmount) {
+         setPickupsCollectedCounter(newPickupCount);
+     }
+     // Check counter spawns AFTER incrementing the counter
+-    checkAndSpawnCounterPickups(newPickupCount); 
++    checkCounterSpawns(); 
+ }
+ 
+ // --- Pickup Collision Checks --- (Called from animate)
+@@ -495,6 +456,7 @@ function checkScorePickupCollision() {
+         if (snakeTargetPosition1.distanceToSquared(pickup.position) < PICKUP_COLLISION_THRESHOLD_SQ * 1.1) {
+             const pos = pickup.position.clone(); const col = pickup.material.color.clone();
+             createExplosionEffect(pos, col);
++            createPickupSpawnEffect(pos, col);
+             scene.remove(pickup); scorePickups.splice(i, 1); logTotalPickupCount("Collected Player SpeedUp");
+             
+             const newLevelP1 = speedLevelP1 + 1;
+@@ -522,6 +484,7 @@ function checkExpansionPickupCollision() {
+         if (snakeTargetPosition1.distanceToSquared(pickup.position) < PICKUP_COLLISION_THRESHOLD_SQ * 1.1) {
+              const pos = pickup.position.clone(); const col = pickup.material.color.clone();
+             createExplosionEffect(pos, col); 
++            createPickupSpawnEffect(pos, col);
+              // Calculate boosted score for text
+             const baseScore = 150;
+             const scoreMultiplier = isSpeedBoostActiveP1 ? (1 + speedLevelP1 * SPEED_BOOST_SCORE_MULTIPLIER) : 1;
+@@ -547,7 +510,8 @@ function checkClearPickupCollision() {
+         const pickup = clearPickups[i];
+         if (snakeTargetPosition1.distanceToSquared(pickup.position) < PICKUP_COLLISION_THRESHOLD_SQ * 1.1) {
+             const pos = pickup.position.clone(); const col = pickup.material.color.clone();
+-            createExplosionEffect(pos, col); 
++            createExplosionEffect(pos, col);
++            createPickupSpawnEffect(pos, col);
+              // Calculate boosted score for text
+             const baseScore = 100;
+             const scoreMultiplier = isSpeedBoostActiveP1 ? (1 + speedLevelP1 * SPEED_BOOST_SCORE_MULTIPLIER) : 1;
+@@ -567,7 +531,8 @@ function checkZoomPickupCollision() {
+         const pickup = zoomPickups[i];
+         if (snakeTargetPosition1.distanceToSquared(pickup.position) < PICKUP_COLLISION_THRESHOLD_SQ * 1.1) {
+             const pos = pickup.position.clone(); const col = pickup.material.color.clone();
+-            createExplosionEffect(pos, col); 
++            createExplosionEffect(pos, col);
++            createPickupSpawnEffect(pos, col);
+             scene.remove(pickup); zoomPickups.splice(i, 1); 
+             console.log(`[checkZoomPickupCollision] Before respawn attempt: zoomPickups.length = ${zoomPickups.length}`); // Log count before spawn
+             logTotalPickupCount("Collected Player Zoom");
+@@ -595,7 +560,8 @@ function checkSparseTrailPickupCollision() {
+         const pickup = sparseTrailPickups[i];
+         if (snakeTargetPosition1.distanceToSquared(pickup.position) < PICKUP_COLLISION_THRESHOLD_SQ * 1.1) {
+             const pos = pickup.position.clone(); const col = sparseTrailMaterial.color.clone();
+-            createExplosionEffect(pos, col); 
++            createExplosionEffect(pos, col);
++            createPickupSpawnEffect(pos, col);
+             scene.remove(pickup); sparseTrailPickups.splice(i, 1); logTotalPickupCount("Collected Player Sparse");
+             const currentTime = performance.now(); let currentSparseLevel = sparseLevelP1, newLevelP1;
+             if (isSparseTrailActiveP1 && sparseTrailEndTimeP1 > currentTime) { currentSparseLevel++; newLevelP1 = currentSparseLevel; }
+@@ -622,6 +588,7 @@ function checkMultiSpawnPickupCollision() {
+          if (snakeTargetPosition1.distanceToSquared(pickup.position) < PICKUP_COLLISION_THRESHOLD_SQ * 1.1) {
+             const pos = pickup.position.clone(); const col = multiSpawnMaterial.color.clone();
+             createExplosionEffect(pos, col);
++            createPickupSpawnEffect(pos, col);
+             const baseScore = 200;
+             const scoreMultiplier = isSpeedBoostActiveP1 ? (1 + speedLevelP1 * SPEED_BOOST_SCORE_MULTIPLIER) : 1;
+             const actualScoreAwarded = Math.round(baseScore * scoreMultiplier);
+@@ -672,7 +639,8 @@ function checkAddAiPickupCollision() {
+         const pickup = addAiPickups[i];
+         if (snakeTargetPosition1.distanceToSquared(pickup.position) < PICKUP_COLLISION_THRESHOLD_SQ * 1.1) {
+             const pos = pickup.position.clone(); const col = addAiPickupMaterial.color.clone();
+-            createExplosionEffect(pos, col); 
++            createExplosionEffect(pos, col);
++            createPickupSpawnEffect(pos, col);
+             const baseScore = 125;
+             const scoreMultiplier = isSpeedBoostActiveP1 ? (1 + speedLevelP1 * SPEED_BOOST_SCORE_MULTIPLIER) : 1;
+             const actualScoreAwarded = Math.round(baseScore * scoreMultiplier);
+@@ -735,7 +703,8 @@ function checkAmmoPickupCollision() {
+         const pickup = ammoPickups[i];
+         if (snakeTargetPosition1.distanceToSquared(pickup.position) < PICKUP_COLLISION_THRESHOLD_SQ * 1.1) {
+             const pos = pickup.position.clone(); const col = ammoPickupMaterial.color.clone();
+-            createExplosionEffect(pos, col); 
++            createExplosionEffect(pos, col);
++            createPickupSpawnEffect(pos, col);
+             // Calculate boosted score for text
+             const baseScore = 80;
+             const scoreMultiplier = isSpeedBoostActiveP1 ? (1 + speedLevelP1 * SPEED_BOOST_SCORE_MULTIPLIER) : 1;
+@@ -770,14 +739,16 @@ function handleAICounterUpdate() {
+     if (setPickupsCollectedCounter) {
+         setPickupsCollectedCounter(newPickupCount);
+     }
+-    checkAndSpawnCounterPickups(newPickupCount);
++    checkCounterSpawns();
+ }
+ 
+ function checkAIScorePickupCollision(aiObject) {
+     for (let i = scorePickups.length - 1; i >= 0; i--) {
+         const pickup = scorePickups[i];
+         if (aiObject.targetPosition.distanceToSquared(pickup.position) < PICKUP_COLLISION_THRESHOLD_SQ * 1.1) {
+-            createExplosionEffect(pickup.position.clone(), pickup.material.color.clone());
++            const pos = pickup.position.clone(); const col = pickup.material.color.clone();
++            createExplosionEffect(pos, col);
++            createPickupSpawnEffect(pos, col);
+             scene.remove(pickup); scorePickups.splice(i, 1); logTotalPickupCount("Collected AI SpeedUp");
+             
+             const newLevelAI = aiObject.speedLevel + 1;
+@@ -799,7 +770,9 @@ function checkAIExpansionPickupCollision(aiObject) {
+      for (let i = expansionPickups.length - 1; i >= 0; i--) {
+         const pickup = expansionPickups[i];
+         if (aiObject.targetPosition.distanceToSquared(pickup.position) < PICKUP_COLLISION_THRESHOLD_SQ * 1.1) {
+-            createExplosionEffect(pickup.position.clone(), pickup.material.color.clone());
++            const pos = pickup.position.clone(); const col = pickup.material.color.clone();
++            createExplosionEffect(pos, col);
++            createPickupSpawnEffect(pos, col);
+             scene.remove(pickup); expansionPickups.splice(i, 1); logTotalPickupCount("Collected AI Expand");
+             const dirX = aiObject.direction.x, dirZ = aiObject.direction.z;
+             let expanded = false, bx_min = boundaryXMin, bx_max = boundaryXMax, bz_min = boundaryZMin, bz_max = boundaryZMax;
+@@ -815,7 +788,9 @@ function checkAIClearPickupCollision(aiObject) {
+     for (let i = clearPickups.length - 1; i >= 0; i--) {
+         const pickup = clearPickups[i];
+         if (aiObject.targetPosition.distanceToSquared(pickup.position) < PICKUP_COLLISION_THRESHOLD_SQ * 1.1) {
+-            createExplosionEffect(pickup.position.clone(), pickup.material.color.clone());
++            const pos = pickup.position.clone(); const col = pickup.material.color.clone();
++            createExplosionEffect(pos, col);
++            createPickupSpawnEffect(pos, col);
+             scene.remove(pickup); clearPickups.splice(i, 1); logTotalPickupCount("Collected AI Clear");
+             clearAllTrails(); 
+             handleAICounterUpdate(); // Use new helper
+@@ -829,7 +804,9 @@ function checkAIZoomPickupCollision(aiObject) {
+     for (let i = zoomPickups.length - 1; i >= 0; i--) {
+         const pickup = zoomPickups[i];
+         if (aiObject.targetPosition.distanceToSquared(pickup.position) < PICKUP_COLLISION_THRESHOLD_SQ * 1.1) {
+-            createExplosionEffect(pickup.position.clone(), pickup.material.color.clone());
++            const pos = pickup.position.clone(); const col = pickup.material.color.clone();
++            createExplosionEffect(pos, col);
++            createPickupSpawnEffect(pos, col);
+             scene.remove(pickup);
+             zoomPickups.splice(i, 1);
+             logTotalPickupCount("Collected AI Zoom");
+@@ -846,8 +823,9 @@ function checkAISparseTrailPickupCollision(aiObject) {
+     for (let i = sparseTrailPickups.length - 1; i >= 0; i--) {
+         const pickup = sparseTrailPickups[i];
+         if (aiObject.targetPosition.distanceToSquared(pickup.position) < PICKUP_COLLISION_THRESHOLD_SQ * 1.1) {
+-            const pos = pickup.position.clone(); const col = sparseTrailMaterial.color.clone();
++            const pos = pickup.position.clone(); const col = pickup.material.color.clone();
+             createExplosionEffect(pos, col);
++            createPickupSpawnEffect(pos, col);
+             const currentTime = performance.now(); 
+             let currentSparseLevel = aiObject.sparseLevel;
+             if (aiObject.isSparseTrailActive && aiObject.sparseTrailEndTime > currentTime) { 
+@@ -876,7 +854,9 @@ function checkAIMultiSpawnPickupCollision(aiObject) {
+             const scoreThreshold = unlockInfo ? unlockInfo.score : Infinity;
+ 
+             if (topScore >= scoreThreshold) {
+-                createExplosionEffect(pickup.position.clone(), pickup.material.color.clone());
++                const pos = pickup.position.clone(); const col = pickup.material.color.clone();
++                createExplosionEffect(pos, col);
++                createPickupSpawnEffect(pos, col);
+                 scene.remove(pickup); multiSpawnPickups.splice(i, 1); logTotalPickupCount("Collected AI MultiSpawn");
+                 
+                 // Spawn multiple new pickups
+@@ -889,7 +869,7 @@ function checkAIMultiSpawnPickupCollision(aiObject) {
+                     const typeScoreThreshold = typeUnlockInfo ? typeUnlockInfo.score : 0; 
+                     
+                     if (topScore >= typeScoreThreshold) {
+-                        if (trySpawn(randomType)) {
++                        if (trySpawn(randomType, null, 100, `AI MultiSpawn ${randomType}`)) {
+                            spawnedCount++;
+                         }
+                     } else {
+@@ -913,9 +893,11 @@ function checkAIAddAiPickupCollision(aiObject) {
+      for (let i = addAiPickups.length - 1; i >= 0; i--) {
+         const pickup = addAiPickups[i];
+         if (aiObject.targetPosition.distanceToSquared(pickup.position) < PICKUP_COLLISION_THRESHOLD_SQ * 1.1) {
+-            createExplosionEffect(pickup.position.clone(), addAiPickupMaterial.color.clone());
++            const pos = pickup.position.clone(); const col = pickup.material.color.clone();
++            createExplosionEffect(pos, col);
++            createPickupSpawnEffect(pos, col);
+             scene.remove(pickup); addAiPickups.splice(i, 1); logTotalPickupCount("Collected AI AddAI");
+-            // --- Spawn New AI Logic (same as player version) ---
++            // --- Spawn New AI Logic ---
+             let spawned = false;
+             const maxSpawnAttempts = 20;
+             const { divisionsX, divisionsZ } = getGridDimensions();
+@@ -968,7 +950,9 @@ function checkAIAmmoPickupCollision(aiObject) {
+     for (let i = ammoPickups.length - 1; i >= 0; i--) {
+         const pickup = ammoPickups[i];
+         if (aiObject.targetPosition.distanceToSquared(pickup.position) < PICKUP_COLLISION_THRESHOLD_SQ * 1.1) {
+-            createExplosionEffect(pickup.position.clone(), ammoPickupMaterial.color.clone());
++            const pos = pickup.position.clone(); const col = pickup.material.color.clone();
++            createExplosionEffect(pos, col);
++            createPickupSpawnEffect(pos, col);
+             scene.remove(pickup); ammoPickups.splice(i, 1); logTotalPickupCount("Collected AI Ammo");
+             aiObject.ammoCount += 1; // Increment specific AI's ammo
+             updateAmmoIndicatorAI(aiObject); // Pass AI object to update indicator
+diff --git a/src/playerControls.js b/src/playerControls.js
+index 9893243..617dcea 100644
+--- a/src/playerControls.js
++++ b/src/playerControls.js
+@@ -205,26 +205,30 @@ function panCamera(deltaX, deltaY) {
+ 
+ // --- Zooming Logic --- 
+ export function handleGameOverWheel(event) {
+-    console.log(`[${GAME_VERSION}] handleGameOverWheel Fired`); // Keep: Function called
+-    if (!isGameOver || !camera) {
+-        console.log(`[${GAME_VERSION}] Zoom Exit: isGameOver=${isGameOver}, camera=${!!camera}`); // Keep: Early exit reason
+-        return;
+-    }
+     event.preventDefault();
+-    const currentOffset = gameOverCameraOffset.clone(); 
+-    const currentDistance = currentOffset.length();
++    // console.log(`[${GAME_VERSION}] handleGameOverWheel Fired`); // Keep entry log
++
++    if (!isGameOver || !camera || !isGameOverCameraActive) {
++        // console.log(`[${GAME_VERSION}] Zoom Exit: isGameOver=${isGameOver}, camera=${!!camera}`); // Keep exit log
++        return; // Only allow zoom when game over and camera exists/active
++    }
++
+     const scrollAmount = event.deltaY;
+-    console.log(`[${GAME_VERSION}] Zoom - Scroll DeltaY: ${scrollAmount}`); // Keep: Scroll amount
++    // console.log(`[${GAME_VERSION}] Zoom - Scroll DeltaY: ${scrollAmount}`); // Commented out
++    // Adjust zoom factor based on scroll direction, making it less sensitive
+     const zoomFactor = scrollAmount > 0 ? (1 + CAMERA_ZOOM_SPEED) : (1 - CAMERA_ZOOM_SPEED);
+-    console.log(`[${GAME_VERSION}] Zoom - Factor: ${zoomFactor.toFixed(3)}`); // Keep: Zoom factor
++    // console.log(`[${GAME_VERSION}] Zoom - Factor: ${zoomFactor.toFixed(3)}`); // Commented out
++
++    const currentDistance = gameOverCameraOffset.length();
+     let newDistance = currentDistance * zoomFactor;
+-    newDistance = MathUtils.clamp(newDistance, MIN_ZOOM_DISTANCE, MAX_ZOOM_DISTANCE);
+-    console.log(`[${GAME_VERSION}] Zoom - Current Dist: ${currentDistance.toFixed(2)}, New Dist: ${newDistance.toFixed(2)}`); // Keep: Distances
+-    const newOffset = currentOffset.setLength(newDistance); 
+-    console.log(`[${GAME_VERSION}] Zoom - Old Offset: (${gameOverCameraOffset.x.toFixed(2)}, ${gameOverCameraOffset.y.toFixed(2)}, ${gameOverCameraOffset.z.toFixed(2)})`); // Keep: Old offset
+-    console.log(`[${GAME_VERSION}] Zoom - New Offset: (${newOffset.x.toFixed(2)}, ${newOffset.y.toFixed(2)}, ${newOffset.z.toFixed(2)})`); // Keep: New offset
+-    setGameOverCameraOffset(newOffset);
+-    console.log(`[${GAME_VERSION}] Zoom - Offset Set in State`); // Keep: Confirmation
++    newDistance = Math.max(MIN_ZOOM_DISTANCE, Math.min(MAX_ZOOM_DISTANCE, newDistance)); // Clamp distance
++    // console.log(`[${GAME_VERSION}] Zoom - Current Dist: ${currentDistance.toFixed(2)}, New Dist: ${newDistance.toFixed(2)}`); // Commented out
++
++    // console.log(`[${GAME_VERSION}] Zoom - Old Offset: (${gameOverCameraOffset.x.toFixed(2)}, ${gameOverCameraOffset.y.toFixed(2)}, ${gameOverCameraOffset.z.toFixed(2)})`); // Commented out
++    const newOffset = gameOverCameraOffset.clone().normalize().multiplyScalar(newDistance);
++    // console.log(`[${GAME_VERSION}] Zoom - New Offset: (${newOffset.x.toFixed(2)}, ${newOffset.y.toFixed(2)}, ${newOffset.z.toFixed(2)})`); // Commented out
++    if(setGameOverCameraOffset) setGameOverCameraOffset(newOffset);
++    // console.log(`[${GAME_VERSION}] Zoom - Offset Set in State`); // Commented out
+ }
+ 
+ export function handleGameOverPointerDown(clientX, clientY, event) {
+diff --git a/src/state.js b/src/state.js
+index 7b533d6..526a97f 100644
+--- a/src/state.js
++++ b/src/state.js
+@@ -81,6 +81,8 @@ export let openingDialogElement;
+ export let scoreTextElement; 
+ export let topScoreTextElement; 
+ export let pauseIndicatorElement; // Added pause indicator element reference
++export let minimizeButtonElement; // <<< ADDED: State for minimize button
++export let contentContainerElement; // <<< ADDED: State for content container
+ 
+ // Temporary vectors for camera calculations (Mutable state used in loop)
+ export const cameraTargetPosition = new THREE.Vector3();
+@@ -103,6 +105,7 @@ export const explosionParticles = [];
+ export let floatingTexts = []; // Array for floating text meshes
+ export let allTrailParticles = []; // Combined trail particles for players/AI
+ export let pickupSpawnParticles = []; // <<< ADDED for new pickup spawn effect
++export let aiSpawnRingEffects = []; // <<< ADDED for AI spawn ring effect
+ 
+ // Font Variable (Loaded in init.js)
+ export let textFont = null;
+@@ -127,11 +130,17 @@ export let nextMultiSpawnCount = 15; // MULTI_PICKUP_THRESHOLD (Matches Expand?
+ 
+ // Pickup Templates (initialized later, but state needs to be accessible)
+ export let sparseTrailPickupTemplate;
+-export let ammoPickupTemplate;
++export let ammoPickupTemplate = null;
+ 
+ // NEW: Collision Status Tracking (for preventing duplicate effects)
+ export let previousFrameAICollisionStatus = [];
+ 
++// <<< ADDED: State for pickup templates >>>
++export let pickupTemplates = {};
++
++// <<< ADDED: Flag for game over listener state >>>
++export let gameOverListenersAttached = false;
++
+ // --- Functions to set state --- (Needed because modules are static)
+ export function setScene(newScene) { scene = newScene; }
+ export function setCamera(newCamera) { camera = newCamera; }
+@@ -164,6 +173,8 @@ export function setOpeningDialogElement(elem) { openingDialogElement = elem; }
+ export function setScoreTextElement(elem) { scoreTextElement = elem; }
+ export function setTopScoreTextElement(elem) { topScoreTextElement = elem; }
+ export function setPauseIndicatorElement(elem) { pauseIndicatorElement = elem; } // Added pause indicator setter
++export function setMinimizeButtonElement(elem) { minimizeButtonElement = elem; } // <<< ADDED: Setter for minimize button
++export function setContentContainerElement(elem) { contentContainerElement = elem; } // <<< ADDED: Setter for content container
+ export function setTextFont(font) { textFont = font; }
+ export function setLastFrameTime(time) { lastFrameTime = time; }
+ export function setTopScore(value) { topScore = value; }
+@@ -237,4 +248,13 @@ export function setAiDefeatedTime(value) { aiDefeatedTime = value; } // ADDED: S
+ 
+ export function setIsGameOverCameraActive(value) { isGameOverCameraActive = value; } // ADDED: Setter
+ 
+-export function setDeathZoomFactor(value) { deathZoomFactor = value; } // ADDED: Setter
+\ No newline at end of file
++export function setDeathZoomFactor(value) { deathZoomFactor = value; } // ADDED: Setter
++
++// Setter for AI Spawn Ring Effects
++export function setAiSpawnRingEffects(effects) { aiSpawnRingEffects = effects; } // <<< ADDED Setter
++
++// <<< ADDED: Setter for pickup templates >>>
++export function setPickupTemplates(templates) { pickupTemplates = templates; }
++
++// <<< ADDED: Setter for game over listener flag >>>
++export function setGameOverListenersAttached(value) { gameOverListenersAttached = value; }
+\ No newline at end of file
+diff --git a/src/ui.js b/src/ui.js
+index c65b1fe..b739d46 100644
+--- a/src/ui.js
++++ b/src/ui.js
+@@ -13,11 +13,22 @@ import {
+     isInitialDragMove, // ADDED Import for state variable
+     gameOverCameraOffset, setGameOverCameraTargetPosition,
+     setGameOverLookAtTarget, setIsInitialDragMove,
+-    setIsPanningCamera
++    setIsPanningCamera,
++    // Setters for dialog minimization
++    setMinimizeButtonElement, setContentContainerElement, 
++    // State variables for reads
++    minimizeButtonElement, contentContainerElement,
++    // Import listener flag
++    gameOverListenersAttached, setGameOverListenersAttached
+ } from './state.js';
+ import { GAME_VERSION } from './constants.js';
+ // Import the handler function
+-import { handleGameOverPointerDown, handleGameOverWheel } from './playerControls.js';
++import { 
++    handleGameOverPointerDown, 
++    handleGameOverWheel, 
++    handleGameOverPointerMove,
++    handleGameOverPointerUp
++} from './playerControls.js';
+ import * as THREE from 'three'; // Need THREE for Vector3 subtraction
+ import { resetGame } from './init.js';
+ 
+@@ -125,65 +136,105 @@ export function createOpeningDialog() {
+ 
+ // Create Game Over Text Element (Called from init)
+ export function createGameOverText() {
+-    // Needs state.gameOverTextElement and setter
+-    let element = gameOverTextElement;
+-    if (!element) {
+-        element = document.createElement('div');
+-        element.id = 'gameOverDialog'; // Add an ID for easier styling/selection
+-        element.style.position = 'absolute';
+-        element.style.top = '50%';
+-        element.style.left = '50%';
+-        element.style.width = 'clamp(300px, 90vw, 700px)';
+-        element.style.transform = 'translate(-50%, -50%)';
+-        element.style.color = 'white';
+-        element.style.backgroundColor = 'rgba(0, 0, 0, 0.75)';
+-        element.style.padding = 'clamp(15px, 4vw, 20px) clamp(20px, 5vw, 40px)';
+-        element.style.borderRadius = '10px';
+-        element.style.border = '2px solid rgba(255, 255, 255, 0.5)';
+-        element.style.fontSize = 'clamp(28px, 6vw, 48px)'; // Base font size for title
+-        element.style.fontFamily = 'Arial, sans-serif';
+-        element.style.textShadow = '2px 2px 4px #000000';
+-        element.style.textAlign = 'center';
+-        element.style.maxHeight = '85vh'; // Keep max height
+-        element.style.overflowY = 'hidden'; // Start hidden, toggle to auto when maximized
+-        element.style.display = 'none';
+-        element.style.transition = 'all 0.3s ease-out'; // Add transition
+-
+-        // Container for the actual content (to be shown/hidden)
+-        const contentContainer = document.createElement('div');
+-        contentContainer.id = 'gameOverContentContainer';
+-        element.appendChild(contentContainer); // Add content container
+-
+-        // Create Minimize Toggle Button
+-        const minimizeButton = document.createElement('span');
+-        minimizeButton.id = 'gameOverMinimizeButton';
+-        minimizeButton.textContent = '_'; // Initial icon
+-        minimizeButton.style.position = 'absolute';
+-        minimizeButton.style.top = '5px';
+-        minimizeButton.style.right = '10px';
+-        minimizeButton.style.fontSize = '24px';
+-        minimizeButton.style.lineHeight = '24px';
+-        minimizeButton.style.cursor = 'pointer';
+-        minimizeButton.style.color = '#cccccc';
+-        minimizeButton.style.userSelect = 'none';
+-        minimizeButton.title = 'Minimize/Maximize Dialog';
+-
+-        element.appendChild(minimizeButton); // Add button *after* container
++    // Check if the element already exists
++    let existingElement = document.getElementById('gameover-text');
++    if (existingElement) {
++        // console.log("[UI] Game Over Text Element already exists.");
++        if(setGameOverTextElement) setGameOverTextElement(existingElement); 
++        
++        // Ensure minimize button exists and update state reference
++        let existingButton = document.getElementById('minimize-button');
++        if (existingButton) {
++             if(setMinimizeButtonElement) setMinimizeButtonElement(existingButton);
++        } else {
++             console.warn("[UI] Minimize button missing from existing game over element.");
++        }
++        // Ensure content container exists and update state reference
++        let existingContent = document.getElementById('gameover-content');
++         if (existingContent) {
++             if(setContentContainerElement) setContentContainerElement(existingContent);
++        } else {
++             console.warn("[UI] Content container missing from existing game over element.");
++        }
+ 
+-        document.body.appendChild(element);
+-        setGameOverTextElement(element); // Store reference in state
+-
+-        // Add the toggle listener here, only once
+-        minimizeButton.onclick = (event) => {
+-             // ADDED Console Logs for debugging
+-             console.log("[GameOver Minimize] Clicked!");
+-             // Prevent the click from bubbling up and potentially triggering restart
+-             event.stopPropagation(); 
+-             isGameOverDialogMinimized = !isGameOverDialogMinimized;
+-             console.log(`[GameOver Minimize] isGameOverDialogMinimized set to: ${isGameOverDialogMinimized}`);
+-             updateGameOverDialogAppearance();
+-        };
++        return; // Don't recreate
+     }
++    
++    // console.log("[UI] Creating Game Over Text Element.");
++    // Create element locally first
++    const newDialog = document.createElement('div');
++    newDialog.id = 'gameover-text';
++    // ... (styles will be set in updateGameOverDialogAppearance)
++
++    const contentContainer = document.createElement('div');
++    contentContainer.id = 'gameover-content';
++
++    const titleElement = document.createElement('h1');
++    titleElement.id = 'gameover-title';
++    contentContainer.appendChild(titleElement);
++
++    const winnerElement = document.createElement('p');
++    winnerElement.id = 'gameover-winner';
++    contentContainer.appendChild(winnerElement);
++
++    const scoreElement = document.createElement('p');
++    scoreElement.id = 'gameover-score';
++    contentContainer.appendChild(scoreElement);
++
++    const topScoreElement = document.createElement('p');
++    topScoreElement.id = 'gameover-topscore';
++    contentContainer.appendChild(topScoreElement);
++
++    const unlocksElement = document.createElement('p');
++    unlocksElement.id = 'gameover-unlocks';
++    contentContainer.appendChild(unlocksElement);
++
++    const restartElement = document.createElement('p');
++    restartElement.id = 'gameover-restart';
++    restartElement.innerHTML = 'Press <span>R</span> to Restart'; 
++    contentContainer.appendChild(restartElement);
++
++    // Append content container to the new dialog
++    newDialog.appendChild(contentContainer);
++
++    // Minimize/Maximize Button
++    const button = document.createElement('button');
++    button.id = 'minimize-button';
++    button.textContent = '-'; // Initial state: minimize
++    button.style.position = 'absolute';
++    button.style.top = '5px';
++    button.style.right = '5px';
++    button.style.padding = '2px 8px';
++    button.style.fontSize = '16px';
++    button.style.fontWeight = 'bold';
++    button.style.cursor = 'pointer';
++    button.style.border = '1px solid #ccc';
++    button.style.backgroundColor = '#333';
++    button.style.color = '#fff';
++    button.style.lineHeight = '1';
++    button.addEventListener('click', (event) => {
++        event.stopPropagation(); 
++        toggleGameOverDialogMinimized();
++        updateGameOverDialogAppearance();
++    });
++    // Append button to the new dialog
++    newDialog.appendChild(button);
++
++    // Append the new dialog to the body
++    document.body.appendChild(newDialog);
++
++    // Update state using the setters
++    if(setGameOverTextElement) {
++        setGameOverTextElement(newDialog); // Use setter with the local variable
++    } else {
++        console.error("[createGameOverText] setGameOverTextElement function not found!");
++    }
++    if(setMinimizeButtonElement) setMinimizeButtonElement(button);
++    if(setContentContainerElement) setContentContainerElement(contentContainer);
++    
++    // Initialize appearance
++    resetGameOverDialogState(); 
++    updateGameOverDialogAppearance();
+ }
+ 
+ // Create Version Text Element (Called from init)
+@@ -296,247 +347,61 @@ let gameOverWheelListener = null;
+ 
+ // --- NEW Function to Add Listeners ---
+ export function addGameOverPointerListeners() {
+-    if (gameOverMouseDownListener || gameOverTouchStartListener || gameOverWheelListener) {
+-        console.log("[addGameOverPointerListeners] Listeners already seem to be attached. Skipping.");
+-        return; // Avoid attaching multiple times
++    if (gameOverListenersAttached) {
++        // console.log("[addGameOverPointerListeners] Listeners already seem to be attached. Skipping."); // Commented out
++        return;
+     }
+     console.log(`[${GAME_VERSION}] Adding game over pointer listeners (mousedown, touchstart, wheel)`);
+ 
++    // --- MODIFIED Listeners: Assign to variables ---
+     gameOverMouseDownListener = (event) => {
+-        // Prevent default browser actions (like text selection)
+-        event.preventDefault();
+-        
+-        setIsInitialDragMove(true); // Set flag for first move
+-
+-        if (event.button === 0) { // Left mouse button for drag
+-            setIsDraggingCamera(true);
+-            setLastPointerX(event.clientX);
+-            setLastPointerY(event.clientY);
+-            document.addEventListener('mousemove', gameOverMouseMoveListener);
+-            document.addEventListener('mouseup', gameOverMouseUpListener);
+-        } else if (event.button === 1) { // Middle mouse button for pan
+-            setIsPanningCamera(true);
+-            setLastPointerX(event.clientX);
+-            setLastPointerY(event.clientY);
+-            document.addEventListener('mousemove', gameOverMouseMoveListener);
+-            document.addEventListener('mouseup', gameOverMouseUpListener);
+-        }
++        handleGameOverPointerDown(event.clientX, event.clientY, event);
+     };
+-
+     gameOverTouchStartListener = (event) => {
+-         // Check if the touch is on the UI element itself to allow interaction
+-        if (gameOverTextElement && gameOverTextElement.contains(event.target)) {
+-             return; // Don't prevent default or start drag if touch is on UI
+-        }
+-        // Prevent default touch actions (like scrolling or zooming the page)
+-        event.preventDefault();
+-
+-        if (event.touches.length === 1) {
+-            setIsInitialDragMove(true); // Set flag for first move
+-            setIsDraggingCamera(true);
+-            setLastPointerX(event.touches[0].clientX);
+-            setLastPointerY(event.touches[0].clientY);
+-            document.addEventListener('touchmove', gameOverTouchMoveListener, { passive: false });
+-            document.addEventListener('touchend', gameOverTouchEndListener);
+-        }
+-        // Add panning logic for two-finger touch if desired later
+-    };
+-
+-    gameOverMouseMoveListener = (event) => {
+-        event.preventDefault();
+-
+-        const deltaX = event.clientX - lastPointerX;
+-        const deltaY = event.clientY - lastPointerY;
+-
+-        // Reset look-at on first move after initiating drag/pan
+-        if (isInitialDragMove) {
+-            setGameOverLookAtTarget(gameOverLookAtTarget);
+-            setIsInitialDragMove(false); // Reset flag after first move
+-        }
+-
+-        if (isDraggingCamera) { // Left mouse button OR 1-finger touch drag = Rotate
+-             const rotationSensitivity = 0.005;
+-             const azimuthAngle = -deltaX * rotationSensitivity; // Rotation around Y
+-             const elevationAngle = -deltaY * rotationSensitivity; // Rotation around local X
+- 
+-             const currentOffset = gameOverCameraOffset.clone(); // Get the offset vector from state
+-             const yAxis = new THREE.Vector3(0, 1, 0); // World Up
+- 
+-             // Calculate the axis for elevation based on the *current* offset and world up
+-             const rightAxis = new THREE.Vector3().crossVectors(yAxis, currentOffset).normalize();
+- 
+-             // Apply elevation rotation first, around the calculated right axis
+-             currentOffset.applyAxisAngle(rightAxis, elevationAngle);
+-
+-             // Check elevation limits *before* azimuth rotation (simpler clamping)
+-             const minPolarAngle = 0.1; 
+-             const maxPolarAngle = Math.PI - 0.1; 
+-             let currentPolarAngle = Math.acos(THREE.MathUtils.clamp(currentOffset.y / currentOffset.length(), -1, 1));
+-             
+-             // If limits exceeded, clamp the elevation rotation angle itself
+-             let effectiveElevationAngle = elevationAngle;
+-             if (currentPolarAngle < minPolarAngle && elevationAngle < 0) { // Trying to look too far up
+-                  // Calculate angle needed to reach minPolarAngle and apply that instead
+-                 const targetY = currentOffset.length() * Math.cos(minPolarAngle);
+-                 const currentY = currentOffset.y;
+-                 // This needs a more robust way to calculate the *clamped* angle
+-                 // For now, let's revert the invalid rotation
+-                 currentOffset.applyAxisAngle(rightAxis, -elevationAngle); // Revert elevation
+-                 effectiveElevationAngle = 0; // Mark as no effective rotation
+-             } else if (currentPolarAngle > maxPolarAngle && elevationAngle > 0) { // Trying to look too far down
+-                  // Similar clamping issue, revert for now
+-                 currentOffset.applyAxisAngle(rightAxis, -elevationAngle); // Revert elevation
+-                 effectiveElevationAngle = 0; // Mark as no effective rotation
+-             }
+-             // If we didn't revert, re-apply the valid elevation
+-             if (effectiveElevationAngle !== 0) {
+-                 currentOffset.applyAxisAngle(rightAxis, effectiveElevationAngle);
+-             } // If reverted, currentOffset is already back to pre-elevation state
+-
+-             // Now apply azimuth rotation around the world Y axis
+-             currentOffset.applyAxisAngle(yAxis, azimuthAngle);
+- 
+-             setGameOverCameraOffset(currentOffset); // Update state with the final offset
+-
+-        } else if (isPanningCamera) { // Middle mouse button drag = Pan
+-             // Panning logic (adjust sensitivity)
+-             const panSensitivity = 0.1;
+-             const panVector = new THREE.Vector3();
+-
+-             // Calculate camera's right and up vectors in world space
+-             const cameraRight = new THREE.Vector3().setFromMatrixColumn(camera.matrixWorld, 0);
+-             const cameraUp = new THREE.Vector3().setFromMatrixColumn(camera.matrixWorld, 1);
+-
+-             // Move target based on delta mouse movement relative to camera orientation
+-             panVector.addScaledVector(cameraRight, -deltaX * panSensitivity);
+-             panVector.addScaledVector(cameraUp, deltaY * panSensitivity);
+-
+-             const newLookAtTarget = gameOverLookAtTarget.clone().add(panVector);
+-             setGameOverLookAtTarget(newLookAtTarget);
+-        }
+-
+-        setLastPointerX(event.clientX);
+-        setLastPointerY(event.clientY);
+-    };
+-
+-    gameOverTouchMoveListener = (event) => {
+-        event.preventDefault(); // Prevent page scroll/zoom
+-        if (event.touches.length === 1) {
+-            // Same rotation logic as mouse drag
+-             const deltaX = event.touches[0].clientX - lastPointerX;
+-             const deltaY = event.touches[0].clientY - lastPointerY;
+- 
+-             if (isInitialDragMove) {
+-                setGameOverLookAtTarget(gameOverLookAtTarget);
+-                setIsInitialDragMove(false); 
+-             }
+- 
+-             const rotationSensitivity = 0.005;
+-             const azimuthAngle = -deltaX * rotationSensitivity;
+-             const elevationAngle = -deltaY * rotationSensitivity;
+-             const currentOffset = gameOverCameraOffset.clone();
+-             const yAxis = new THREE.Vector3(0, 1, 0);
+-             
+-             const rightAxis = new THREE.Vector3().crossVectors(yAxis, currentOffset).normalize();
+-             currentOffset.applyAxisAngle(rightAxis, elevationAngle);
+-
+-             // Clamp elevation (Simplified: revert if invalid for now)
+-             const minPolarAngle = 0.1; 
+-             const maxPolarAngle = Math.PI - 0.1; 
+-             const currentPolarAngle = Math.acos(THREE.MathUtils.clamp(currentOffset.y / currentOffset.length(), -1, 1));
+-             let effectiveElevationAngle = elevationAngle;
+-             if (currentPolarAngle < minPolarAngle && elevationAngle < 0) {
+-                 currentOffset.applyAxisAngle(rightAxis, -elevationAngle); // Revert
+-                 effectiveElevationAngle = 0;
+-             } else if (currentPolarAngle > maxPolarAngle && elevationAngle > 0) {
+-                 currentOffset.applyAxisAngle(rightAxis, -elevationAngle); // Revert
+-                 effectiveElevationAngle = 0;
+-             }
+-             if (effectiveElevationAngle !== 0) {
+-                 currentOffset.applyAxisAngle(rightAxis, effectiveElevationAngle);
+-             } // else: already reverted
+-
+-             // Apply azimuth
+-             currentOffset.applyAxisAngle(yAxis, azimuthAngle);
+-             
+-             setGameOverCameraOffset(currentOffset); 
+- 
+-             setLastPointerX(event.touches[0].clientX);
+-             setLastPointerY(event.touches[0].clientY);
+-        }
+-    };
+-
+-    gameOverMouseUpListener = (event) => {
+-        if (event.button === 0) { // Left mouse button
+-            setIsDraggingCamera(false);
+-        } else if (event.button === 1) { // Middle mouse button
+-            setIsPanningCamera(false);
+-        }
+-        document.removeEventListener('mousemove', gameOverMouseMoveListener);
+-        document.removeEventListener('mouseup', gameOverMouseUpListener);
+-    };
+-
+-    gameOverTouchEndListener = (event) => {
+-        // Check if the touch ending is the one that started the drag
+-        if (isDraggingCamera) { 
+-            setIsDraggingCamera(false);
+-            document.removeEventListener('touchmove', gameOverTouchMoveListener);
+-            document.removeEventListener('touchend', gameOverTouchEndListener);
++        // Check if changedTouches exists and has at least one touch
++        if (event.changedTouches && event.changedTouches.length > 0) {
++            handleGameOverPointerDown(event.changedTouches[0].clientX, event.changedTouches[0].clientY, event);
++        } else {
++            console.warn("Touchstart event triggered without changedTouches data.");
+         }
+     };
++    gameOverWheelListener = handleGameOverWheel; // Store the original function reference
+ 
+-    gameOverWheelListener = (event) => {
+-        event.preventDefault();
+-        const zoomSensitivity = 0.05;
+-        const zoomAmount = event.deltaY * zoomSensitivity;
+-
+-        // Calculate direction vector from camera to target
+-        const direction = new THREE.Vector3().subVectors(gameOverLookAtTarget, camera.position).normalize();
+-        
+-        // Calculate new offset magnitude
+-        let currentMagnitude = gameOverCameraOffset.length();
+-        let newMagnitude = currentMagnitude + zoomAmount;
+-
+-        // Clamp zoom distance (prevent zooming too close or too far)
+-        const minZoomDistance = 5; // Example minimum distance
+-        const maxZoomDistance = 200; // Example maximum distance
+-        newMagnitude = THREE.MathUtils.clamp(newMagnitude, minZoomDistance, maxZoomDistance);
+-
+-        // Calculate new offset vector based on the direction and new magnitude
+-        const newOffset = direction.clone().multiplyScalar(-newMagnitude); // Negate direction to get offset *from* target
+-
+-        setGameOverCameraOffset(newOffset); // Update state
+-    };
+-
+-    // Attach the listeners
+     document.addEventListener('mousedown', gameOverMouseDownListener);
+     document.addEventListener('touchstart', gameOverTouchStartListener, { passive: false });
+     document.addEventListener('wheel', gameOverWheelListener, { passive: false });
++    // --- END MODIFIED Listeners ---
++
++    setGameOverListenersAttached(true);
+ }
+ 
+ // --- Function to Remove Listeners ---
+ export function removeGameOverPointerListeners() {
++    if (!gameOverListenersAttached) return;
+     console.log(`[${GAME_VERSION}] Removing game over pointer listeners`);
+-    if (gameOverMouseDownListener) document.removeEventListener('mousedown', gameOverMouseDownListener);
+-    if (gameOverTouchStartListener) document.removeEventListener('touchstart', gameOverTouchStartListener);
+-    if (gameOverMouseMoveListener) document.removeEventListener('mousemove', gameOverMouseMoveListener); // Ensure move listener is removed
+-    if (gameOverTouchMoveListener) document.removeEventListener('touchmove', gameOverTouchMoveListener);
+-    if (gameOverMouseUpListener) document.removeEventListener('mouseup', gameOverMouseUpListener);       // Ensure up listener is removed
+-    if (gameOverTouchEndListener) document.removeEventListener('touchend', gameOverTouchEndListener);
+-    if (gameOverWheelListener) document.removeEventListener('wheel', gameOverWheelListener);
+-
+-    // Clear listener function variables
+-    gameOverMouseDownListener = null;
+-    gameOverTouchStartListener = null;
+-    gameOverMouseMoveListener = null;
+-    gameOverTouchMoveListener = null;
+-    gameOverMouseUpListener = null;
+-    gameOverTouchEndListener = null;
+-    gameOverWheelListener = null;
+-
+-    // Reset camera interaction state just in case
+-    setIsDraggingCamera(false);
+-    setIsPanningCamera(false);
++
++    // --- MODIFIED Removal Logic ---
++    // Remove using the stored references
++    if (gameOverMouseDownListener) {
++        document.removeEventListener('mousedown', gameOverMouseDownListener);
++        gameOverMouseDownListener = null; // Clear reference after removal
++    }
++    if (gameOverTouchStartListener) {
++        document.removeEventListener('touchstart', gameOverTouchStartListener);
++        gameOverTouchStartListener = null; // Clear reference after removal
++    }
++    if (gameOverWheelListener) {
++        document.removeEventListener('wheel', gameOverWheelListener);
++        gameOverWheelListener = null; // Clear reference after removal
++    }
++    // --- END MODIFIED Removal Logic ---
++
++    // Also remove move/up listeners defensively (These were not using anonymous functions, so direct removal is fine)
++    document.removeEventListener('mousemove', handleGameOverPointerMove);
++    document.removeEventListener('touchmove', handleGameOverPointerMove);
++    document.removeEventListener('mouseup', handleGameOverPointerUp);
++    document.removeEventListener('touchend', handleGameOverPointerUp);
++    setGameOverListenersAttached(false);
+ }
+ 
+ // Show Game Over Message (Called from animate)
+@@ -595,63 +460,55 @@ export function showGameOverMessage(winnerCode) {
+     gameOverTextElement.style.display = 'block';
+ }
+ 
+-// Helper function to update appearance based on minimized state
++// NEW Function to update appearance based on minimized state
+ function updateGameOverDialogAppearance() {
+-    console.log(`[GameOver Minimize] updateGameOverDialogAppearance called. Minimized: ${isGameOverDialogMinimized}`); // ADDED Log
++    // console.log(`[GameOver Minimize] updateGameOverDialogAppearance called. Minimized: ${isGameOverDialogMinimized}`); // Commented out
+     if (!gameOverTextElement) {
+-        console.log("[GameOver Minimize] gameOverTextElement not found in update.");
++        // console.log("[GameOver Minimize] gameOverTextElement not found in update."); // Commented out
+         return;
+     }
++    // Get button and content references from state
++    const button = minimizeButtonElement; 
++    const content = contentContainerElement;
+ 
+-    const minimizeButton = document.getElementById('gameOverMinimizeButton');
+-    const contentContainer = document.getElementById('gameOverContentContainer'); // Target the container
+-
+-    if (!minimizeButton) console.log("[GameOver Minimize] minimizeButton not found in update.");
+-    if (!contentContainer) console.log("[GameOver Minimize] contentContainer not found in update.");
+-    if (!minimizeButton || !contentContainer) return; // Safety check
++    // if (!button) console.log("[GameOver Minimize] minimizeButtonElement not found in state during update."); // Commented out
++    // if (!content) console.log("[GameOver Minimize] contentContainerElement not found in state during update."); // Commented out
+ 
+     if (isGameOverDialogMinimized) {
+-        console.log("[GameOver Minimize] Applying Minimized Styles.");
+-        // Minimized State - Move to bottom center, shrink
+-        gameOverTextElement.style.top = 'unset'; // Remove top positioning
+-        gameOverTextElement.style.bottom = '60px'; // Position near bottom (adjust if needed to avoid itch link)
+-        gameOverTextElement.style.left = '50%';
+-        gameOverTextElement.style.transform = 'translateX(-50%)'; // Center horizontally only
+-        gameOverTextElement.style.width = '200px'; // Fixed smaller width
++        // Minimized state
++        // console.log("[GameOver Minimize] Applying Minimized Styles."); // Commented out
++        gameOverTextElement.style.width = 'auto';
+         gameOverTextElement.style.height = 'auto';
+-        gameOverTextElement.style.minHeight = '30px'; // Smaller min height
+-        gameOverTextElement.style.padding = '5px 20px 5px 10px'; // Adjusted padding
+-        gameOverTextElement.style.overflowY = 'hidden';
+-
+-        // Hide the content container
+-        contentContainer.style.display = 'none';
+-
+-        minimizeButton.textContent = '+';
+-        minimizeButton.title = 'Maximize Dialog';
+-        // Adjust button position within the smaller box if needed
+-        minimizeButton.style.top = '3px'; 
+-        minimizeButton.style.right = '5px';
+-
++        gameOverTextElement.style.padding = '5px 10px';
++        gameOverTextElement.style.top = 'auto';
++        gameOverTextElement.style.left = 'auto';
++        gameOverTextElement.style.bottom = '20px';
++        gameOverTextElement.style.right = '20px';
++        gameOverTextElement.style.transform = 'none';
++        gameOverTextElement.style.textAlign = 'right';
++        gameOverTextElement.style.backgroundColor = 'rgba(0, 0, 0, 0.6)';
++        if (button) button.textContent = '+'; // Show expand icon
++        if (content) content.style.display = 'none'; // Hide content
+     } else {
+-        console.log("[GameOver Minimize] Applying Maximized Styles.");
+-        // Maximized/Normal State - Restore original position and size
++        // Maximized state (Original styles)
++        // console.log("[GameOver Minimize] Applying Maximized Styles."); // Commented out
++        gameOverTextElement.style.position = 'absolute';
+         gameOverTextElement.style.top = '50%';
+-        gameOverTextElement.style.bottom = 'unset'; // Remove bottom positioning
+         gameOverTextElement.style.left = '50%';
+-        gameOverTextElement.style.transform = 'translate(-50%, -50%)'; // Center both ways
+-        gameOverTextElement.style.width = 'clamp(300px, 90vw, 700px)'; // Restore width
+-        gameOverTextElement.style.minHeight = '';
+-        gameOverTextElement.style.padding = 'clamp(15px, 4vw, 20px) clamp(20px, 5vw, 40px)'; // Restore padding
+-        gameOverTextElement.style.overflowY = 'auto';
+-
+-        // Show the content container
+-        contentContainer.style.display = 'block';
+-
+-        minimizeButton.textContent = '_';
+-        minimizeButton.title = 'Minimize Dialog';
+-        // Restore button position
+-        minimizeButton.style.top = '5px';
+-        minimizeButton.style.right = '10px';
++        gameOverTextElement.style.transform = 'translate(-50%, -50%)';
++        gameOverTextElement.style.color = 'white';
++        gameOverTextElement.style.backgroundColor = 'rgba(0, 0, 0, 0.7)';
++        gameOverTextElement.style.padding = '30px';
++        gameOverTextElement.style.border = '2px solid white';
++        gameOverTextElement.style.borderRadius = '10px';
++        gameOverTextElement.style.textAlign = 'center';
++        gameOverTextElement.style.display = 'block'; // Ensure it's visible
++        gameOverTextElement.style.width = 'auto'; // Reset auto width
++        gameOverTextElement.style.height = 'auto'; // Reset auto height
++        gameOverTextElement.style.bottom = 'auto'; // Reset bottom
++        gameOverTextElement.style.right = 'auto'; // Reset right
++        if (button) button.textContent = '-'; // Show minimize icon
++        if (content) content.style.display = 'block'; // Show content
+     }
+ }
+ 
+diff --git a/src/visuals.js b/src/visuals.js
+index bb414b0..49133d4 100644
+--- a/src/visuals.js
++++ b/src/visuals.js
+@@ -9,6 +9,7 @@ import {
+     aiPlayers, // Need AI array
+     allTrailParticles, // Replaced by aiPlayers - Keeping for now, might be used by particles
+     pickupSpawnParticles,
++    setPickupTemplates
+ } from './state.js';
+ import {
+     segmentSize, P1_TRAIL_COLOR_BOOST, P1_TRAIL_COLOR_NORMAL, 
+@@ -17,6 +18,9 @@ import {
+     sparseTrailMaterial, ammoPickupMaterial, AMMO_COLOR, AMMO_PICKUP_RADIUS, P1_HEAD_COLOR_NORMAL,
+     AI_COLORS, // <-- Import AI_COLORS instead of individual AI colors
+     HEAD_COLOR_LOST, // Import the red color
++    scorePickupGeometry, scorePickupMaterial, expansionPickupGeometry, expansionPickupMaterial, 
++    clearPickupGeometry, clearPickupMaterial, zoomPickupGeometry, zoomPickupMaterial, 
++    multiSpawnGeometry, multiSpawnMaterial, addAiPickupGeometry, addAiPickupMaterial,
+     SPAWN_EFFECT_PARTICLE_COUNT,
+     SPAWN_EFFECT_PARTICLE_SIZE,
+     SPAWN_EFFECT_MAX_RADIUS,
+@@ -25,6 +29,7 @@ import {
+     SPAWN_EFFECT_DURATION_EXPAND,
+     SPAWN_EFFECT_DURATION_LINGER,
+     SPAWN_EFFECT_DURATION_CONTRACT,
++    SPAWN_EFFECT_ROTATION_SPEED
+ } from './constants.js';
+ import { getGridDimensions } from './utils.js';
+ import { FontLoader } from 'three/addons/loaders/FontLoader.js'; // Needed for createFloatingText check
+@@ -65,40 +70,46 @@ export function createTrailSegment(pos, trailArray, owner) {
+ // Creates a particle explosion effect at the given position with the given color
+ // Optional scale parameter modifies particle count, size, and force.
+ export function createExplosionEffect(position, color, scale = 1) {
+-    // --- Particle Limit Check --- <--- ADDED CHECK
+-    const PARTICLE_LIMIT = 10000;
+-    if (explosionParticles.length + allTrailParticles.length >= PARTICLE_LIMIT) {
+-        console.warn(`[createExplosionEffect] Particle limit (${PARTICLE_LIMIT}) reached. Skipping explosion.`);
+-        return; // Skip creating more particles if limit is reached
++    if (!explosionParticleMaterial) {
++        console.error("Explosion particle material not initialized!");
++        return;
+     }
+-    // ---------------------------
+-
+-    const scaledParticleCount = Math.round(PARTICLE_COUNT * scale);
+-    const scaledParticleSize = PARTICLE_SIZE * Math.sqrt(scale);
+-    const scaledExplosionForce = EXPLOSION_FORCE * Math.sqrt(scale);
++    if (!explosionParticleGeometry) {
++        console.error("Explosion particle geometry not initialized!");
++        return;
++    }
++    const particleCount = 20 * scale;
++    const baseLife = PARTICLE_LIFE * scale;
++    const baseSpeed = PARTICLE_SPEED * Math.sqrt(scale);
+ 
+-    const particleGeometry = new THREE.BoxGeometry(scaledParticleSize, scaledParticleSize, scaledParticleSize);
+-    
+-    for (let i = 0; i < scaledParticleCount; i++) {
+-        const particleMaterial = new THREE.MeshBasicMaterial({
+-            color: color, // Use provided color
+-            transparent: true,
+-            opacity: 1.0
+-        });
+-        const particleMesh = new THREE.Mesh(particleGeometry, particleMaterial);
++    for (let i = 0; i < particleCount; i++) {
++        const particleMesh = new THREE.Mesh(explosionParticleGeometry, explosionParticleMaterial.clone());
++        particleMesh.material.color.setHex(color);
+         particleMesh.position.copy(position);
+-
++        // Add slight random offset to initial position
++        particleMesh.position.add(
++            new THREE.Vector3(
++                (Math.random() - 0.5) * 0.1,
++                (Math.random() - 0.5) * 0.1,
++                (Math.random() - 0.5) * 0.1
++            )
++        );
++
++        const life = baseLife * (0.5 + Math.random() * 0.7);
++
++        // --- ADDED Velocity Calculation ---
+         const velocity = new THREE.Vector3(
+             (Math.random() - 0.5),
+-            (Math.random() * 0.6 + 0.2),
++            (Math.random() * 0.8), // Bias upwards slightly
+             (Math.random() - 0.5)
+-        ).normalize().multiplyScalar(scaledExplosionForce * (0.8 + Math.random() * 0.4));
++        ).normalize().multiplyScalar(baseSpeed * (0.6 + Math.random() * 0.8));
++        // --- END Velocity Calculation ---
+ 
+-        explosionParticles.push({ // Can push directly
++        explosionParticles.push({
+             mesh: particleMesh,
+-            velocity: velocity,
+-            life: PARTICLE_LIFE,
+-            initialLife: PARTICLE_LIFE
++            velocity: velocity, // Assign calculated velocity
++            life: life,
++            initialLife: life,
+         });
+         scene.add(particleMesh);
+     }
+@@ -207,8 +218,23 @@ function createAmmoPickupVisual() {
+ 
+ // Initialize templates (called from init)
+ export function initializePickupTemplates() {
+-    setSparseTrailPickupTemplate(createSparseTrailPickupVisual());
+-    setAmmoPickupTemplate(createAmmoPickupVisual());
++    const templates = {
++        score: new THREE.Mesh(scorePickupGeometry, scorePickupMaterial),
++        expansion: new THREE.Mesh(expansionPickupGeometry, expansionPickupMaterial),
++        clear: new THREE.Mesh(clearPickupGeometry, clearPickupMaterial),
++        zoom: new THREE.Mesh(zoomPickupGeometry, zoomPickupMaterial),
++        sparse: createSparseTrailPickupVisual(), // Use helper function
++        ammo: createAmmoPickupVisual(), // Use helper function
++        multi: new THREE.Mesh(multiSpawnGeometry, multiSpawnMaterial),
++        add_ai: new THREE.Mesh(addAiPickupGeometry, addAiPickupMaterial)
++    };
++
++    // Store the generated templates object in the central state
++    if (setPickupTemplates) {
++        setPickupTemplates(templates);
++    } else {
++        console.error("[initializePickupTemplates] setPickupTemplates function not found in state!");
++    }
+ }
+ 
+ export function updateAmmoIndicatorP1() {
