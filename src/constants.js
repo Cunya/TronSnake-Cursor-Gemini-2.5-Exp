@@ -165,4 +165,16 @@ export const AI_COLORS = [
 // Game Settings & Tunables
 export const ARENA_SIZE = 30;
 
+// <<< ADDED: AI Spawning Constants >>>
+export const AI_MAX_AMMO = 3;
+export const AI_SHOOT_INTERVAL = 500; // ms between AI shots
+export const AI_SPAWN_DURATION = 2000; // ms for AI spawn delay (when AI can start moving)
+export const AI_SPAWN_RING_VISUAL_DURATION = 2000; // <<< CHANGED BACK: ms for the visual ring effect animation (Match spawn duration)
+export const AI_SPAWN_RING_MAX_RADIUS = segmentSize * 2.0; // Defines the initial large radius for the rings
+export const AI_SPAWN_RING_DURATION = AI_SPAWN_DURATION; // <<< KEPT: Original link, might be unused now
+export const AI_SPAWN_RING_COUNT = 3; // Number of concentric rings
+export const AI_SPAWN_RING_RADIUS_STEP = 0.6; // Multiplier for radius increase per ring
+export const AI_SPAWN_EFFECT_COLOR = 0x8A2BE2; // BlueViolet (Example)
+// <<< END ADDED >>>
+
 // ... rest of constants.js ... 

@@ -8,7 +8,8 @@ import {
     scorePickups, expansionPickups, clearPickups, zoomPickups, sparseTrailPickups, multiSpawnPickups, addAiPickups, ammoPickups,
 } from './state.js';
 import {
-    AI_LOOK_AHEAD_STEPS, segmentSize, AI_PICKUP_SCAN_RADIUS_SQ, AI_STRAIGHT_BIAS, yAxis, epsilon
+    AI_LOOK_AHEAD_STEPS, segmentSize, AI_PICKUP_SCAN_RADIUS_SQ, AI_STRAIGHT_BIAS, yAxis, epsilon,
+    PICKUP_COLLISION_THRESHOLD_SQ
 } from './constants.js';
 import { snapToGridCenter } from './utils.js';
 import { aiShootProjectile } from './projectile.js';
@@ -18,75 +19,57 @@ import { aiShootProjectile } from './projectile.js';
 
 // --- Position Safety Check ---
 // Now needs to check against player and ALL OTHER AIs
-export function isPositionSafe(pos, aiToCheck, checkOwnTrail = true, checkHeads = true, isSpawnCheck = false) {
-    const checkPos = new THREE.Vector3(snapToGridCenter(pos.x, 'x'), 0, snapToGridCenter(pos.z, 'z'));
-    // Use smaller threshold for movement/collision, larger for spawning near trails
-    const trailCollisionThreshold = isSpawnCheck ? segmentSize * 0.5 : segmentSize * epsilon;
-    const headCollisionThreshold = segmentSize * epsilon; // Keep head check tight
+export function isPositionSafe(pos, aiToCheck, checkOwnTrail = true, checkHeads = true) {
+    const collisionThresholdSq = (segmentSize * 0.5) * (segmentSize * 0.5); // Use squared distance
 
-    // Check boundaries
-    if (checkPos.x < boundaryXMin + epsilon ||
-        checkPos.x > boundaryXMax - epsilon ||
-        checkPos.z < boundaryZMin + epsilon ||
-        checkPos.z > boundaryZMax - epsilon) {
-        return false;
+    // console.log(`[isPositionSafe ${aiToCheck?.id || 'SpawnCheck'}] Checking pos: (${pos.x.toFixed(1)}, ${pos.z.toFixed(1)}) isSpawnCheck=${isSpawnCheck}`); // DEBUG
+
+    // Check against player 1 trail
+    for (const seg of trailSegments1) {
+        if (pos.distanceToSquared(seg.position) < collisionThresholdSq) {
+            // console.log(`[isPositionSafe] Collision with player trail.`);
+            return false;
+        }
     }
 
-    // Check player trail
-    for (let segment of trailSegments1) {
-        // Use appropriate threshold
-        if (checkPos.distanceTo(segment.position) < trailCollisionThreshold) return false; 
-    }
-
-    // Check AI trails (own and others)
+    // Check against AI trails
     for (const ai of aiPlayers) {
-        // Only check own trail if specified and if it's the AI we are checking against
-        if (ai.id === aiToCheck?.id && !checkOwnTrail) continue; // Added null check for aiToCheck
-        for (let segment of ai.trailSegments) {
-             // Use appropriate threshold
-            if (checkPos.distanceTo(segment.position) < trailCollisionThreshold) return false;
-        }
-    }
+        // Skip self if checking own trail OR if aiToCheck is provided and matches
+        if (ai === aiToCheck && !checkOwnTrail) continue;
+        // Always skip self if checking heads and ai === aiToCheck
+        // if (checkHeads && ai === aiToCheck) continue; // Logic simplified below
 
-    // Check head collisions
-    if (checkHeads) {
-        // Player head (ensure snakeHead1 exists)
-        if (snakeHead1) {
-            const head1SnappedPos = new THREE.Vector3(snapToGridCenter(snakeHead1.position.x, 'x'), 0, snapToGridCenter(snakeHead1.position.z, 'z'));
-            // Use specific head threshold
-            if (checkPos.distanceTo(head1SnappedPos) < headCollisionThreshold) return false; 
+        // Check against AI head position (if checkHeads is true and not checking self)
+        if (checkHeads && ai !== aiToCheck && ai.head && !ai.isSpawning && pos.distanceToSquared(ai.targetPosition) < collisionThresholdSq) { // Check logical target pos
+             // console.log(`[isPositionSafe ${aiToCheck?.id || 'SpawnCheck'}] Collision with AI head ${ai.id}.`); // DEBUG
+             return false;
         }
-        // Other AI heads
-        for (const ai of aiPlayers) {
-            // Don't check against self if aiToCheck is provided
-            if (aiToCheck && ai.id === aiToCheck.id) continue;
-            if (ai.head) { // Ensure AI head exists
-                 const headSnappedPos = new THREE.Vector3(snapToGridCenter(ai.head.position.x, 'x'), 0, snapToGridCenter(ai.head.position.z, 'z'));
-                 // Use specific head threshold
-                 if (checkPos.distanceTo(headSnappedPos) < headCollisionThreshold) return false;
+
+        // Check against AI trail segments
+        for (const seg of ai.trailSegments) {
+            if (pos.distanceToSquared(seg.position) < collisionThresholdSq) {
+                 // console.log(`[isPositionSafe ${aiToCheck?.id || 'SpawnCheck'}] Collision with trail of AI ${ai.id}.`); // DEBUG
+                 return false;
             }
         }
     }
 
-    // --- ADDED: Check against existing pickups --- 
-    const allPickups = [
-        ...scorePickups, ...expansionPickups, ...clearPickups,
-        ...zoomPickups, ...sparseTrailPickups, ...multiSpawnPickups,
-        ...addAiPickups, ...ammoPickups
-    ];
-    const pickupCollisionThreshold = segmentSize; // Use segmentSize for a larger exclusion zone
-    for (const pickup of allPickups) {
-        // Check distance on the XZ plane only, ignoring potential Y difference of pickup center
-        const checkPosXZ = new THREE.Vector3(checkPos.x, 0, checkPos.z);
-        const pickupPosXZ = new THREE.Vector3(pickup.position.x, 0, pickup.position.z);
-        if (checkPosXZ.distanceTo(pickupPosXZ) < pickupCollisionThreshold) {
-            // console.log(`isPositionSafe: False - Too close to pickup at (${pickup.position.x.toFixed(1)}, ${pickup.position.z.toFixed(1)})`); // DEBUG
-            return false;
-        }
+    // Check against player head (if checkHeads is true and not checking player itself implicitly)
+    // Note: aiToCheck will never be the player, so no explicit self-check needed here
+    if (checkHeads && snakeHead1 && pos.distanceToSquared(snakeTargetPosition1) < collisionThresholdSq) { // Check logical target pos
+         // console.log(`[isPositionSafe ${aiToCheck?.id || 'SpawnCheck'}] Collision with Player head.`); // DEBUG
+         return false;
     }
-    // ------------------------------------------- 
 
-    return true;
+    // Check against Arena Boundaries (add a small buffer)
+    const buffer = segmentSize * 0.1;
+    if (pos.x < boundaryXMin + buffer || pos.x > boundaryXMax - buffer || 
+        pos.z < boundaryZMin + buffer || pos.z > boundaryZMax - buffer) {
+        // console.log(`[isPositionSafe ${aiToCheck?.id || 'SpawnCheck'}] Collision with boundary.`); // DEBUG
+        return false;
+    }
+
+    return true; // Position is safe
 }
 
 // --- AI Helper: Find Closest Pickup ---
@@ -145,8 +128,10 @@ function findBestTurn(aiObject, leftDir, rightDir) {
     let isRightImmediatelySafe = false;
 
     const leftCheckPos = currentPos.clone().addScaledVector(leftDir, segmentSize);
-    // Pass aiObject
-    if (isPositionSafe(leftCheckPos, aiObject, true, true)) {
+    // Pass aiObject, ignore pickups (isSpawnCheck = true) -> REVERT: Consider pickups
+    let leftResult = isPositionSafe(leftCheckPos, aiObject, true, true);
+    // console.log(`[AI ${aiObject.id} findBestTurn] Left check safe: ${leftResult}`);
+    if (leftResult) {
         isLeftImmediatelySafe = true;
         leftSafeSteps = 1;
         for (let i = 2; i <= AI_LOOK_AHEAD_STEPS; i++) {
@@ -157,8 +142,10 @@ function findBestTurn(aiObject, leftDir, rightDir) {
     }
 
     const rightCheckPos = currentPos.clone().addScaledVector(rightDir, segmentSize);
-     // Pass aiObject
-    if (isPositionSafe(rightCheckPos, aiObject, true, true)) {
+     // Pass aiObject, ignore pickups (isSpawnCheck = true) -> REVERT: Consider pickups
+    let rightResult = isPositionSafe(rightCheckPos, aiObject, true, true);
+    // console.log(`[AI ${aiObject.id} findBestTurn] Right check safe: ${rightResult}`);
+    if (rightResult) {
         isRightImmediatelySafe = true;
         rightSafeSteps = 1;
         for (let i = 2; i <= AI_LOOK_AHEAD_STEPS; i++) {
@@ -246,7 +233,9 @@ function updateSingleAIPlayer(aiObject) {
     for (let i = 1; i <= AI_LOOK_AHEAD_STEPS; i++) {
         const checkPos = currentPos.clone().addScaledVector(currentDir, segmentSize * i);
         // Pass aiObject
-        if (!isPositionSafe(checkPos, aiObject, true, true)) {
+        let forwardResult = isPositionSafe(checkPos, aiObject, true, true);
+        // console.log(`[AI ${aiObject.id} ForwardCheck] Step ${i} safe: ${forwardResult}`);
+        if (!forwardResult) {
             break;
         }
         safeForwardSteps++;

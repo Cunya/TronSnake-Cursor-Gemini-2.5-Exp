@@ -32,6 +32,7 @@ export let scoreP1 = 0;
 
 // --- AI Player State --- 
 export let aiPlayers = []; // Array to hold all AI player objects
+export let aiSpawnRingEffects = []; // <<< Define HERE
 
 // --- Unlock Tracking --- 
 export let unlockedScoresThisGame = new Set(); 
@@ -184,6 +185,8 @@ export function setTrailCounterP1(count) { trailCounterP1 = count; }
 export function setSparseLevelP1(level) { sparseLevelP1 = level; }
 export function setLastUpdateTimeP1(time) { lastUpdateTimeP1 = time; }
 export function setAmmoCountP1(count) { ammoCountP1 = count; }
+export function setAiPlayers(value) { aiPlayers = value; } 
+export function setAiSpawnRingEffects(value) { aiSpawnRingEffects = value; }; // <<< Define Setter HERE
 
 // Setters for counter pickup tracking
 export function setNextAmmoSpawnCount(count) { nextAmmoSpawnCount = count; }

@@ -43,12 +43,18 @@ import {
     deathZoomFactor, // ADDED Import
     setDeathZoomFactor, // ADDED Import
     aiDefeatedTime, // ADDED Import
-    setAiDefeatedTime // ADDED Import
+    setAiDefeatedTime, // ADDED Import
+    aiSpawnRingEffects, setAiSpawnRingEffects, // <<< Import AI Spawn Effects state (Keep First One)
+    setAiPlayers,
 } from './state.js';
 import {
     initialBoundaryHalfSize, segmentSize, cameraHeight, cameraDistanceBehind, P1_HEAD_COLOR_NORMAL,
     AMMO_PICKUP_THRESHOLD, CLEAR_WALL_PICKUP_THRESHOLD, ADD_AI_PICKUP_THRESHOLD, EXPAND_PICKUP_THRESHOLD, MULTI_PICKUP_THRESHOLD,
-    AI_COLORS
+    AI_COLORS,
+    AI_SPAWN_DURATION, 
+    AI_SPAWN_RING_MAX_RADIUS, AI_SPAWN_RING_DURATION, AI_SPAWN_RING_COUNT, 
+    AI_SPAWN_RING_RADIUS_STEP, AI_SPAWN_EFFECT_COLOR, GAME_VERSION, GROUND_Y,
+    AI_SPAWN_RING_VISUAL_DURATION,
 } from './constants.js';
 import { snapToGridCenter } from './utils.js';
 import { onKeyDown, onKeyUp, onTouchStart, onTouchEnd, handleFirstClick, startGame } from './playerControls.js';
@@ -59,6 +65,68 @@ import { clearAllProjectiles } from './projectile.js';
 import { animate } from './gameLoop.js';
 import { isPositionSafe } from './ai.js';
 import { cleanupGameOverListeners } from './playerControls.js';
+
+// <<< ADDED: Console Error Logging & Download >>>
+const errorLog = [];
+const originalConsoleError = console.error; // Keep a reference to the original
+
+// Override console.error
+console.error = function(...args) {
+    // 1. Call the original console.error so messages still appear in the dev console
+    originalConsoleError.apply(console, args);
+
+    // 2. Format the arguments into a string
+    const message = args.map(arg => {
+        if (arg instanceof Error) {
+            // Include stack trace for Error objects
+            return `${arg.name}: ${arg.message}\nStack: ${arg.stack}`;
+        } else if (typeof arg === 'object' && arg !== null) {
+            // Try to stringify objects, handle errors
+            try {
+                return JSON.stringify(arg, null, 2); // Pretty print JSON
+            } catch (e) {
+                return '[Unserializable Object]';
+            }
+        } else {
+            // Convert other types to string
+            return String(arg);
+        }
+    }).join(' '); // Join multiple arguments with a space
+
+    // 3. Add a timestamp and store the formatted message
+    const timestamp = new Date().toISOString();
+    errorLog.push(`[${timestamp}] ${message}`);
+};
+
+// Function to download the logged errors
+function downloadErrorLogFile() {
+    if (errorLog.length === 0) {
+        console.log("No errors captured to download.");
+        return;
+    }
+    // Join errors with double newline for readability
+    const logContent = errorLog.join('\n\n');
+    const blob = new Blob([logContent], { type: 'text/plain;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = 'logs/tron_snake_errors.log'; // Suggest saving inside a logs folder
+    link.style.display = 'none'; // Hide the link
+    document.body.appendChild(link);
+    link.click(); // Simulate a click to trigger download
+
+    // Clean up
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+
+    console.log(`Error log downloaded (${errorLog.length} entries).`);
+    // Optional: Clear the log after download if desired
+    // errorLog.length = 0;
+}
+// Make the download function globally accessible for manual console calls
+window.downloadErrorLog = downloadErrorLogFile;
+// <<< END ADDED: Console Error Logging & Download >>>
 
 // Visibility Change Handler
 function handleVisibilityChange() {
@@ -79,28 +147,27 @@ function handleVisibilityChange() {
 }
 
 // Helper function to create a new AI player object
-export function createNewAIPlayer(scene, startX, startZ, startDirX, startDirZ) {
+// MODIFIED for delayed spawning
+export function createNewAIPlayer(startX, startZ, startDirX, startDirZ) {
     const colorIndex = aiPlayers.length % AI_COLORS.length; // Cycle through colors
     const assignedColors = AI_COLORS[colorIndex];
 
     const headSize = segmentSize * 1.05;
     const headGeometry = new THREE.BoxGeometry(headSize, headSize, headSize);
-    // Use the assigned normal color for the material
     const headMaterial = new THREE.MeshPhongMaterial({ color: assignedColors.normal }); 
-    const snakeHead = new THREE.Mesh(headGeometry, headMaterial);
-    const targetPosition = new THREE.Vector3(startX, 0, startZ);
-    const prevTargetPos = new THREE.Vector3(startX, 0, startZ);
-    const direction = new THREE.Vector3(startDirX, 0, startDirZ);
+    const aiHeadMesh = new THREE.Mesh(headGeometry, headMaterial);
+    const startPos = new THREE.Vector3(startX, 0, startZ);
+    const startDir = new THREE.Vector3(startDirX, 0, startDirZ);
     
-    snakeHead.position.copy(targetPosition);
-    scene.add(snakeHead);
+    aiHeadMesh.position.copy(startPos);
+    // scene.add(aiHeadMesh); // <<< DEFERRED: Head is added after spawn delay in gameLoop
 
-    return {
+    const newAI = {
         id: `ai-${aiPlayers.length}`, // Simple unique ID
-        head: snakeHead,
-        targetPosition: targetPosition,
-        prevTargetPos: prevTargetPos,
-        direction: direction,
+        head: aiHeadMesh,             // <<< ADDED: Store reference to the head mesh
+        targetPosition: startPos.clone(), // Initialize target position
+        prevTargetPos: startPos.clone(), // Initialize previous position
+        direction: startDir.clone(), // Initialize direction
         material: headMaterial, 
         colors: assignedColors, // Store the assigned color object
         trailSegments: [],
@@ -114,8 +181,70 @@ export function createNewAIPlayer(scene, startX, startZ, startDirX, startDirZ) {
         sparseLevel: 1,
         lastUpdateTime: performance.now(),
         ammoCount: 0,
-        ammoIndicator: null // Will need to be created/updated separately
+        ammoIndicator: null, // Will need to be created/updated separately
+        isSpawning: true,             // <<< ADDED: Flag to indicate spawning state
+        spawnStartTime: performance.now(), // <<< ADDED: Timestamp when spawning started
+        spawnDuration: AI_SPAWN_DURATION, // <<< ADDED: Duration of the spawn effect/delay
     };
+
+    // scene.add(aiHeadMesh); // <<< DEFERRED (Removed from original location too)
+    aiPlayers.push(newAI);
+    setAiPlayers([...aiPlayers]); // Update state
+
+    // Trigger the visual spawn effect at the AI's starting position
+    const effectPosition = startPos.clone();
+    // <<< MODIFIED: Set Y to match grid line level >>>
+    const markerCenterY = -segmentSize / 2 + 0.01; 
+    effectPosition.y = markerCenterY;
+    createAISpawnRingEffect(effectPosition, assignedColors.normal);
+
+    return newAI; // Return the created AI object
+}
+
+// <<< ADDED: Function to create the AI spawn ring visual effect >>>
+export function createAISpawnRingEffect(position, color) {
+    if (!scene) {
+        console.error("[createAISpawnRingEffect] Scene not available!");
+        return;
+    }
+    const baseDuration = AI_SPAWN_RING_VISUAL_DURATION; // Use the new visual duration constant
+    const baseRadius = AI_SPAWN_RING_MAX_RADIUS; 
+    const startTime = performance.now();
+    let currentEffects = [...aiSpawnRingEffects]; // Get current effects
+
+    for (let i = 0; i < AI_SPAWN_RING_COUNT; i++) {
+        // Calculate radii for staggered appearance (outer rings start slightly larger)
+        const ringRadius = baseRadius * (1 + i * AI_SPAWN_RING_RADIUS_STEP);
+        const innerRadius = ringRadius - segmentSize * 0.1; // Make the ring thin
+        const ringGeometry = new THREE.RingGeometry(innerRadius, ringRadius, 32);
+        const ringMaterial = new THREE.MeshBasicMaterial({
+            color: color || AI_SPAWN_EFFECT_COLOR,
+            transparent: true,
+            opacity: 0.8, // Start fairly opaque
+            side: THREE.DoubleSide
+        });
+
+        const ringMesh = new THREE.Mesh(ringGeometry, ringMaterial.clone());
+        // Start at max radius, scaled by ring index
+        const startRadius = AI_SPAWN_RING_MAX_RADIUS * (1 + i * AI_SPAWN_RING_RADIUS_STEP);
+        ringMesh.scale.setScalar(1); // <-- CORRECT: Set initial scale to 1
+        ringMesh.position.copy(position);
+        ringMesh.material.opacity = 0.8;
+        ringMesh.material.transparent = true;
+        ringMesh.rotation.x = -Math.PI / 2; // <<< ADDED BACK: Rotate ring to lay flat on XZ plane
+        
+        const effectData = {
+            mesh: ringMesh,
+            material: ringMaterial,
+            initialDuration: baseDuration,
+            remainingDuration: baseDuration,
+            maxRadius: ringRadius, 
+        };
+
+        currentEffects.push(effectData);
+        scene.add(ringMesh);
+    }
+    setAiSpawnRingEffects(currentEffects); // Update state with new effects
 }
 
 export function resetGame() {
@@ -192,6 +321,15 @@ export function resetGame() {
     });
     // --> END PICKUP CLEARING <--
 
+    // ---> ADD CLEARING FOR AI SPAWN EFFECTS <---
+    aiSpawnRingEffects.forEach(effect => {
+        if (effect.mesh && scene) {
+            scene.remove(effect.mesh);
+        }
+    });
+    setAiSpawnRingEffects([]); // Clear the state array
+    // ---> END AI SPAWN EFFECT CLEARING <---
+
     // --- Reset AI Players --- 
     // Remove existing AI visuals and clear the array
     aiPlayers.forEach(ai => {
@@ -202,12 +340,13 @@ export function resetGame() {
         ai.trailSegments.length = 0; // <-- Explicitly clear the internal array
         ai.lastTrailSegment = null; // <-- Ensure last segment ref is cleared too
     });
-    aiPlayers.length = 0; // Clear the main aiPlayers array
+    aiPlayers.length = 0;
+    setAiPlayers([]); // Update state
     
     // Reset Max Pickup Counts
     if(setMaxScorePickups) setMaxScorePickups(1);
     if(setMaxExpansionPickups) setMaxExpansionPickups(1);
-    if(setMaxClearPickups) setMaxClearPickups(1);
+    if(setMaxClearPickups) setMaxClearPickups(10); // Allow up to 10 Clear Walls pickups
     if(setMaxZoomPickups) setMaxZoomPickups(1);
     if(setMaxSparseTrailPickups) setMaxSparseTrailPickups(1);
     if(setMaxMultiSpawnPickups) setMaxMultiSpawnPickups(1);
@@ -254,15 +393,26 @@ export function resetGame() {
     // --- Initialize First AI --- 
     let aiSpawnPos = null;
     const maxSpawnAttempts = 50; // Limit attempts to find a spot
-    console.log("[resetGame] Finding safe spawn for initial AI...");
+    const headHalfWidth = (segmentSize * 1.05) / 2.0; // <<< RE-ADD headHalfWidth
+    console.log(`[resetGame] Finding safe spawn for initial AI... (Head half width: ${headHalfWidth.toFixed(2)})`); // Added log
     for (let attempt = 0; attempt < maxSpawnAttempts; attempt++) {
         // Try spawning near the right edge, moving inwards slightly
         const tryX = bXMax - segmentSize * (1 + Math.floor(attempt / 5)); // Move inwards every 5 attempts
         const tryZ = snapToGridCenter(0 + (Math.random() - 0.5) * (bZMax - bZMin) * 0.8, 'z'); // Random Z near center
         const potentialPos = new THREE.Vector3(snapToGridCenter(tryX, 'x'), 0, tryZ);
 
-        // Check safety (against trails and pickups, not heads)
-        if (isPositionSafe(potentialPos, null, true, false)) { 
+        // Check safety using isPositionSafe (checks trails, etc., ignores pickups due to isSpawnCheck=true)
+        const isSafeFromTrails = isPositionSafe(potentialPos, null, true, false);
+        
+        // <<< RE-ADD: Explicit boundary check including mesh size >>>
+        const isWithinBounds = 
+            potentialPos.x >= boundaryXMin + headHalfWidth &&
+            potentialPos.x <= boundaryXMax - headHalfWidth &&
+            potentialPos.z >= boundaryZMin + headHalfWidth &&
+            potentialPos.z <= boundaryZMax - headHalfWidth;
+
+        // MODIFIED: Use the specific trail check and the explicit bounds check
+        if (isSafeFromTrails && isWithinBounds) { 
             aiSpawnPos = potentialPos;
             console.log(`[resetGame] Found safe AI spawn at (${aiSpawnPos.x.toFixed(1)}, ${aiSpawnPos.z.toFixed(1)}) on attempt ${attempt + 1}`);
             break;
@@ -270,17 +420,27 @@ export function resetGame() {
     }
     // Fallback if no safe spot found (should be rare)
     if (!aiSpawnPos) {
-        console.warn("[resetGame] Could not find safe spawn for initial AI, using default near edge.");
-        aiSpawnPos = new THREE.Vector3(snapToGridCenter(bXMax - segmentSize, 'x'), 0, snapToGridCenter(0, 'z'));
+        console.warn("[resetGame] Could not find safe spawn for initial AI, using default near edge, adjusted for mesh size.");
+        // <<< RE-ADD: Adjust fallback to account for head width >>>
+        const fallbackX = snapToGridCenter(bXMax - headHalfWidth - segmentSize, 'x'); // Ensure center is at least half-width + one segment away
+        aiSpawnPos = new THREE.Vector3(fallbackX, 0, snapToGridCenter(0, 'z'));
+        console.log(`[resetGame] Using fallback AI spawn position: (${aiSpawnPos.x.toFixed(1)}, ${aiSpawnPos.z.toFixed(1)})`); // Added log
     }
 
     // Create AI at the determined safe(r) position
-    const aiStartDir = new THREE.Vector3(-1, 0, 0); // Explicitly define start direction
-    const firstAI = createNewAIPlayer(scene, aiSpawnPos.x, aiSpawnPos.z, aiStartDir.x, aiStartDir.z); 
-    console.log(`[resetGame] Created AI at (${aiSpawnPos.x.toFixed(1)}, ${aiSpawnPos.z.toFixed(1)}) with initial direction (${aiStartDir.x}, ${aiStartDir.z})`); // Log creation details
-    aiPlayers.push(firstAI);
-    // After adding the new AI(s), reset the collision status based on the current number of AIs
-    if(setPreviousFrameAICollisionStatus) setPreviousFrameAICollisionStatus(aiPlayers.map(() => false));
+    const aiStartDir = new THREE.Vector3(-1, 0, 0); 
+    // --- MODIFIED: Use new createNewAIPlayer signature ---
+    const firstAI = createNewAIPlayer(aiSpawnPos.x, aiSpawnPos.z, aiStartDir.x, aiStartDir.z); 
+    console.log(`[resetGame] Created AI ${firstAI.id} at (${aiSpawnPos.x.toFixed(1)}, ${aiSpawnPos.z.toFixed(1)}) spawning...`); 
+    // aiPlayers.push(firstAI); // Pushed inside createNewAIPlayer now
+
+    // <<< MOVE AND FIX: Initialize AI collision status AFTER AIs are created >>>
+    if(setPreviousFrameAICollisionStatus) {
+        const initialAIStatus = aiPlayers.map(() => false); // Create array of 'false' for each AI
+        setPreviousFrameAICollisionStatus(initialAIStatus);
+        console.log(`[resetGame] Initialized previousFrameAICollisionStatus: [${initialAIStatus.join(', ')}]`);
+    }
+    // <<< END FIX >>>
 
     // Reset camera immediately
     if (snakeHead1 && camera) { // Use the potentially newly created snakeHead1
@@ -328,6 +488,8 @@ function onWindowResize() {
 }
 
 export function init() {
+    console.log(`Starting TronSnake Game ${GAME_VERSION}`); // <<< ADDED VERSION LOG
+    
     // Scene
     const newScene = new THREE.Scene();
     newScene.background = new THREE.Color(0x111111);
@@ -376,10 +538,11 @@ export function init() {
     if(setSnakeHead1) setSnakeHead1(newSnakeHead1);
 
     // --- Initialize First AI --- 
-    const aiStartX = snapToGridCenter(bXMax - segmentSize, 'x');
+    // MODIFIED: Call new signature, AI is pushed to state inside function
+    const aiStartX = snapToGridCenter(boundaryXMax - segmentSize, 'x');
     const aiStartZ = snapToGridCenter(0, 'z');
-    const firstAI = createNewAIPlayer(newScene, aiStartX, aiStartZ, -1, 0); // Pass newScene
-    aiPlayers.push(firstAI);
+    createNewAIPlayer(aiStartX, aiStartZ, -1, 0); 
+    // aiPlayers.push(firstAI); // No longer needed here
     
     // Initial camera position
     targetLookAt.copy(snakeTargetPosition1);
@@ -410,10 +573,22 @@ export function init() {
     const now = performance.now();
     if(setLastUpdateTimeP1) setLastUpdateTimeP1(now);
 
+    // --- Add Download Button ---
+    const downloadBtn = document.createElement('button');
+    downloadBtn.textContent = 'Download Error Log';
+    downloadBtn.style.position = 'fixed';
+    downloadBtn.style.bottom = '10px';
+    downloadBtn.style.right = '10px';
+    downloadBtn.style.zIndex = '1000'; // Ensure it's visible
+    downloadBtn.onclick = downloadErrorLogFile; // Use the function defined above
+    document.body.appendChild(downloadBtn);
+    // --- End Download Button ---
+
     // Load Font -> Then Load Top Score -> Then Create remaining UI -> Spawn Pickups -> Start Game
     const fontLoader = new FontLoader();
     fontLoader.load(
-        'https://raw.githubusercontent.com/mrdoob/three.js/dev/examples/fonts/helvetiker_regular.typeface.json',
+        // 'https://raw.githubusercontent.com/mrdoob/three.js/dev/examples/fonts/helvetiker_regular.typeface.json',
+        'assets/fonts/helvetiker_regular.typeface.json', // MODIFIED: Load from local path
         (loadedFont) => {
             console.log("Font loaded.");
             if(setTextFont) setTextFont(loadedFont);
@@ -455,6 +630,8 @@ export function init() {
         (err) => {
             console.error('An error happened loading the font:', err);
              // Optionally, provide a fallback or start loop anyway?
+             // Fallback: Attempt to continue without the font if loading fails
+             console.warn("Continuing without custom font due to loading error.");
              initializePickupTemplates(); 
              updateAmmoIndicatorP1(); 
              createTopScoreText(); 

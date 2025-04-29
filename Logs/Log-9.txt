@@ -1,0 +1,415 @@
+gameLoop.js:583 [Animate] Added head for AI ai-0 after spawn delay.
+ai.js:250 [AI ai-0 ForwardCheck] Step 1 safe: true
+ai.js:250 [AI ai-0 ForwardCheck] Step 2 safe: true
+ai.js:250 [AI ai-0 ForwardCheck] Step 3 safe: true
+ai.js:146 [AI ai-0 findBestTurn] Left check safe: true
+ai.js:160 [AI ai-0 findBestTurn] Right check safe: true
+ai.js:250 [AI ai-0 ForwardCheck] Step 1 safe: true
+ai.js:250 [AI ai-0 ForwardCheck] Step 2 safe: true
+ai.js:250 [AI ai-0 ForwardCheck] Step 3 safe: true
+ai.js:250 [AI ai-0 ForwardCheck] Step 1 safe: true
+ai.js:250 [AI ai-0 ForwardCheck] Step 2 safe: true
+ai.js:250 [AI ai-0 ForwardCheck] Step 3 safe: true
+ai.js:250 [AI ai-0 ForwardCheck] Step 1 safe: true
+ai.js:250 [AI ai-0 ForwardCheck] Step 2 safe: true
+ai.js:250 [AI ai-0 ForwardCheck] Step 3 safe: true
+init.js:136 Game paused due to visibility change.
+Navigated to http://127.0.0.1:5500/
+127.0.0.1/:1 Denying load of chrome-extension://gomekmidlodglbbmalcneegieacbdmki/client/gpcWindowSetting.js. Resources must be listed in the web_accessible_resources manifest key in order to be loaded by pages outside the extension.
+gpc.js:105 
+            
+            
+           GET chrome-extension://invalid/ net::ERR_FAILED
+injectScript @ gpc.js:105
+(anonymous) @ gpc.js:95
+(anonymous) @ gpc.js:19
+__async @ gpc.js:3
+execute @ gpc.js:93
+(anonymous) @ gpc.js:117
+fulfilled @ gpc.js:6
+Promise.then
+step @ gpc.js:18
+(anonymous) @ gpc.js:19
+__async @ gpc.js:3
+injectContentScript @ gpc.js:113
+(anonymous) @ gpc.js:125
+(anonymous) @ gpc.js:126
+init.js:464 Starting TronSnake Game v1.1.38
+127.0.0.1/:1 Unchecked runtime.lastError: The message port closed before a response was received.
+init.js:565 Font loaded.
+init.js:575 [Init] Loaded top score: 9339
+init.js:583 [Init] Set topScore=9339, topScoreAtGameStart=9339
+pickups.js:376 [spawnInitialPickups] Starting initial spawn sequence.
+pickups.js:396 [spawnInitialPickups] Initial spawn eligibility (all based on topScore 9339): (8) ['zoom', 'score', 'sparse', 'ammo', 'clear', 'add_ai', 'expansion', 'multi']
+pickups.js:397 [spawnInitialPickups] Attempting initial spawn for non-counter types: (3) ['zoom', 'score', 'sparse']
+pickups.js:411 [spawnInitialPickups] Initial spawn attempt 1: Trying type 'zoom'
+pickups.js:331 --- spawnPickup called with forceType: zoom ---
+pickups.js:359   -> Final pickupType determined for non-counter spawn: zoom
+pickups.js:367   -> Attempting primary spawn: zoom
+pickups.js:109   [trySpawn] Attempting to spawn type: zoom
+pickups.js:180   [trySpawn] Starting position search (max 50 attempts)...
+pickups.js:194   [trySpawn attempt 1] Pos:(5.5,-5.5), Safe:true, Adjacent:false
+pickups.js:220   [trySpawn] SUCCESS on attempt 1 for zoom! Spawning at (5.5, -5.5)
+utils.js:30 PICKUP COUNT (Spawned zoom): 1
+pickups.js:370 --- spawnPickup finished for type: zoom ---
+pickups.js:411 [spawnInitialPickups] Initial spawn attempt 2: Trying type 'score'
+pickups.js:331 --- spawnPickup called with forceType: score ---
+pickups.js:359   -> Final pickupType determined for non-counter spawn: score
+pickups.js:367   -> Attempting primary spawn: score
+pickups.js:109   [trySpawn] Attempting to spawn type: score
+pickups.js:180   [trySpawn] Starting position search (max 50 attempts)...
+pickups.js:194   [trySpawn attempt 1] Pos:(14.5,-6.5), Safe:true, Adjacent:false
+pickups.js:220   [trySpawn] SUCCESS on attempt 1 for score! Spawning at (14.5, -6.5)
+utils.js:30 PICKUP COUNT (Spawned score): 2
+pickups.js:370 --- spawnPickup finished for type: score ---
+pickups.js:411 [spawnInitialPickups] Initial spawn attempt 3: Trying type 'sparse'
+pickups.js:331 --- spawnPickup called with forceType: sparse ---
+pickups.js:359   -> Final pickupType determined for non-counter spawn: sparse
+pickups.js:367   -> Attempting primary spawn: sparse
+pickups.js:109   [trySpawn] Attempting to spawn type: sparse
+pickups.js:180   [trySpawn] Starting position search (max 50 attempts)...
+pickups.js:194   [trySpawn attempt 1] Pos:(-0.5,-2.5), Safe:true, Adjacent:false
+pickups.js:220   [trySpawn] SUCCESS on attempt 1 for sparse! Spawning at (-0.5, -2.5)
+utils.js:30 PICKUP COUNT (Spawned sparse): 3
+pickups.js:370 --- spawnPickup finished for type: sparse ---
+pickups.js:418 [spawnInitialPickups] Finished initial spawn attempts. Spawned 3 pickups.
+utils.js:30 PICKUP COUNT (After Initial Spawn): 3
+favicon.ico:1 
+            
+            
+           GET http://127.0.0.1:5500/favicon.ico 404 (Not Found)
+gameLoop.js:583 [Animate] Added head for AI ai-0 after spawn delay.
+ai.js:250 [AI ai-0 ForwardCheck] Step 1 safe: true
+ai.js:250 [AI ai-0 ForwardCheck] Step 2 safe: true
+ai.js:250 [AI ai-0 ForwardCheck] Step 3 safe: true
+ai.js:250 [AI ai-0 ForwardCheck] Step 1 safe: true
+ai.js:250 [AI ai-0 ForwardCheck] Step 2 safe: true
+ai.js:250 [AI ai-0 ForwardCheck] Step 3 safe: true
+ai.js:250 [AI ai-0 ForwardCheck] Step 1 safe: true
+ai.js:250 [AI ai-0 ForwardCheck] Step 2 safe: true
+ai.js:250 [AI ai-0 ForwardCheck] Step 3 safe: true
+ai.js:250 [AI ai-0 ForwardCheck] Step 1 safe: true
+ai.js:250 [AI ai-0 ForwardCheck] Step 2 safe: true
+ai.js:250 [AI ai-0 ForwardCheck] Step 3 safe: true
+ai.js:250 [AI ai-0 ForwardCheck] Step 1 safe: true
+ai.js:250 [AI ai-0 ForwardCheck] Step 2 safe: true
+ai.js:250 [AI ai-0 ForwardCheck] Step 3 safe: true
+ai.js:250 [AI ai-0 ForwardCheck] Step 1 safe: true
+ai.js:250 [AI ai-0 ForwardCheck] Step 2 safe: true
+ai.js:250 [AI ai-0 ForwardCheck] Step 3 safe: true
+ai.js:250 [AI ai-0 ForwardCheck] Step 1 safe: true
+ai.js:250 [AI ai-0 ForwardCheck] Step 2 safe: true
+ai.js:250 [AI ai-0 ForwardCheck] Step 3 safe: true
+ai.js:250 [AI ai-0 ForwardCheck] Step 1 safe: true
+ai.js:250 [AI ai-0 ForwardCheck] Step 2 safe: true
+ai.js:250 [AI ai-0 ForwardCheck] Step 3 safe: true
+ai.js:250 [AI ai-0 ForwardCheck] Step 1 safe: true
+ai.js:250 [AI ai-0 ForwardCheck] Step 2 safe: true
+ai.js:250 [AI ai-0 ForwardCheck] Step 3 safe: true
+ai.js:250 [AI ai-0 ForwardCheck] Step 1 safe: true
+ai.js:250 [AI ai-0 ForwardCheck] Step 2 safe: true
+ [AI ai-0 ForwardCheck] Step 3 safe: true
+ Game paused due to visibility change.
+Navigated to http://127.0.0.1:5500/
+127.0.0.1/:1 Denying load of chrome-extension://gomekmidlodglbbmalcneegieacbdmki/client/gpcWindowSetting.js. Resources must be listed in the web_accessible_resources manifest key in order to be loaded by pages outside the extension.
+gpc.js:105 
+            
+            
+           GET chrome-extension://invalid/ net::ERR_FAILED
+injectScript @ gpc.js:105
+(anonymous) @ gpc.js:95
+(anonymous) @ gpc.js:19
+__async @ gpc.js:3
+execute @ gpc.js:93
+(anonymous) @ gpc.js:117
+fulfilled @ gpc.js:6
+Promise.then
+step @ gpc.js:18
+(anonymous) @ gpc.js:19
+__async @ gpc.js:3
+injectContentScript @ gpc.js:113
+(anonymous) @ gpc.js:125
+(anonymous) @ gpc.js:126
+init.js:464 Starting TronSnake Game v1.1.38
+127.0.0.1/:1 Unchecked runtime.lastError: The message port closed before a response was received.
+init.js:565 Font loaded.
+init.js:575 [Init] Loaded top score: 9339
+init.js:583 [Init] Set topScore=9339, topScoreAtGameStart=9339
+pickups.js:376 [spawnInitialPickups] Starting initial spawn sequence.
+pickups.js:396 [spawnInitialPickups] Initial spawn eligibility (all based on topScore 9339): (8) ['zoom', 'score', 'sparse', 'ammo', 'clear', 'add_ai', 'expansion', 'multi']
+pickups.js:397 [spawnInitialPickups] Attempting initial spawn for non-counter types: (3) ['zoom', 'score', 'sparse']
+pickups.js:411 [spawnInitialPickups] Initial spawn attempt 1: Trying type 'zoom'
+pickups.js:331 --- spawnPickup called with forceType: zoom ---
+pickups.js:359   -> Final pickupType determined for non-counter spawn: zoom
+pickups.js:367   -> Attempting primary spawn: zoom
+pickups.js:109   [trySpawn] Attempting to spawn type: zoom
+pickups.js:180   [trySpawn] Starting position search (max 50 attempts)...
+pickups.js:194   [trySpawn attempt 1] Pos:(1.5,-2.5), Safe:true, Adjacent:false
+pickups.js:220   [trySpawn] SUCCESS on attempt 1 for zoom! Spawning at (1.5, -2.5)
+utils.js:30 PICKUP COUNT (Spawned zoom): 1
+pickups.js:370 --- spawnPickup finished for type: zoom ---
+pickups.js:411 [spawnInitialPickups] Initial spawn attempt 2: Trying type 'score'
+pickups.js:331 --- spawnPickup called with forceType: score ---
+pickups.js:359   -> Final pickupType determined for non-counter spawn: score
+pickups.js:367   -> Attempting primary spawn: score
+pickups.js:109   [trySpawn] Attempting to spawn type: score
+pickups.js:180   [trySpawn] Starting position search (max 50 attempts)...
+pickups.js:194   [trySpawn attempt 1] Pos:(-0.5,-0.5), Safe:true, Adjacent:false
+pickups.js:220   [trySpawn] SUCCESS on attempt 1 for score! Spawning at (-0.5, -0.5)
+utils.js:30 PICKUP COUNT (Spawned score): 2
+pickups.js:370 --- spawnPickup finished for type: score ---
+pickups.js:411 [spawnInitialPickups] Initial spawn attempt 3: Trying type 'sparse'
+pickups.js:331 --- spawnPickup called with forceType: sparse ---
+pickups.js:359   -> Final pickupType determined for non-counter spawn: sparse
+pickups.js:367   -> Attempting primary spawn: sparse
+pickups.js:109   [trySpawn] Attempting to spawn type: sparse
+pickups.js:180   [trySpawn] Starting position search (max 50 attempts)...
+pickups.js:194   [trySpawn attempt 1] Pos:(10.5,2.5), Safe:true, Adjacent:false
+pickups.js:220   [trySpawn] SUCCESS on attempt 1 for sparse! Spawning at (10.5, 2.5)
+utils.js:30 PICKUP COUNT (Spawned sparse): 3
+pickups.js:370 --- spawnPickup finished for type: sparse ---
+pickups.js:418 [spawnInitialPickups] Finished initial spawn attempts. Spawned 3 pickups.
+utils.js:30 PICKUP COUNT (After Initial Spawn): 3
+gameLoop.js:583 [Animate] Added head for AI ai-0 after spawn delay.
+ai.js:250 [AI ai-0 ForwardCheck] Step 1 safe: true
+ai.js:250 [AI ai-0 ForwardCheck] Step 2 safe: true
+ai.js:250 [AI ai-0 ForwardCheck] Step 3 safe: true
+ai.js:250 [AI ai-0 ForwardCheck] Step 1 safe: true
+ai.js:250 [AI ai-0 ForwardCheck] Step 2 safe: true
+ai.js:250 [AI ai-0 ForwardCheck] Step 3 safe: true
+ai.js:250 [AI ai-0 ForwardCheck] Step 1 safe: true
+ai.js:250 [AI ai-0 ForwardCheck] Step 2 safe: true
+ai.js:250 [AI ai-0 ForwardCheck] Step 3 safe: true
+ai.js:250 [AI ai-0 ForwardCheck] Step 1 safe: true
+ai.js:250 [AI ai-0 ForwardCheck] Step 2 safe: true
+ai.js:250 [AI ai-0 ForwardCheck] Step 3 safe: true
+ai.js:250 [AI ai-0 ForwardCheck] Step 1 safe: true
+ai.js:250 [AI ai-0 ForwardCheck] Step 2 safe: true
+ai.js:250 [AI ai-0 ForwardCheck] Step 3 safe: true
+ai.js:70 [isPositionSafe] AI ai-0 deemed pos near pickup unsafe. isSpawnCheck=false
+ai.js:146 [AI ai-0 findBestTurn] Left check safe: true
+ai.js:70 [isPositionSafe] AI ai-0 deemed pos near pickup unsafe. isSpawnCheck=false
+ai.js:160 [AI ai-0 findBestTurn] Right check safe: false
+ai.js:250 [AI ai-0 ForwardCheck] Step 1 safe: true
+ai.js:250 [AI ai-0 ForwardCheck] Step 2 safe: true
+ai.js:250 [AI ai-0 ForwardCheck] Step 3 safe: false
+ai.js:146 [AI ai-0 findBestTurn] Left check safe: true
+ai.js:160 [AI ai-0 findBestTurn] Right check safe: true
+ai.js:250 [AI ai-0 ForwardCheck] Step 1 safe: true
+ai.js:250 [AI ai-0 ForwardCheck] Step 2 safe: true
+ai.js:250 [AI ai-0 ForwardCheck] Step 3 safe: true
+ai.js:250 [AI ai-0 ForwardCheck] Step 1 safe: true
+ai.js:250 [AI ai-0 ForwardCheck] Step 2 safe: true
+ai.js:250 [AI ai-0 ForwardCheck] Step 3 safe: true
+ai.js:250 [AI ai-0 ForwardCheck] Step 1 safe: true
+ai.js:250 [AI ai-0 ForwardCheck] Step 2 safe: true
+ai.js:250 [AI ai-0 ForwardCheck] Step 3 safe: true
+ai.js:70 [isPositionSafe] AI ai-0 deemed pos near pickup unsafe. isSpawnCheck=false
+ai.js:146 [AI ai-0 findBestTurn] Left check safe: true
+ai.js:70 [isPositionSafe] AI ai-0 deemed pos near pickup unsafe. isSpawnCheck=false
+ai.js:160 [AI ai-0 findBestTurn] Right check safe: false
+ai.js:250 [AI ai-0 ForwardCheck] Step 1 safe: true
+ai.js:250 [AI ai-0 ForwardCheck] Step 2 safe: true
+ai.js:250 [AI ai-0 ForwardCheck] Step 3 safe: true
+ai.js:146 [AI ai-0 findBestTurn] Left check safe: true
+ai.js:160 [AI ai-0 findBestTurn] Right check safe: true
+ai.js:250 [AI ai-0 ForwardCheck] Step 1 safe: true
+ai.js:250 [AI ai-0 ForwardCheck] Step 2 safe: true
+ai.js:250 [AI ai-0 ForwardCheck] Step 3 safe: true
+ai.js:146 [AI ai-0 findBestTurn] Left check safe: false
+ai.js:160 [AI ai-0 findBestTurn] Right check safe: true
+ai.js:250 [AI ai-0 ForwardCheck] Step 1 safe: true
+ai.js:250 [AI ai-0 ForwardCheck] Step 2 safe: true
+ai.js:250 [AI ai-0 ForwardCheck] Step 3 safe: true
+ai.js:250 [AI ai-0 ForwardCheck] Step 1 safe: true
+ai.js:250 [AI ai-0 ForwardCheck] Step 2 safe: true
+ai.js:250 [AI ai-0 ForwardCheck] Step 3 safe: true
+ai.js:146 [AI ai-0 findBestTurn] Left check safe: true
+ai.js:160 [AI ai-0 findBestTurn] Right check safe: false
+pickups.js:574 [checkZoomPickupCollision] Before respawn attempt: zoomPickups.length = 0
+utils.js:30 PICKUP COUNT (Collected Player Zoom): 2
+pickups.js:425 Checking unlocks for score: 38, TopScoreAtStart: 9339
+pickups.js:239 Checking counter spawns. Current count: 1
+pickups.js:331 --- spawnPickup called with forceType: zoom ---
+pickups.js:359   -> Final pickupType determined for non-counter spawn: zoom
+pickups.js:367   -> Attempting primary spawn: zoom
+pickups.js:109   [trySpawn] Attempting to spawn type: zoom
+pickups.js:180   [trySpawn] Starting position search (max 50 attempts)...
+pickups.js:194   [trySpawn attempt 1] Pos:(-14.5,-4.5), Safe:true, Adjacent:false
+pickups.js:220   [trySpawn] SUCCESS on attempt 1 for zoom! Spawning at (-14.5, -4.5)
+utils.js:30 PICKUP COUNT (Spawned zoom): 3
+pickups.js:370 --- spawnPickup finished for type: zoom ---
+pickups.js:589 [checkZoomPickupCollision] After respawn attempt: zoomPickups.length = 1
+ai.js:250 [AI ai-0 ForwardCheck] Step 1 safe: true
+ai.js:250 [AI ai-0 ForwardCheck] Step 2 safe: true
+ai.js:250 [AI ai-0 ForwardCheck] Step 3 safe: true
+ai.js:146 [AI ai-0 findBestTurn] Left check safe: true
+ai.js:160 [AI ai-0 findBestTurn] Right check safe: true
+ai.js:250 [AI ai-0 ForwardCheck] Step 1 safe: true
+ai.js:250 [AI ai-0 ForwardCheck] Step 2 safe: true
+ai.js:250 [AI ai-0 ForwardCheck] Step 3 safe: true
+ai.js:250 [AI ai-0 ForwardCheck] Step 1 safe: true
+ai.js:250 [AI ai-0 ForwardCheck] Step 2 safe: true
+ai.js:250 [AI ai-0 ForwardCheck] Step 3 safe: true
+ai.js:250 [AI ai-0 ForwardCheck] Step 1 safe: true
+ai.js:250 [AI ai-0 ForwardCheck] Step 2 safe: true
+ai.js:250 [AI ai-0 ForwardCheck] Step 3 safe: true
+ai.js:250 [AI ai-0 ForwardCheck] Step 1 safe: true
+ai.js:250 [AI ai-0 ForwardCheck] Step 2 safe: true
+ai.js:250 [AI ai-0 ForwardCheck] Step 3 safe: true
+ai.js:250 [AI ai-0 ForwardCheck] Step 1 safe: true
+ai.js:250 [AI ai-0 ForwardCheck] Step 2 safe: true
+ai.js:250 [AI ai-0 ForwardCheck] Step 3 safe: true
+ai.js:70 [isPositionSafe] AI ai-0 deemed pos near pickup unsafe. isSpawnCheck=false
+ai.js:146 [AI ai-0 findBestTurn] Left check safe: true
+ai.js:70 [isPositionSafe] AI ai-0 deemed pos near pickup unsafe. isSpawnCheck=false
+ai.js:160 [AI ai-0 findBestTurn] Right check safe: false
+ai.js:250 [AI ai-0 ForwardCheck] Step 1 safe: true
+ai.js:250 [AI ai-0 ForwardCheck] Step 2 safe: true
+ai.js:250 [AI ai-0 ForwardCheck] Step 3 safe: true
+ai.js:146 [AI ai-0 findBestTurn] Left check safe: true
+ai.js:160 [AI ai-0 findBestTurn] Right check safe: true
+ai.js:250 [AI ai-0 ForwardCheck] Step 1 safe: true
+ai.js:250 [AI ai-0 ForwardCheck] Step 2 safe: true
+ai.js:250 [AI ai-0 ForwardCheck] Step 3 safe: true
+ai.js:146 [AI ai-0 findBestTurn] Left check safe: false
+ai.js:160 [AI ai-0 findBestTurn] Right check safe: true
+ai.js:250 [AI ai-0 ForwardCheck] Step 1 safe: true
+ai.js:250 [AI ai-0 ForwardCheck] Step 2 safe: true
+ai.js:250 [AI ai-0 ForwardCheck] Step 3 safe: true
+ai.js:250 [AI ai-0 ForwardCheck] Step 1 safe: true
+ai.js:250 [AI ai-0 ForwardCheck] Step 2 safe: true
+ai.js:250 [AI ai-0 ForwardCheck] Step 3 safe: true
+ai.js:146 [AI ai-0 findBestTurn] Left check safe: true
+ai.js:160 [AI ai-0 findBestTurn] Right check safe: false
+ai.js:250 [AI ai-0 ForwardCheck] Step 1 safe: true
+ai.js:250 [AI ai-0 ForwardCheck] Step 2 safe: true
+ai.js:250 [AI ai-0 ForwardCheck] Step 3 safe: true
+ai.js:146 [AI ai-0 findBestTurn] Left check safe: true
+ai.js:160 [AI ai-0 findBestTurn] Right check safe: true
+ai.js:250 [AI ai-0 ForwardCheck] Step 1 safe: true
+ai.js:250 [AI ai-0 ForwardCheck] Step 2 safe: true
+ai.js:250 [AI ai-0 ForwardCheck] Step 3 safe: true
+ai.js:250 [AI ai-0 ForwardCheck] Step 1 safe: true
+ai.js:250 [AI ai-0 ForwardCheck] Step 2 safe: true
+ai.js:250 [AI ai-0 ForwardCheck] Step 3 safe: true
+ai.js:250 [AI ai-0 ForwardCheck] Step 1 safe: true
+ai.js:250 [AI ai-0 ForwardCheck] Step 2 safe: true
+ai.js:250 [AI ai-0 ForwardCheck] Step 3 safe: false
+ai.js:250 [AI ai-0 ForwardCheck] Step 1 safe: true
+ai.js:250 [AI ai-0 ForwardCheck] Step 2 safe: false
+ai.js:250 [AI ai-0 ForwardCheck] Step 1 safe: false
+ai.js:146 [AI ai-0 findBestTurn] Left check safe: true
+ai.js:70 [isPositionSafe] AI ai-0 deemed pos near pickup unsafe. isSpawnCheck=false
+ai.js:160 [AI ai-0 findBestTurn] Right check safe: false
+ai.js:250 [AI ai-0 ForwardCheck] Step 1 safe: true
+ai.js:250 [AI ai-0 ForwardCheck] Step 2 safe: true
+ai.js:250 [AI ai-0 ForwardCheck] Step 3 safe: true
+ai.js:146 [AI ai-0 findBestTurn] Left check safe: true
+ai.js:160 [AI ai-0 findBestTurn] Right check safe: false
+ai.js:250 [AI ai-0 ForwardCheck] Step 1 safe: true
+ai.js:250 [AI ai-0 ForwardCheck] Step 2 safe: true
+ai.js:250 [AI ai-0 ForwardCheck] Step 3 safe: true
+ai.js:146 [AI ai-0 findBestTurn] Left check safe: false
+ai.js:160 [AI ai-0 findBestTurn] Right check safe: true
+ai.js:250 [AI ai-0 ForwardCheck] Step 1 safe: true
+ai.js:250 [AI ai-0 ForwardCheck] Step 2 safe: true
+ai.js:250 [AI ai-0 ForwardCheck] Step 3 safe: true
+ai.js:250 [AI ai-0 ForwardCheck] Step 1 safe: true
+ai.js:250 [AI ai-0 ForwardCheck] Step 2 safe: true
+ai.js:250 [AI ai-0 ForwardCheck] Step 3 safe: true
+ai.js:146 [AI ai-0 findBestTurn] Left check safe: true
+ai.js:160 [AI ai-0 findBestTurn] Right check safe: false
+pickups.js:574 [checkZoomPickupCollision] Before respawn attempt: zoomPickups.length = 0
+utils.js:30 PICKUP COUNT (Collected Player Zoom): 2
+pickups.js:425 Checking unlocks for score: 78, TopScoreAtStart: 9339
+pickups.js:430 >>> Threshold Met for Speed Up! <<<
+pickups.js:431     Current Score: 78, Unlock Score: 50, Top Score at Start: 9339
+pickups.js:435     Is this a new unlock this session? false (50 > 9339)
+pickups.js:447     [Action] Skipping Announce/Spawn (Already Available): Speed Up!
+pickups.js:239 Checking counter spawns. Current count: 2
+pickups.js:331 --- spawnPickup called with forceType: zoom ---
+pickups.js:359   -> Final pickupType determined for non-counter spawn: zoom
+pickups.js:367   -> Attempting primary spawn: zoom
+pickups.js:109   [trySpawn] Attempting to spawn type: zoom
+pickups.js:180   [trySpawn] Starting position search (max 50 attempts)...
+pickups.js:194   [trySpawn attempt 1] Pos:(14.5,12.5), Safe:true, Adjacent:false
+pickups.js:220   [trySpawn] SUCCESS on attempt 1 for zoom! Spawning at (14.5, 12.5)
+utils.js:30 PICKUP COUNT (Spawned zoom): 3
+pickups.js:370 --- spawnPickup finished for type: zoom ---
+pickups.js:589 [checkZoomPickupCollision] After respawn attempt: zoomPickups.length = 1
+ai.js:250 [AI ai-0 ForwardCheck] Step 1 safe: true
+ai.js:250 [AI ai-0 ForwardCheck] Step 2 safe: true
+ai.js:250 [AI ai-0 ForwardCheck] Step 3 safe: true
+ai.js:146 [AI ai-0 findBestTurn] Left check safe: true
+ai.js:160 [AI ai-0 findBestTurn] Right check safe: true
+ai.js:250 [AI ai-0 ForwardCheck] Step 1 safe: true
+ai.js:250 [AI ai-0 ForwardCheck] Step 2 safe: true
+ai.js:250 [AI ai-0 ForwardCheck] Step 3 safe: true
+ai.js:146 [AI ai-0 findBestTurn] Left check safe: false
+ai.js:160 [AI ai-0 findBestTurn] Right check safe: true
+ai.js:250 [AI ai-0 ForwardCheck] Step 1 safe: true
+ai.js:250 [AI ai-0 ForwardCheck] Step 2 safe: true
+ai.js:250 [AI ai-0 ForwardCheck] Step 3 safe: true
+ai.js:250 [AI ai-0 ForwardCheck] Step 1 safe: true
+ai.js:250 [AI ai-0 ForwardCheck] Step 2 safe: true
+ai.js:250 [AI ai-0 ForwardCheck] Step 3 safe: true
+ai.js:146 [AI ai-0 findBestTurn] Left check safe: true
+ai.js:160 [AI ai-0 findBestTurn] Right check safe: false
+ai.js:250 [AI ai-0 ForwardCheck] Step 1 safe: true
+ai.js:250 [AI ai-0 ForwardCheck] Step 2 safe: true
+ai.js:250 [AI ai-0 ForwardCheck] Step 3 safe: true
+ai.js:146 [AI ai-0 findBestTurn] Left check safe: true
+ai.js:160 [AI ai-0 findBestTurn] Right check safe: true
+ai.js:250 [AI ai-0 ForwardCheck] Step 1 safe: true
+ai.js:250 [AI ai-0 ForwardCheck] Step 2 safe: true
+ai.js:250 [AI ai-0 ForwardCheck] Step 3 safe: true
+ai.js:250 [AI ai-0 ForwardCheck] Step 1 safe: true
+ai.js:250 [AI ai-0 ForwardCheck] Step 2 safe: true
+ai.js:250 [AI ai-0 ForwardCheck] Step 3 safe: false
+ai.js:250 [AI ai-0 ForwardCheck] Step 1 safe: true
+ai.js:250 [AI ai-0 ForwardCheck] Step 2 safe: false
+ai.js:250 [AI ai-0 ForwardCheck] Step 1 safe: false
+ai.js:146 [AI ai-0 findBestTurn] Left check safe: true
+ai.js:160 [AI ai-0 findBestTurn] Right check safe: false
+ai.js:250 [AI ai-0 ForwardCheck] Step 1 safe: true
+ai.js:250 [AI ai-0 ForwardCheck] Step 2 safe: true
+ai.js:250 [AI ai-0 ForwardCheck] Step 3 safe: false
+ai.js:146 [AI ai-0 findBestTurn] Left check safe: true
+ai.js:160 [AI ai-0 findBestTurn] Right check safe: false
+ai.js:250 [AI ai-0 ForwardCheck] Step 1 safe: true
+ai.js:250 [AI ai-0 ForwardCheck] Step 2 safe: true
+ai.js:250 [AI ai-0 ForwardCheck] Step 3 safe: true
+ai.js:146 [AI ai-0 findBestTurn] Left check safe: false
+ai.js:160 [AI ai-0 findBestTurn] Right check safe: true
+ai.js:250 [AI ai-0 ForwardCheck] Step 1 safe: true
+ai.js:250 [AI ai-0 ForwardCheck] Step 2 safe: false
+ai.js:250 [AI ai-0 ForwardCheck] Step 1 safe: false
+ai.js:146 [AI ai-0 findBestTurn] Left check safe: true
+ai.js:160 [AI ai-0 findBestTurn] Right check safe: false
+ai.js:250 [AI ai-0 ForwardCheck] Step 1 safe: false
+ai.js:146 [AI ai-0 findBestTurn] Left check safe: true
+ai.js:160 [AI ai-0 findBestTurn] Right check safe: false
+ai.js:250 [AI ai-0 ForwardCheck] Step 1 safe: true
+ai.js:250 [AI ai-0 ForwardCheck] Step 2 safe: true
+ai.js:250 [AI ai-0 ForwardCheck] Step 3 safe: true
+ai.js:146 [AI ai-0 findBestTurn] Left check safe: false
+ai.js:160 [AI ai-0 findBestTurn] Right check safe: false
+ai.js:250 [AI ai-0 ForwardCheck] Step 1 safe: true
+ai.js:250 [AI ai-0 ForwardCheck] Step 2 safe: true
+ai.js:250 [AI ai-0 ForwardCheck] Step 3 safe: true
+ai.js:250 [AI ai-0 ForwardCheck] Step 1 safe: true
+ai.js:250 [AI ai-0 ForwardCheck] Step 2 safe: false
+ai.js:250 [AI ai-0 ForwardCheck] Step 1 safe: false
+ai.js:146 [AI ai-0 findBestTurn] Left check safe: false
+ai.js:160 [AI ai-0 findBestTurn] Right check safe: true
+gameLoop.js:269 [Collision] Triggering Player Explosion
+gameLoop.js:411 [Animate] Game Over detected! Setting state.
+ui.js:303 [v1.1.38] Adding game over pointer listeners (mousedown, touchstart, wheel)
+ui.js:29 [UI] Resetting isGameOverDialogMinimized to false.
+gameLoop.js:426 [v1.1.38] Ensured segment behind head visibility on game over.
+gameLoop.js:443 [Animate] Player lost/draw. Setting playerLostTime: 14843, Resetting deathZoomFactor.
+gameLoop.js:900 [Animate] Activating Game Over Camera.
+ui.js:556 [UI] Populating showGameOverMessage for winnerCode: 1
+ui.js:600 [GameOver Minimize] updateGameOverDialogAppearance called. Minimized: false
+ui.js:636 [GameOver Minimize] Applying Maximized Styles.

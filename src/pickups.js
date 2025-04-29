@@ -106,7 +106,7 @@ function isCellAdjacentToWall(gridX, gridZ) {
 // Helper function to contain the actual spawning logic (Internal)
 // Returns boolean indicating success/failure
 function trySpawn(typeToSpawn) {
-    // console.log(`  [trySpawn] Attempting to spawn type: ${typeToSpawn}`); // Log entry
+    console.log(`  [trySpawn] Attempting to spawn type: ${typeToSpawn}`); // <<< UNCOMMENTED Log entry
     if (!typeToSpawn) {
         console.warn("  [trySpawn] Called with no type.");
         return false; 
@@ -169,7 +169,7 @@ function trySpawn(typeToSpawn) {
     }
 
     const currentMax = getMaxForType(typeToSpawn);
-    console.log(`  [trySpawn] Check: Current count ${targetArray.length}, Max allowed ${currentMax} for type ${typeToSpawn}`); 
+    // console.log(`  [trySpawn] Check: Current count ${targetArray.length}, Max allowed ${currentMax} for type ${typeToSpawn}`); // Keep commented
     if (targetArray.length >= currentMax) {
         console.log(`  [trySpawn] Max reached for type ${typeToSpawn}.`);
         return false;
@@ -177,7 +177,7 @@ function trySpawn(typeToSpawn) {
 
     const maxAttempts = 50;
     const { divisionsX, divisionsZ } = getGridDimensions(); 
-    console.log(`  [trySpawn] Starting position search (max ${maxAttempts} attempts)...`); // Log search start
+    console.log(`  [trySpawn] Starting position search (max ${maxAttempts} attempts)...`); // <<< UNCOMMENTED Log search start
     for (let attempt = 0; attempt < maxAttempts; attempt++) {
         const gridX = Math.floor(Math.random() * divisionsX);
         const gridZ = Math.floor(Math.random() * divisionsZ);
@@ -187,9 +187,11 @@ function trySpawn(typeToSpawn) {
         const potentialPos = new THREE.Vector3(worldX, worldY, worldZ);
         
         // Use isPositionSafe with isSpawnCheck=true (checks boundaries, pickups, and trails with larger threshold)
-        const baseSafe = isPositionSafe(potentialPos, null, true, false, true); // ADDED: isSpawnCheck = true
+        const baseSafe = isPositionSafe(potentialPos, null, true, false); 
 
         const adjacent = isCellAdjacentToWall(gridX, gridZ);
+        
+        console.log(`  [trySpawn attempt ${attempt+1}] Pos:(${potentialPos.x.toFixed(1)},${potentialPos.z.toFixed(1)}), Safe:${baseSafe}, Adjacent:${adjacent}`); // <<< ADDED DETAILED LOG
 
         // Use only baseSafe result now
         if (baseSafe) { 
@@ -215,19 +217,19 @@ function trySpawn(typeToSpawn) {
                 // Determine color: Use pickup's material color if available, otherwise use sparseTrailMaterial color (yellow)
                 const effectColor = pickup.material ? pickup.material.color : sparseTrailMaterial.color; 
                 createPickupSpawnEffect(potentialPos, effectColor);
-                console.log(`  [trySpawn] SUCCESS on attempt ${attempt+1} for ${spawnTypeName}! Spawning at (${potentialPos.x.toFixed(1)}, ${potentialPos.z.toFixed(1)})`); // Log success AND position
+                console.log(`  [trySpawn] SUCCESS on attempt ${attempt+1} for ${spawnTypeName}! Spawning at (${potentialPos.x.toFixed(1)}, ${potentialPos.z.toFixed(1)})`); // <<< UNCOMMENTED Log success AND position
                 logTotalPickupCount(`Spawned ${spawnTypeName}`); // Keep this useful one
                 return true;
             } else {
-                 // console.log(`  [trySpawn attempt ${attempt+1}] Rejected: Adjacent to wall.`); // Log rejection reason
+                 console.log(`  [trySpawn attempt ${attempt+1}] Rejected: Adjacent to wall.`); // <<< UNCOMMENTED Log rejection reason
             }
         } else {
              // Add reason for rejection to log
              let rejectionReason = "isPositionSafe check failed (boundary/pickup/trail)"; 
-             // console.log(`  [trySpawn attempt ${attempt+1}] Rejected: ${rejectionReason}.`);
+             console.log(`  [trySpawn attempt ${attempt+1}] Rejected: ${rejectionReason}.`); // <<< UNCOMMENTED Log rejection reason
         }
     }
-    console.warn(`  [trySpawn] Could not find empty space for pickup type ${spawnTypeName} after ${maxAttempts} attempts.`); // Log failure
+    console.warn(`  [trySpawn] Could not find empty space for pickup type ${spawnTypeName} after ${maxAttempts} attempts.`); // <<< UNCOMMENTED Log failure
     logTotalPickupCount(`Failed spawn ${spawnTypeName}`); // Keep this useful one
     return false;
 }
@@ -371,7 +373,7 @@ export function spawnPickup(forceType = null) {
 
 // Spawn Initial Pickups (Called from init)
 export function spawnInitialPickups() {
-    // console.log("[spawnInitialPickups] Starting initial spawn sequence."); // Log entry
+    console.log("[spawnInitialPickups] Starting initial spawn sequence."); // <<< UNCOMMENTED Log entry
     // Clear existing pickups from scene and arrays
     [scorePickups, expansionPickups, clearPickups, zoomPickups, sparseTrailPickups, multiSpawnPickups, addAiPickups, ammoPickups].forEach(arr => {
         arr.forEach(p => scene.remove(p));
@@ -391,8 +393,8 @@ export function spawnInitialPickups() {
 
     const nonCounterEligibleTypes = initiallyEligibleTypes.filter(type => !counterBasedTypes.includes(type));
 
-    // console.log(`[spawnInitialPickups] Initial spawn eligibility (all based on topScore ${topScore}):`, initiallyEligibleTypes);
-    // console.log(`[spawnInitialPickups] Attempting initial spawn for non-counter types:`, nonCounterEligibleTypes); // Log eligible types
+    console.log(`[spawnInitialPickups] Initial spawn eligibility (all based on topScore ${topScore}):`, initiallyEligibleTypes); // <<< UNCOMMENTED Log eligible types
+    console.log(`[spawnInitialPickups] Attempting initial spawn for non-counter types:`, nonCounterEligibleTypes); // <<< UNCOMMENTED Log eligible types
 
     if (nonCounterEligibleTypes.length === 0) {
         console.warn("No non-counter powerups unlocked based on topScore! Cannot perform initial spawn.");
@@ -406,14 +408,14 @@ export function spawnInitialPickups() {
     for (let i = 0; i < Math.min(maxInitialSpawns, nonCounterEligibleTypes.length); i++) {
         const typeToSpawn = nonCounterEligibleTypes[i];
         
-        // console.log(`[spawnInitialPickups] Initial spawn attempt ${i + 1}: Trying type '${typeToSpawn}'`); // Log specific attempt
+        console.log(`[spawnInitialPickups] Initial spawn attempt ${i + 1}: Trying type '${typeToSpawn}'`); // <<< UNCOMMENTED Log specific attempt
         const success = spawnPickup(typeToSpawn);
         if (success) {
             spawnedCount++;
         }
     }
 
-    // console.log(`[spawnInitialPickups] Finished initial spawn attempts. Spawned ${spawnedCount} pickups.`); // Log final count
+    console.log(`[spawnInitialPickups] Finished initial spawn attempts. Spawned ${spawnedCount} pickups.`); // <<< UNCOMMENTED Log final count
     logTotalPickupCount("After Initial Spawn"); // Keep this useful one
 }
 
@@ -712,8 +714,7 @@ function checkAddAiPickupCollision() {
                          else startDirZ = Math.random() < 0.5 ? 1 : -1;
                      }
 
-                     const newAI = createNewAIPlayer(scene, spawnWorldX, spawnWorldZ, startDirX, startDirZ);
-                     aiPlayers.push(newAI);
+                     const newAI = createNewAIPlayer(spawnWorldX, spawnWorldZ, startDirX, startDirZ);
                      console.log(`[AddAI Pickup] Spawned new AI with ID: ${newAI.id}`);
                      spawned = true;
                      break; 
@@ -947,8 +948,7 @@ function checkAIAddAiPickupCollision(aiObject) {
                          else startDirZ = Math.random() < 0.5 ? 1 : -1;
                      }
                      
-                     const newAI = createNewAIPlayer(scene, spawnWorldX, spawnWorldZ, startDirX, startDirZ);
-                     aiPlayers.push(newAI);
+                     const newAI = createNewAIPlayer(spawnWorldX, spawnWorldZ, startDirX, startDirZ);
                      console.log(`[AddAI Pickup by AI ${aiObject.id}] Spawned new AI with ID: ${newAI.id}`);
                      spawned = true;
                      break; 

@@ -55,8 +55,8 @@ export function onKeyDown(event) {
         return;
     }
 
-    // If paused, don't process other game inputs
-    if (isPaused) {
+    // If paused OR game over, don't process other game inputs
+    if (isPaused || isGameOver) {
         return;
     }
 
@@ -86,6 +86,11 @@ export function onKeyDown(event) {
 }
 
 export function onKeyUp(event) {
+    // ADDED: If game is over or paused, ignore key up
+    if (isGameOver || isPaused) {
+        return;
+    }
+    // END ADDED
     if (event.key === 'ArrowDown') {
         setLookingBack(false);
     }
