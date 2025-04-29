@@ -41,11 +41,12 @@ import {
     isGameOverCameraActive, // ADDED Import
     setIsGameOverCameraActive, // ADDED Import
     deathZoomFactor, // ADDED Import
-    setDeathZoomFactor, // ADDED Import
+    setDeathZoomFactor,
     aiDefeatedTime, // ADDED Import
     setAiDefeatedTime, // ADDED Import
     aiSpawnRingEffects, setAiSpawnRingEffects, // <<< Import AI Spawn Effects state (Keep First One)
     setAiPlayers,
+    setPickupsCollectedCounter // <<< ADDED IMPORT
 } from './state.js';
 import {
     initialBoundaryHalfSize, segmentSize, cameraHeight, cameraDistanceBehind, P1_HEAD_COLOR_NORMAL,
@@ -57,7 +58,7 @@ import {
     AI_SPAWN_RING_VISUAL_DURATION,
 } from './constants.js';
 import { snapToGridCenter } from './utils.js';
-import { onKeyDown, onKeyUp, onTouchStart, onTouchEnd, handleFirstClick, startGame } from './playerControls.js';
+import { onKeyDown, onKeyUp, onTouchStart, onTouchEnd, handleFirstClick, startGame, handleDebugClick } from './playerControls.js';
 import { spawnInitialPickups } from './pickups.js';
 import { createPlayAreaVisuals, initializePickupTemplates, updateAmmoIndicatorP1, updateAmmoIndicatorAI, clearAllTrails, clearFloatingTexts, clearExplosionParticles, revertHeadColors } from './visuals.js';
 import { createOpeningDialog, createGameOverText, createVersionText, createScoreText, createTopScoreText, createPauseIndicator, createGitHubLink, createItchLink, removeGameOverPointerListeners } from './ui.js';
@@ -250,9 +251,9 @@ export function createAISpawnRingEffect(position, color) {
 export function resetGame() {
     console.log(`--- Entering resetGame ---`);
     // Capture top score at the start of reset
-    console.log(`[resetGame] Value of topScore BEFORE assignment: ${topScore}`);
+    // console.log(`[resetGame] Value of topScore BEFORE assignment: ${topScore}`);
     if(setTopScoreAtGameStart) setTopScoreAtGameStart(topScore);
-    console.log(`[resetGame] Value of topScoreAtGameStart AFTER assignment: ${topScoreAtGameStart}`);
+    // console.log(`[resetGame] Value of topScoreAtGameStart AFTER assignment: ${topScoreAtGameStart}`);
 
     // --- Remove Game Over Listeners ---
     removeGameOverPointerListeners();
@@ -269,6 +270,8 @@ export function resetGame() {
     if(setAiDefeatedTime) setAiDefeatedTime(null);
     if(setDeathZoomFactor) setDeathZoomFactor(1.0);
     if(setScoreP1) setScoreP1(0);
+    if(setPickupsCollectedCounter) setPickupsCollectedCounter(0);
+    unlockedScoresThisGame.clear();
     if(setSpeedBoostActiveP1) setSpeedBoostActiveP1(false);
     if(setSpeedBoostEndTimeP1) setSpeedBoostEndTimeP1(0);
     if(setSpeedLevelP1) setSpeedLevelP1(0);
@@ -332,9 +335,18 @@ export function resetGame() {
 
     // --- Reset AI Players --- 
     // Remove existing AI visuals and clear the array
+    console.log(`[resetGame] Cleaning up ${aiPlayers.length} AI objects...`); // <<< ADDED LOG
     aiPlayers.forEach(ai => {
-        if (ai.head && scene) scene.remove(ai.head);
-        if (ai.ammoIndicator && scene) scene.remove(ai.ammoIndicator);
+        console.log(`[resetGame] Processing AI ${ai.id}. Head Exists: ${!!ai.head}, Is Lost: ${ai.lost}`); // <<< ADDED LOG
+        if (ai.head && scene) {
+            console.log(`[resetGame] Attempting to remove head for AI ${ai.id}`); // <<< ADDED LOG
+            scene.remove(ai.head);
+            console.log(`[resetGame] Called scene.remove for AI ${ai.id} head.`); // <<< ADDED LOG
+        }
+        if (ai.ammoIndicator && scene) {
+            console.log(`[resetGame] Removing ammo indicator for AI ${ai.id}`); // <<< ADDED LOG
+            scene.remove(ai.ammoIndicator);
+        }
         // Clear AI trails individually if needed, or rely on clearAllTrails
         ai.trailSegments.forEach(seg => scene.remove(seg)); // Remove visual segments
         ai.trailSegments.length = 0; // <-- Explicitly clear the internal array
@@ -360,7 +372,7 @@ export function resetGame() {
     if(setNextMultiSpawnCount) setNextMultiSpawnCount(MULTI_PICKUP_THRESHOLD);
 
     // Spawn a fresh set of initial pickups
-    spawnInitialPickups();
+    spawnInitialPickups(); // <<< UNCOMMENTED - Needs to run on reset
 
     // Reset player 1 snake position & visuals
     const startPos1X = snapToGridCenter(bXMin + segmentSize, 'x');
@@ -394,7 +406,7 @@ export function resetGame() {
     let aiSpawnPos = null;
     const maxSpawnAttempts = 50; // Limit attempts to find a spot
     const headHalfWidth = (segmentSize * 1.05) / 2.0; // <<< RE-ADD headHalfWidth
-    console.log(`[resetGame] Finding safe spawn for initial AI... (Head half width: ${headHalfWidth.toFixed(2)})`); // Added log
+    // console.log(`[resetGame] Finding safe spawn for initial AI... (Head half width: ${headHalfWidth.toFixed(2)})`);
     for (let attempt = 0; attempt < maxSpawnAttempts; attempt++) {
         // Try spawning near the right edge, moving inwards slightly
         const tryX = bXMax - segmentSize * (1 + Math.floor(attempt / 5)); // Move inwards every 5 attempts
@@ -414,7 +426,7 @@ export function resetGame() {
         // MODIFIED: Use the specific trail check and the explicit bounds check
         if (isSafeFromTrails && isWithinBounds) { 
             aiSpawnPos = potentialPos;
-            console.log(`[resetGame] Found safe AI spawn at (${aiSpawnPos.x.toFixed(1)}, ${aiSpawnPos.z.toFixed(1)}) on attempt ${attempt + 1}`);
+            // console.log(`[resetGame] Found safe AI spawn at (${aiSpawnPos.x.toFixed(1)}, ${aiSpawnPos.z.toFixed(1)}) on attempt ${attempt + 1}`);
             break;
         }
     }
@@ -431,14 +443,14 @@ export function resetGame() {
     const aiStartDir = new THREE.Vector3(-1, 0, 0); 
     // --- MODIFIED: Use new createNewAIPlayer signature ---
     const firstAI = createNewAIPlayer(aiSpawnPos.x, aiSpawnPos.z, aiStartDir.x, aiStartDir.z); 
-    console.log(`[resetGame] Created AI ${firstAI.id} at (${aiSpawnPos.x.toFixed(1)}, ${aiSpawnPos.z.toFixed(1)}) spawning...`); 
+    // console.log(`[resetGame] Created AI ${firstAI.id} at (${aiSpawnPos.x.toFixed(1)}, ${aiSpawnPos.z.toFixed(1)}) spawning...`);
     // aiPlayers.push(firstAI); // Pushed inside createNewAIPlayer now
 
     // <<< MOVE AND FIX: Initialize AI collision status AFTER AIs are created >>>
     if(setPreviousFrameAICollisionStatus) {
         const initialAIStatus = aiPlayers.map(() => false); // Create array of 'false' for each AI
         setPreviousFrameAICollisionStatus(initialAIStatus);
-        console.log(`[resetGame] Initialized previousFrameAICollisionStatus: [${initialAIStatus.join(', ')}]`);
+        // console.log(`[resetGame] Initialized previousFrameAICollisionStatus: [${initialAIStatus.join(', ')}]`);
     }
     // <<< END FIX >>>
 
@@ -557,6 +569,7 @@ export function init() {
     window.addEventListener('keydown', onKeyDown, false);
     window.addEventListener('keyup', onKeyUp, false);
     window.addEventListener('click', handleFirstClick);
+    window.addEventListener('click', handleDebugClick);
     window.addEventListener('touchstart', onTouchStart, { passive: false });
     window.addEventListener('touchend', onTouchEnd, { passive: false });
     document.addEventListener('visibilitychange', handleVisibilityChange, false);

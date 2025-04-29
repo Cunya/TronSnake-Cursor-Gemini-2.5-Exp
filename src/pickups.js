@@ -40,7 +40,8 @@ import {
 import { snapToGridCenter, logTotalPickupCount, getGridDimensions } from './utils.js';
 import { 
     createExplosionEffect, createFloatingText, updateAmmoIndicatorP1, updateAmmoIndicatorAI, 
-    clearAllTrails, createPlayAreaVisuals, createPickupSpawnEffect
+    clearAllTrails, createPlayAreaVisuals, createPickupSpawnEffect, diagnoseOrphanedSegments,
+    logSceneMeshes
 } from './visuals.js';
 import { isPositionSafe } from './ai.js'; // Need isPositionSafe for spawning
 import { createNewAIPlayer } from './init.js'; // Need the helper from init
@@ -107,7 +108,7 @@ function isCellAdjacentToWall(gridX, gridZ) {
 // Helper function to contain the actual spawning logic (Internal)
 // MODIFIED: Returns object { success: boolean, pickup: object | null }
 function trySpawn(typeToSpawn) {
-    console.log(`  [trySpawn] Attempting to spawn type: ${typeToSpawn}`); // <<< UNCOMMENTED Log entry
+    // console.log(`  [trySpawn] Attempting to spawn type: ${typeToSpawn}`); // <<< COMMENTED Log entry
     if (!typeToSpawn) {
         console.warn("  [trySpawn] Called with no type.");
         return { success: false, pickup: null };
@@ -178,7 +179,7 @@ function trySpawn(typeToSpawn) {
 
     const maxAttempts = 50;
     const { divisionsX, divisionsZ } = getGridDimensions(); 
-    console.log(`  [trySpawn] Starting position search (max ${maxAttempts} attempts)...`); // <<< UNCOMMENTED Log search start
+    // console.log(`  [trySpawn] Starting position search (max ${maxAttempts} attempts)...`); // <<< COMMENTED Log search start
     for (let attempt = 0; attempt < maxAttempts; attempt++) {
         const gridX = Math.floor(Math.random() * divisionsX);
         const gridZ = Math.floor(Math.random() * divisionsZ);
@@ -192,7 +193,7 @@ function trySpawn(typeToSpawn) {
 
         const adjacent = isCellAdjacentToWall(gridX, gridZ);
         
-        console.log(`  [trySpawn attempt ${attempt+1}] Pos:(${potentialPos.x.toFixed(1)},${potentialPos.z.toFixed(1)}), Safe:${baseSafe}, Adjacent:${adjacent}`); // <<< ADDED DETAILED LOG
+        // console.log(`  [trySpawn attempt ${attempt+1}] Pos:(${potentialPos.x.toFixed(1)},${potentialPos.z.toFixed(1)}), Safe:${baseSafe}, Adjacent:${adjacent}`); // <<< COMMENTED DETAILED LOG
 
         // Use only baseSafe result now
         if (baseSafe) { 
@@ -231,26 +232,26 @@ function trySpawn(typeToSpawn) {
                 // Determine color: Use pickup's material color if available, otherwise use sparseTrailMaterial color (yellow)
                 const effectColor = pickup.material ? pickup.material.color : sparseTrailMaterial.color; 
                 pickup.needsSpawnParticles = true;
-                console.log(`  [trySpawn] SUCCESS on attempt ${attempt+1} for ${spawnTypeName}! Spawning at (${potentialPos.x.toFixed(1)}, ${potentialPos.z.toFixed(1)})`); // <<< UNCOMMENTED Log success AND position
+                // console.log(`  [trySpawn] SUCCESS on attempt ${attempt+1} for ${spawnTypeName}! Spawning at (${potentialPos.x.toFixed(1)}, ${potentialPos.z.toFixed(1)})`); // <<< COMMENTED Log success AND position
                 logTotalPickupCount(`Spawned ${spawnTypeName}`); // Keep this useful one
                 return { success: true, pickup: pickup };
             } else {
-                 console.log(`  [trySpawn attempt ${attempt+1}] Rejected: Adjacent to wall.`); // <<< UNCOMMENTED Log rejection reason
+                 // console.log(`  [trySpawn attempt ${attempt+1}] Rejected: Adjacent to wall.`); // <<< COMMENTED Log rejection reason
             }
         } else {
              // Add reason for rejection to log
              let rejectionReason = "isPositionSafe check failed (boundary/pickup/trail)"; 
-             console.log(`  [trySpawn attempt ${attempt+1}] Rejected: ${rejectionReason}.`); // <<< UNCOMMENTED Log rejection reason
+             // console.log(`  [trySpawn attempt ${attempt+1}] Rejected: ${rejectionReason}.`); // <<< COMMENTED Log rejection reason
         }
     }
-    console.warn(`  [trySpawn] Could not find empty space for pickup type ${spawnTypeName} after ${maxAttempts} attempts.`); // <<< UNCOMMENTED Log failure
+    console.warn(`  [trySpawn] Could not find empty space for pickup type ${spawnTypeName} after ${maxAttempts} attempts.`); // <<< KEPT Log failure
     logTotalPickupCount(`Failed spawn ${spawnTypeName}`); // Keep this useful one
     return { success: false, pickup: null };
 }
 
 // --- New function to handle counter-based spawns ---
 function checkAndSpawnCounterPickups(currentPickupCount) {
-    console.log(`Checking counter spawns. Current count: ${currentPickupCount}`);
+    // console.log(`Checking counter spawns. Current count: ${currentPickupCount}`); // <<< COMMENTED
     
     // Helper to check unlock status
     const isUnlocked = (type) => {
@@ -260,16 +261,16 @@ function checkAndSpawnCounterPickups(currentPickupCount) {
 
     // Ammo Check
     if (currentPickupCount >= nextAmmoSpawnCount && ammoPickups.length < maxAmmoPickups) {
-        console.log(` -> Counter threshold met for AMMO (${currentPickupCount} >= ${nextAmmoSpawnCount})`);
+        // console.log(` -> Counter threshold met for AMMO (${currentPickupCount} >= ${nextAmmoSpawnCount})`); // <<< COMMENTED
         // MODIFIED: Update threshold immediately
         const nextCount = nextAmmoSpawnCount + AMMO_PICKUP_THRESHOLD;
         if (setNextAmmoSpawnCount) setNextAmmoSpawnCount(nextCount);
-        console.log(`    -> Next check for Ammo at ${nextCount}`);
+        // console.log(`    -> Next check for Ammo at ${nextCount}`);
         
         if (isUnlocked('ammo')) {
             const spawnResult = trySpawn("ammo"); // Store result
             if (spawnResult.success) {
-                console.log(`    -> Spawned Ammo`);
+                // console.log(`    -> Spawned Ammo`); // <<< COMMENTED
                 // <<< ADDED: Trigger effects for counter-based spawn >>>
                 const pickup = spawnResult.pickup;
                 const now = performance.now();
@@ -277,35 +278,35 @@ function checkAndSpawnCounterPickups(currentPickupCount) {
                     pickup.isSpawning = true;
                     pickup.spawnStartTime = now;
                     pickup.needsFadeIn = false;
-                    console.log(`       -> Triggered fade-in state`);
+                    // console.log(`       -> Triggered fade-in state`); // <<< COMMENTED
                 }
                 if (pickup.needsSpawnParticles) {
                     let effectColor = pickup.material ? pickup.material.color : 0xffffff;
                     createPickupSpawnEffect(pickup.position, effectColor);
                     pickup.needsSpawnParticles = false;
-                    console.log(`       -> Triggered spawn particles`);
+                    // console.log(`       -> Triggered spawn particles`); // <<< COMMENTED
                 }
                 // <<< END ADDED >>>
             } else {
-                console.log(`    -> Failed to spawn Ammo (unlock check passed)`);
+                // console.log(`    -> Failed to spawn Ammo (unlock check passed)`);
             }
         } else {
-            console.log(`    -> Ammo not unlocked yet (Top Score: ${topScore})`);
+            // console.log(`    -> Ammo not unlocked yet (Top Score: ${topScore})`);
         }
     }
 
     // Clear Walls Check
     if (currentPickupCount >= nextClearSpawnCount && clearPickups.length < maxClearPickups) {
-         console.log(` -> Counter threshold met for CLEAR (${currentPickupCount} >= ${nextClearSpawnCount})`);
+         // console.log(` -> Counter threshold met for CLEAR (${currentPickupCount} >= ${nextClearSpawnCount})`); // <<< COMMENTED
          // MODIFIED: Update threshold immediately
          const nextCount = nextClearSpawnCount + CLEAR_WALL_PICKUP_THRESHOLD;
          if (setNextClearSpawnCount) setNextClearSpawnCount(nextCount);
-         console.log(`    -> Next check for Clear eligibility at ${nextCount}`);
+         // console.log(`    -> Next check for Clear eligibility at ${nextCount}`);
 
          if (isUnlocked('clear')) {
             const spawnResult = trySpawn("clear"); // Store result
             if (spawnResult.success) {
-                console.log(`    -> Spawned Clear`);
+                // console.log(`    -> Spawned Clear`); // <<< COMMENTED
                  // <<< ADDED: Trigger effects for counter-based spawn >>>
                 const pickup = spawnResult.pickup;
                 const now = performance.now();
@@ -313,35 +314,35 @@ function checkAndSpawnCounterPickups(currentPickupCount) {
                     pickup.isSpawning = true;
                     pickup.spawnStartTime = now;
                     pickup.needsFadeIn = false;
-                    console.log(`       -> Triggered fade-in state`);
+                    // console.log(`       -> Triggered fade-in state`); // <<< COMMENTED
                 }
                 if (pickup.needsSpawnParticles) {
                     let effectColor = pickup.material ? pickup.material.color : 0xffffff;
                     createPickupSpawnEffect(pickup.position, effectColor);
                     pickup.needsSpawnParticles = false;
-                    console.log(`       -> Triggered spawn particles`);
+                    // console.log(`       -> Triggered spawn particles`); // <<< COMMENTED
                 }
                 // <<< END ADDED >>>
             } else {
-                console.log(`    -> Failed to spawn Clear (unlock check passed)`);
+                // console.log(`    -> Failed to spawn Clear (unlock check passed)`);
             }
         } else {
-             console.log(`    -> Clear Walls not unlocked yet (Top Score: ${topScore})`);
+             // console.log(`    -> Clear Walls not unlocked yet (Top Score: ${topScore})`);
         }
     }
 
     // Add AI Check
     if (currentPickupCount >= nextAddAiSpawnCount && addAiPickups.length < maxAddAiPickups) {
-        console.log(` -> Counter threshold met for ADD_AI (${currentPickupCount} >= ${nextAddAiSpawnCount})`);
+        // console.log(` -> Counter threshold met for ADD_AI (${currentPickupCount} >= ${nextAddAiSpawnCount})`); // <<< COMMENTED
         // MODIFIED: Update threshold immediately
         const nextCount = nextAddAiSpawnCount + ADD_AI_PICKUP_THRESHOLD;
         if (setNextAddAiSpawnCount) setNextAddAiSpawnCount(nextCount);
-        console.log(`    -> Next check for Add AI eligibility at ${nextCount}`);
+        // console.log(`    -> Next check for Add AI eligibility at ${nextCount}`);
 
         if (isUnlocked('add_ai')) {
             const spawnResult = trySpawn("add_ai"); // Store result
             if (spawnResult.success) {
-                console.log(`    -> Spawned Add AI`);
+                // console.log(`    -> Spawned Add AI`); // <<< COMMENTED
                 // <<< ADDED: Trigger effects for counter-based spawn >>>
                 const pickup = spawnResult.pickup;
                 const now = performance.now();
@@ -349,35 +350,35 @@ function checkAndSpawnCounterPickups(currentPickupCount) {
                     pickup.isSpawning = true;
                     pickup.spawnStartTime = now;
                     pickup.needsFadeIn = false;
-                    console.log(`       -> Triggered fade-in state`);
+                    // console.log(`       -> Triggered fade-in state`); // <<< COMMENTED
                 }
                 if (pickup.needsSpawnParticles) {
                     let effectColor = pickup.material ? pickup.material.color : 0xffffff;
                     createPickupSpawnEffect(pickup.position, effectColor);
                     pickup.needsSpawnParticles = false;
-                    console.log(`       -> Triggered spawn particles`);
+                    // console.log(`       -> Triggered spawn particles`); // <<< COMMENTED
                 }
                 // <<< END ADDED >>>
             } else {
-                console.log(`    -> Failed to spawn Add AI (unlock check passed)`);
+                // console.log(`    -> Failed to spawn Add AI (unlock check passed)`);
             }
         } else {
-            console.log(`    -> Add AI not unlocked yet (Top Score: ${topScore})`);
+            // console.log(`    -> Add AI not unlocked yet (Top Score: ${topScore})`);
         }
     }
 
     // Expansion Check
     if (currentPickupCount >= nextExpansionSpawnCount && expansionPickups.length < maxExpansionPickups) {
-        console.log(` -> Counter threshold met for EXPANSION (${currentPickupCount} >= ${nextExpansionSpawnCount})`);
+        // console.log(` -> Counter threshold met for EXPANSION (${currentPickupCount} >= ${nextExpansionSpawnCount})`); // <<< COMMENTED
         // MODIFIED: Update threshold immediately
         const nextCount = nextExpansionSpawnCount + EXPAND_PICKUP_THRESHOLD;
         if (setNextExpansionSpawnCount) setNextExpansionSpawnCount(nextCount);
-        console.log(`    -> Next check for Expansion eligibility at ${nextCount}`);
+        // console.log(`    -> Next check for Expansion eligibility at ${nextCount}`);
 
         if (isUnlocked('expansion')) {
             const spawnResult = trySpawn("expansion"); // Store result
             if (spawnResult.success) {
-                 console.log(`    -> Spawned Expansion`);
+                 // console.log(`    -> Spawned Expansion`); // <<< COMMENTED
                 // <<< ADDED: Trigger effects for counter-based spawn >>>
                 const pickup = spawnResult.pickup;
                 const now = performance.now();
@@ -385,35 +386,35 @@ function checkAndSpawnCounterPickups(currentPickupCount) {
                     pickup.isSpawning = true;
                     pickup.spawnStartTime = now;
                     pickup.needsFadeIn = false;
-                    console.log(`       -> Triggered fade-in state`);
+                    // console.log(`       -> Triggered fade-in state`); // <<< COMMENTED
                 }
                 if (pickup.needsSpawnParticles) {
                     let effectColor = pickup.material ? pickup.material.color : 0xffffff;
                     createPickupSpawnEffect(pickup.position, effectColor);
                     pickup.needsSpawnParticles = false;
-                    console.log(`       -> Triggered spawn particles`);
+                    // console.log(`       -> Triggered spawn particles`); // <<< COMMENTED
                 }
                 // <<< END ADDED >>>
             } else {
-                 console.log(`    -> Failed to spawn Expansion (unlock check passed)`);
+                 // console.log(`    -> Failed to spawn Expansion (unlock check passed)`);
             }
         } else {
-            console.log(`    -> Expansion not unlocked yet (Top Score: ${topScore})`);
+            // console.log(`    -> Expansion not unlocked yet (Top Score: ${topScore})`);
         }
     }
 
     // Multi-Spawn Check (Note: Threshold might need adjustment)
     if (currentPickupCount >= nextMultiSpawnCount && multiSpawnPickups.length < maxMultiSpawnPickups) {
-        console.log(` -> Counter threshold met for MULTI (${currentPickupCount} >= ${nextMultiSpawnCount})`);
+        // console.log(` -> Counter threshold met for MULTI (${currentPickupCount} >= ${nextMultiSpawnCount})`); // <<< COMMENTED
         // MODIFIED: Update threshold immediately
         const nextCount = nextMultiSpawnCount + MULTI_PICKUP_THRESHOLD;
         if (setNextMultiSpawnCount) setNextMultiSpawnCount(nextCount);
-        console.log(`    -> Next check for Multi-Spawn eligibility at ${nextCount}`);
+        // console.log(`    -> Next check for Multi-Spawn eligibility at ${nextCount}`);
 
         if (isUnlocked('multi')) {
             const spawnResult = trySpawn("multi"); // Store result
             if (spawnResult.success) {
-                 console.log(`    -> Spawned Multi`);
+                 // console.log(`    -> Spawned Multi`); // <<< COMMENTED
                 // <<< ADDED: Trigger effects for counter-based spawn >>>
                 const pickup = spawnResult.pickup;
                 const now = performance.now();
@@ -421,57 +422,32 @@ function checkAndSpawnCounterPickups(currentPickupCount) {
                     pickup.isSpawning = true;
                     pickup.spawnStartTime = now;
                     pickup.needsFadeIn = false;
-                    console.log(`       -> Triggered fade-in state`);
+                    // console.log(`       -> Triggered fade-in state`); // <<< COMMENTED
                 }
                 if (pickup.needsSpawnParticles) {
                     let effectColor = pickup.material ? pickup.material.color : 0xffffff;
                     createPickupSpawnEffect(pickup.position, effectColor);
                     pickup.needsSpawnParticles = false;
-                    console.log(`       -> Triggered spawn particles`);
+                    // console.log(`       -> Triggered spawn particles`); // <<< COMMENTED
                 }
                 // <<< END ADDED >>>
             } else {
-                console.log(`    -> Failed to spawn Multi (unlock check passed)`);
+                // console.log(`    -> Failed to spawn Multi (unlock check passed)`);
             }
         } else {
-             console.log(`    -> Multi-Spawn not unlocked yet (Top Score: ${topScore})`);
+             // console.log(`    -> Multi-Spawn not unlocked yet (Top Score: ${topScore})`);
         }
     }
 }
 
 // Main Pickup Spawning Logic (Called during game and by spawnInitialPickups)
 // Returns boolean for initial spawn success check
-export function spawnPickup(forceType = null) {
-    console.log(`--- spawnPickup called with forceType: ${forceType} ---`);
-    let pickupType = forceType;
-
-    // Determine Primary Spawn Type (if not forced)
-    if (!pickupType) {
-        console.log("  -> No forceType, determining eligible types...");
-        let eligibleTypes = [];
-        // Eligibility based on score ONLY now
-        if (topScore >= 0 && zoomPickups.length < maxZoomPickups) eligibleTypes.push({ type: "zoom" });
-        if (topScore >= 50 && scorePickups.length < maxScorePickups) eligibleTypes.push({ type: "score" });
-        if (topScore >= 200 && sparseTrailPickups.length < maxSparseTrailPickups) eligibleTypes.push({ type: "sparse" });
-
-        if (eligibleTypes.length === 0) {
-            console.log("  -> No score-based types eligible, forcing zoom as fallback.");
-            pickupType = "zoom"; // Always allow zoom?
-        }
-
-        // If still no type, something is wrong, but let's try zoom as default
-        if (!pickupType && eligibleTypes.length > 0) {
-            const randomIndex = Math.floor(Math.random() * eligibleTypes.length);
-            pickupType = eligibleTypes[randomIndex].type;
-            console.log(`  -> Randomly selected SCORE-BASED pickupType: ${pickupType}`);
-        } else if (!pickupType) {
-             console.warn("  -> No eligible types found, defaulting to zoom spawn attempt.");
-             pickupType = "zoom";
-        }
+export function spawnPickup(pickupType, forceTry = false) {
+    if (forceTry) {
+        // console.log(`[spawnPickup] called with forceTry = true for type: ${pickupType}`); // <<< COMMENTED OUT
     }
 
-    console.log(`  -> Final pickupType determined for non-counter spawn: ${pickupType}`);
-
+    // Check if the type is unlocked based on topScore
     if (!pickupType) {
         console.warn("  -> No pickup type could be determined. Exiting spawnPickup.");
         return false;
@@ -560,6 +536,7 @@ export function spawnInitialPickups() {
     }
 
     console.log(`[spawnInitialPickups] Finished initial spawn attempts. Spawned ${spawnedCount} pickups.`); // <<< UNCOMMENTED Log final count
+
     logTotalPickupCount("After Initial Spawn"); // Keep this useful one
 }
 
@@ -639,7 +616,11 @@ function checkScorePickupCollision() {
     for (let i = scorePickups.length - 1; i >= 0; i--) {
         const pickup = scorePickups[i];
         if (snakeTargetPosition1.distanceToSquared(pickup.position) < PICKUP_COLLISION_THRESHOLD_SQ * 1.1) {
-            const pos = pickup.position.clone(); const col = pickup.material.color.clone();
+            console.log('[Collision P1 Score] Pickup:', pickup); // <<< ADDED LOG
+            console.log('[Collision P1 Score] Pickup Material:', pickup.material); // <<< ADDED LOG
+            console.log('[Collision P1 Score] Pickup Material Color:', pickup.material?.color); // <<< ADDED LOG
+            const pos = pickup.position.clone(); 
+            const col = pickup.material.color.clone(); // This line might error
             createExplosionEffect(pos, col);
             scene.remove(pickup); scorePickups.splice(i, 1); logTotalPickupCount("Collected Player SpeedUp");
             
@@ -691,7 +672,9 @@ function checkExpansionPickupCollision() {
 function checkClearPickupCollision() {
      for (let i = clearPickups.length - 1; i >= 0; i--) {
         const pickup = clearPickups[i];
+        console.log(`[Check P1 Clear Collision] Checking pickup ${pickup.uuid} at ${pickup.position.x.toFixed(1)},${pickup.position.z.toFixed(1)} against P1 at ${snakeTargetPosition1.x.toFixed(1)},${snakeTargetPosition1.z.toFixed(1)}`);
         if (snakeTargetPosition1.distanceToSquared(pickup.position) < PICKUP_COLLISION_THRESHOLD_SQ * 1.1) {
+            console.log("[Check P1 Clear Collision] Collision DETECTED!");
             const pos = pickup.position.clone(); const col = pickup.material.color.clone();
             createExplosionEffect(pos, col); 
              // Calculate boosted score for text
@@ -701,7 +684,18 @@ function checkClearPickupCollision() {
             createFloatingText(`+${actualScoreAwarded} Clear Walls!`, pos, col);
             
             scene.remove(pickup); clearPickups.splice(i, 1); logTotalPickupCount("Collected Player Clear");
+            
+            // <<< ADDED: Log trail lengths BEFORE clearing >>>
+            let trailLog = `[Clear Walls Collected] Trail lengths before clear: Player1=${trailSegments1.length}`;
+            aiPlayers.forEach(ai => {
+                trailLog += `, ${ai.id}=${ai.trailSegments.length}`;
+            });
+            console.log(trailLog);
+            // <<< END ADDED >>>
+
+            // logSceneMeshes("Before Player Clear Pickup"); // <<< COMMENTED OUT
             clearAllTrails(); 
+            diagnoseOrphanedSegments(); // <<< ADDED CALL
             handleScoreUpdateAndCounters(baseScore); // Pass BASE score
             return true;
         }
@@ -922,7 +916,10 @@ function checkAIScorePickupCollision(aiObject) {
     for (let i = scorePickups.length - 1; i >= 0; i--) {
         const pickup = scorePickups[i];
         if (aiObject.targetPosition.distanceToSquared(pickup.position) < PICKUP_COLLISION_THRESHOLD_SQ * 1.1) {
-            createExplosionEffect(pickup.position.clone(), pickup.material.color.clone());
+            console.log(`[Collision AI ${aiObject.id} Score] Pickup:`, pickup); // <<< ADDED LOG
+            console.log(`[Collision AI ${aiObject.id} Score] Pickup Material:`, pickup.material); // <<< ADDED LOG
+            console.log(`[Collision AI ${aiObject.id} Score] Pickup Material Color:`, pickup.material?.color); // <<< ADDED LOG
+            createExplosionEffect(pickup.position.clone(), pickup.material.color.clone()); // This line might error
             scene.remove(pickup); scorePickups.splice(i, 1); logTotalPickupCount("Collected AI SpeedUp");
             
             const newLevelAI = aiObject.speedLevel + 1;
@@ -959,10 +956,14 @@ function checkAIExpansionPickupCollision(aiObject) {
 function checkAIClearPickupCollision(aiObject) {
     for (let i = clearPickups.length - 1; i >= 0; i--) {
         const pickup = clearPickups[i];
+        console.log(`[Check AI Clear Collision] AI ${aiObject.id} checking pickup ${pickup.uuid} at ${pickup.position.x.toFixed(1)},${pickup.position.z.toFixed(1)} against AI at ${aiObject.targetPosition.x.toFixed(1)},${aiObject.targetPosition.z.toFixed(1)}`);
         if (aiObject.targetPosition.distanceToSquared(pickup.position) < PICKUP_COLLISION_THRESHOLD_SQ * 1.1) {
+            console.log(`[Check AI Clear Collision] Collision DETECTED for AI ${aiObject.id}!`);
             createExplosionEffect(pickup.position.clone(), pickup.material.color.clone());
             scene.remove(pickup); clearPickups.splice(i, 1); logTotalPickupCount("Collected AI Clear");
+            // logSceneMeshes(`Before AI ${aiObject.id} Clear Pickup`); // <<< COMMENTED OUT
             clearAllTrails(); 
+            diagnoseOrphanedSegments(); // <<< ADDED CALL
             handleAICounterUpdate(); // Use new helper
             return true;
         }

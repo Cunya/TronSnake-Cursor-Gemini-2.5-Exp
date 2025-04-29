@@ -224,7 +224,7 @@ function updateSingleAIPlayer(aiObject) {
         // Shoot if player or other AI trail is ahead
         if (playerTrailAhead || otherAITrailAhead) {
             // Pass the AI object to the shooting function
-            aiShootProjectile(aiObject); // Corrected: Pass aiObject
+            aiShootProjectile(aiObject); // <<< RE-ENABLED
         }
     }
 
@@ -255,7 +255,7 @@ function updateSingleAIPlayer(aiObject) {
         }
         if (ownTrailBlocking && ammoCount > 0) {
              // Pass aiObject
-            aiShootProjectile(aiObject); // Corrected: Pass aiObject
+            aiShootProjectile(aiObject); // <<< RE-ENABLED
         }
 
         // Pass aiObject

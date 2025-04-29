@@ -8,7 +8,9 @@ import { isGameOver, gameActive, snakeDirection1, setLookingBack, setLookBackTou
     isInitialDragMove, setIsInitialDragMove,
     isPanningCamera, setIsPanningCamera,
     aiPlayers,
-    scorePickups, expansionPickups, clearPickups, zoomPickups, sparseTrailPickups, multiSpawnPickups, addAiPickups, ammoPickups
+    scorePickups, expansionPickups, clearPickups, zoomPickups, sparseTrailPickups, multiSpawnPickups, addAiPickups, ammoPickups,
+    scene,
+    gridMesh
 } from './state.js';
 import { yAxis, CAMERA_ROTATION_SPEED, CAMERA_PANNING_SPEED, CAMERA_ZOOM_SPEED, MIN_ZOOM_DISTANCE, MAX_ZOOM_DISTANCE, GAME_VERSION, segmentSize, sparseTrailMaterial } from './constants.js';
 import { resetGame, createAISpawnRingEffect } from './init.js';
@@ -42,7 +44,7 @@ export function startGame() {
             effectPosition.y = markerCenterY;
             createAISpawnRingEffect(effectPosition, ai.colors ? ai.colors.normal : 0xffffff); // Use AI color or fallback
             ai.needsSpawnEffect = false; // Mark as done
-            console.log(`[startGame] Triggered spawn effect for AI ${ai.id}`);
+            // console.log(`[startGame] Triggered spawn effect for AI ${ai.id}`); // <<< COMMENTED OUT
         }
     });
 
@@ -64,7 +66,7 @@ export function startGame() {
             }
         });
     });
-    console.log(`[startGame] Deferred visual effects triggered.`);
+    // console.log(`[startGame] Deferred visual effects triggered.`); // <<< COMMENTED OUT
     // --- <<< END Trigger Deferred Visuals >>> ---
     
     // Remove the initial interaction listeners once the game starts
@@ -116,7 +118,7 @@ export function onKeyDown(event) {
             break;
         case ' ': // Spacebar
             event.preventDefault(); 
-            shootProjectile(); 
+            shootProjectile(); // <<< RE-ENABLED
             break;
         case 'ArrowDown':
             event.preventDefault(); 
@@ -172,7 +174,7 @@ export function onTouchStart(event) {
         const touchY = touch.clientY;
 
         if (touchY < shootZoneHeight) {
-            shootProjectile(); // Reverted: Call without owner, no ammo check here
+            shootProjectile(); // <<< RE-ENABLED
         } else if (touchY > window.innerHeight - lookBackZoneHeight) {
             if (lookBackTouchId === null) { 
                 setLookingBack(true);
@@ -407,6 +409,65 @@ export function handleGameOverPointerUp(event) {
          cleanupGameOverListeners(); 
     }
 }
+
+// <<< ADDED: Debug Click Handler >>>
+export function handleDebugClick(event) {
+    // We don't preventDefault or check gameActive, so this runs alongside other click logic
+    // console.log("--- Debug Click Detected ---"); // Optional: uncomment if needed
+
+    if (!camera || !scene) {
+        console.warn("[Debug Click] Camera or Scene not available yet.");
+        return;
+    }
+
+    const mouse = new THREE.Vector2();
+    // Calculate normalized device coordinates (-1 to +1)
+    mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+    mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+
+    const raycaster = new THREE.Raycaster();
+    raycaster.setFromCamera(mouse, camera);
+
+    const allIntersects = raycaster.intersectObjects(scene.children, true); // true for recursive
+
+    // Filter out intersections with the gridMesh
+    const validIntersects = allIntersects.filter(intersect => intersect.object !== gridMesh);
+
+    if (validIntersects.length > 0) {
+        const intersect = validIntersects[0]; // Closest non-grid object
+        const object = intersect.object;
+
+        console.groupCollapsed("--- Debug Click Info --- Object Found ---"); // Group logs
+        console.log("Object:", object);
+        console.log(`  UUID: ${object.uuid}`);
+        console.log(`  Name: ${object.name || '(no name)'}`);
+        console.log(`  Type: ${object.type}`);
+        console.log(`  Position: (${object.position.x.toFixed(2)}, ${object.position.y.toFixed(2)}, ${object.position.z.toFixed(2)})`);
+        console.log(`  Visible: ${object.visible}`);
+        console.log(`  UserData:`, JSON.parse(JSON.stringify(object.userData))); // Deep copy for logging
+
+        if (object.material) {
+            console.log("  Material Info:");
+            console.log(`    UUID: ${object.material.uuid}`);
+            if (object.material.color) {
+                console.log(`    Color: #${object.material.color.getHexString()}`);
+            } else {
+                console.log("    Color: (material has no color property)");
+            }
+            console.log(`    Opacity: ${object.material.opacity}`);
+            console.log(`    Transparent: ${object.material.transparent}`);
+        } else {
+            console.log("  Material Info: (no material)");
+        }
+        console.log("  Intersection Point: (%f, %f, %f)", intersect.point.x.toFixed(2), intersect.point.y.toFixed(2), intersect.point.z.toFixed(2));
+        console.log("  Distance from Camera: %f", intersect.distance.toFixed(2));
+        console.groupEnd();
+
+    } else {
+        console.log("--- Debug Click Info --- Clicked empty space or only grid --- "); // Modified message
+    }
+}
+// <<< END ADDED >>>
 
 // We need to ensure the *initial* listeners ('mousedown', 'touchstart') are added
 // when the game over screen appears and removed when the game resets.

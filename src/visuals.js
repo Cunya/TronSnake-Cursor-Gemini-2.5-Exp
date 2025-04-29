@@ -9,6 +9,9 @@ import {
     aiPlayers, // Need AI array
     allTrailParticles, // Replaced by aiPlayers - Keeping for now, might be used by particles
     pickupSpawnParticles,
+    isGameOver, // <<< ADDED IMPORT
+    winner, // <<< ADDED IMPORT
+    setSnakeHead1 // <<< ADDED IMPORT
 } from './state.js';
 import {
     segmentSize, P1_TRAIL_COLOR_BOOST, P1_TRAIL_COLOR_NORMAL, 
@@ -57,9 +60,15 @@ export function createTrailSegment(pos, trailArray, owner) {
         return;
     }
 
+    // <<< ADDED: Add userData for identification >>>
+    newSegment.userData.isTrailSegment = true;
+    newSegment.userData.ownerId = (owner === 1) ? 'player_1' : owner.id; 
+    // console.log(`[CreateTrail] Added userData to ${newSegment.uuid}, owner: ${newSegment.userData.ownerId}`); // <<< COMMENTED OUT
+
     newSegment.position.copy(pos);
     scene.add(newSegment);
     trailArray.push(newSegment);
+    // console.log(`[CreateTrail] Pushed ${newSegment.uuid} to trailArray (length: ${trailArray.length})`); // <<< COMMENTED OUT
 }
 
 // Creates a particle explosion effect at the given position with the given color
@@ -394,20 +403,56 @@ export function setHeadColorToRed(owner) {
     }
 }
 
-// Clear all trails from the scene and state arrays
+// Clear all trails from the scene and state arrays using scene traversal
 export function clearAllTrails() {
-    trailSegments1.forEach(seg => scene.remove(seg));
+    // console.log("[clearAllTrails] Starting scene traversal for trail segments..."); // Keep this log // <<< COMMENTED OUT
+    const segmentsToRemove = [];
+    scene.traverse((object) => {
+        if (object.isMesh && object.userData.isTrailSegment) {
+            // Optional log: 
+            // console.log(`  -> Found trail segment: ${object.uuid}, Owner: ${object.userData.ownerId}`);
+            segmentsToRemove.push(object);
+        }
+    });
+
+    // console.log(`[clearAllTrails] Found ${segmentsToRemove.length} segments via traversal. Removing...`); // Keep this log // <<< COMMENTED OUT
+    segmentsToRemove.forEach(segment => {
+        scene.remove(segment);
+        // Optional: Clean up geometry/material if needed (usually handled by GC)
+        // if (segment.geometry) segment.geometry.dispose();
+        // if (segment.material) segment.material.dispose(); 
+    });
+
+    // <<< REVERTED: Explicitly remove only LOST AI heads >>>
+    aiPlayers.forEach(ai => {
+        // Log status before checking head
+        // console.log(`[clearAllTrails Check] AI ID: ${ai.id}, Is Lost: ${ai.lost}, Head Exists: ${!!ai.head}`); // Can keep commented
+        if (ai.lost && ai.head) { // <<< RESTORED ai.lost check >>>
+            // console.log(`[clearAllTrails] Removing LOST AI ${ai.id} head.`); // Reverted log message
+            scene.remove(ai.head);
+            ai.head = null; // Set head ref to null
+        }
+    });
+    // <<< END REVERTED >>>
+
+    // <<< REVERTED: Explicitly remove only LOST Player head >>>
+    if (isGameOver && winner !== 1 && snakeHead1) { // <<< RESTORED player lost check >>>
+         // console.log("[clearAllTrails] Removing LOST Player 1 head."); // Reverted log message
+         scene.remove(snakeHead1);
+         if(setSnakeHead1) setSnakeHead1(null); // Update state
+    }
+    // <<< END REVERTED >>>
+
+    // --- CRITICAL: Still clear the state arrays afterward --- 
+    // Other parts of the code (collision detection) rely on these arrays being empty.
+    // console.log("[clearAllTrails] Clearing state arrays (trailSegments1 and ai.trailSegments)..."); // Corrected log // <<< COMMENTED OUT
     trailSegments1.length = 0;
     if(setLastTrailSegment1) setLastTrailSegment1(null);
-
     aiPlayers.forEach(ai => {
-        ai.trailSegments.forEach(seg => scene.remove(seg));
         ai.trailSegments.length = 0;
         ai.lastTrailSegment = null;
     });
-    // REMOVED: trailSegments2.forEach(seg => scene.remove(seg));
-    // REMOVED: trailSegments2.length = 0;
-    // REMOVED: if(setLastTrailSegment2) setLastTrailSegment2(null);
+    // console.log("[clearAllTrails] Finished."); // Keep this log // <<< COMMENTED OUT
 }
 
 // Clear floating texts from scene and state array
@@ -433,3 +478,70 @@ export function clearExplosionParticles() {
 export const removePlayerVisuals = (playerId) => {
     // Implementation of removePlayerVisuals function
 }; 
+
+// <<< ADDED: Console Error Logging & Download >>>
+export function downloadErrorLogFile() {
+    // errorLog.length = 0;
+}
+// Make the download function globally accessible for manual console calls
+window.downloadErrorLog = downloadErrorLogFile;
+// <<< END ADDED: Console Error Logging & Download >>>
+
+// <<< ADDED: Diagnostic function for orphaned segments >>>
+export function diagnoseOrphanedSegments() {
+    console.log("[Diagnose] Running orphan segment check...");
+    let orphanCount = 0;
+
+    // Get IDs of currently active AIs
+    const activeAiIds = aiPlayers.filter(ai => !ai.lost).map(ai => ai.id);
+    const isPlayerActive = !isGameOver; // Player is active if game is not over
+
+    scene.traverse((object) => {
+        if (object.isMesh && object.userData.isTrailSegment) {
+            const ownerId = object.userData.ownerId;
+            let isOrphan = false;
+
+            if (ownerId === 'player_1') {
+                if (!isPlayerActive) {
+                    isOrphan = true;
+                }
+            } else if (ownerId && ownerId.startsWith('ai-')) {
+                if (!activeAiIds.includes(ownerId)) {
+                    isOrphan = true;
+                }
+            } else {
+                // Segment with no owner ID? Log as potential issue
+                console.warn(`[Diagnose] Found trail segment with missing/invalid ownerId:`, object);
+            }
+
+            if (isOrphan) {
+                orphanCount++;
+                console.warn(`[Diagnose] Found ORPHANED trail segment! Owner: ${ownerId}, Mesh:`, object);
+            }
+        }
+    });
+
+    if (orphanCount > 0) {
+        console.warn(`[Diagnose] Orphan check complete. Found ${orphanCount} orphaned segment(s).`);
+    } else {
+        console.log("[Diagnose] Orphan check complete. No orphaned segments found.");
+    }
+}
+// <<< END ADDED >>>
+
+// <<< ADDED: Diagnostic function to log all scene meshes >>>
+export function logSceneMeshes(contextMessage = "Logging scene meshes") {
+    console.log(`--- ${contextMessage} ---`);
+    let meshCount = 0;
+    scene.traverse((object) => {
+        if (object.isMesh) {
+            meshCount++;
+            console.log(`[Mesh Log] ID: ${object.uuid}, Name: ${object.name}, Position: (${object.position.x.toFixed(1)}, ${object.position.y.toFixed(1)}, ${object.position.z.toFixed(1)}), UserData:`, JSON.stringify(object.userData));
+        }
+    });
+    console.log(`--- ${contextMessage} - Found ${meshCount} meshes ---`);
+}
+// <<< END ADDED >>>
+
+// Visibility Change Handler
+// ... existing code ... 

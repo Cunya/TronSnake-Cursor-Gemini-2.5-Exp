@@ -287,6 +287,15 @@ function checkCollisions(prevAILostStatus) {
         winnerCode = 2; 
         // console.log(`[Collision] Game Over (All AIs Lost / Player Survived)...`); // Keep game over logs?
     } 
+
+    // <<< ADDED: Update persistent ai.lost state >>>
+    currentAILostStatus.forEach((lostStatus, index) => {
+        if (lostStatus && aiPlayers[index] && !aiPlayers[index].lost) { // If lost now and not already marked
+            aiPlayers[index].lost = true;
+            console.log(`[CheckCollisions] Marked AI ${aiPlayers[index].id} as lost.`); // Optional log
+        }
+    });
+    // <<< END ADDED >>>
     
     // Return the calculated winner code, player status, and the CUMULATIVE AI status for this frame
     return { winnerCode, p1Lost, aiLostStatus: currentAILostStatus };
@@ -571,6 +580,8 @@ export function animate(currentTime) {
                         for (let j = ai.trailSegments.length - 1; j >= 0; j--) {
                             const segment = ai.trailSegments[j];
                             if (segment && proj.mesh.position.distanceTo(segment.position) < collisionDist) { 
+                                // <<< ADDED Log >>>
+                                console.log(`[Projectile Hit] PLAYER projectile hit AI ${ai.id} segment ${j}`);
                                 createExplosionEffect(segment.position, ai.color); // Explosion uses AI color
                                 if (scene) scene.remove(segment);
                                 ai.trailSegments.splice(j, 1);
@@ -580,6 +591,23 @@ export function animate(currentTime) {
                         }
                         if (hit) break; // Projectile hit an AI trail
                     }
+
+                    // <<< ADDED: Check Player Projectile vs Own Trail >>>
+                    if (!hit && trailSegments1) { // Only check if haven't hit an AI trail
+                        for (let j = trailSegments1.length - 1; j >= 0; j--) {
+                            const segment = trailSegments1[j];
+                            if (segment && proj.mesh.position.distanceTo(segment.position) < collisionDist) {
+                                console.log(`[Projectile Hit] PLAYER projectile hit OWN segment ${j}`);
+                                createExplosionEffect(segment.position, P1_TRAIL_COLOR_NORMAL); // Use player trail color
+                                if (scene) scene.remove(segment);
+                                trailSegments1.splice(j, 1);
+                                hit = true;
+                                break;
+                            }
+                        }
+                    }
+                    // <<< END ADDED CHECK >>>
+
                 } else { // Projectile owned by AI
                     // --- RESTRUCTURED AI Projectile Collision Checks ---
                     // Check against player trail first
@@ -587,6 +615,8 @@ export function animate(currentTime) {
                         for (let j = trailSegments1.length - 1; j >= 0; j--) {
                             const segment = trailSegments1[j];
                             if (segment && proj.mesh.position.distanceTo(segment.position) < collisionDist) {
+                                // <<< ADDED Log >>>
+                                console.log(`[Projectile Hit] AI ${proj.owner} projectile hit PLAYER segment ${j}`);
                                 createExplosionEffect(segment.position, P1_TRAIL_COLOR_NORMAL);
                                 if (scene) scene.remove(segment);
                                 trailSegments1.splice(j, 1);
@@ -606,8 +636,11 @@ export function animate(currentTime) {
                             for (let j = targetAI.trailSegments.length - 1; j >= 0; j--) {
                                 const segment = targetAI.trailSegments[j];
                                 if (segment && proj.mesh.position.distanceTo(segment.position) < collisionDist) {
+                                    // <<< ADDED Log >>>
+                                    console.log(`[Projectile Hit] AI ${proj.owner} projectile hit AI ${targetAI.id} segment ${j}`);
                                     // Use the color of the AI whose trail was hit
-                                    createExplosionEffect(segment.position, targetAI.color); 
+                                    const explosionColor = targetAI.colors ? targetAI.colors.trail : 0xffffff; // Fallback white
+                                    createExplosionEffect(segment.position, explosionColor); 
                                     if (scene) scene.remove(segment);
                                     // Remove segment from the correct AI's trail array
                                     targetAI.trailSegments.splice(j, 1); 
@@ -715,14 +748,14 @@ export function animate(currentTime) {
                 const requiredSpawnTime = ai.spawnDuration;
                 if (elapsedSpawnTime >= requiredSpawnTime) { 
                     // <<< ADD LOGGING >>>
-                    console.log(`[SpawnComplete] AI ${ai.id} Time Check Passed (${elapsedSpawnTime.toFixed(0)} >= ${requiredSpawnTime}). Adding head.`);
+                    // console.log(`[SpawnComplete] AI ${ai.id} Time Check Passed (${elapsedSpawnTime.toFixed(0)} >= ${requiredSpawnTime}). Adding head.`);
                     // <<< END LOGGING >>>
                     // Add the AI's head mesh to the scene
                     ai.head.position.copy(ai.targetPosition); 
                     if (scene) {
                          scene.add(ai.head);
                          // <<< ADD LOGGING >>>
-                         console.log(`[SpawnComplete] AI ${ai.id} head added to scene. Parent: ${ai.head.parent?.type}`);
+                         // console.log(`[SpawnComplete] AI ${ai.id} head added to scene. Parent: ${ai.head.parent?.type}`);
                          // <<< END LOGGING >>>
                     } else {
                         console.error(`[Animate] Scene not found when trying to add AI head ${ai.id}`);
