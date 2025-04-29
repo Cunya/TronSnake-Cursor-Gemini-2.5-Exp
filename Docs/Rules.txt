@@ -11,7 +11,7 @@ Don't spwan pickups immediately by a wall if possible.
 
 Blue Cube: ("Zoom Out!")
 Grants 20 points to Players when one is picked up.
-Player Only: Zooms the player's camera out further and higher for 5 seconds, providing a wider view.
+Player Only: Zooms the player's camera out further and higher for 20 seconds, providing a wider view.
 Triggers particle explosion + text effect (only if player collects).
 Spawns a new powerup with the same type.
 This effect should stack.

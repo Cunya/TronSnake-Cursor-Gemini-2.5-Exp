@@ -19,7 +19,7 @@ export const segmentSize = 1;
 export const normalUpdateInterval = 250; // Normal speed
 export const boostDuration = 3000; // milliseconds (3 seconds)
 export const SPEED_BOOST_DIMINISHING_FACTOR = 0.75; // Higher = less diminishing return
-export const zoomOutDuration = 10000; // Doubled to 10 seconds zoom
+export const zoomOutDuration = 20000; // Doubled *again* to 20 seconds zoom
 export const sparseTrailDuration = 8000; // 8 seconds sparse trail
 export const LERP_FACTOR = 0.2; // Smoothing factor for visual movement
 
