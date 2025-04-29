@@ -100,8 +100,9 @@ export let isInitialDragMove = false; // NEW flag for first move
 
 // Particle/Text Effect Arrays (Mutable state)
 export const explosionParticles = [];
-export const floatingTexts = [];
-export let allTrailParticles = []; // Projectile trails
+export let floatingTexts = []; // Array for floating text meshes
+export let allTrailParticles = []; // Combined trail particles for players/AI
+export let pickupSpawnParticles = []; // <<< ADDED for new pickup spawn effect
 
 // Font Variable (Loaded in init.js)
 export let textFont = null;

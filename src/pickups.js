@@ -32,9 +32,15 @@ import {
     multiSpawnGeometry, multiSpawnMaterial, addAiPickupGeometry, addAiPickupMaterial,
     AMMO_PICKUP_RADIUS, P1_HEAD_COLOR_BOOST,
     SPEED_BOOST_SCORE_MULTIPLIER,
+    // Import spawn effect durations for fade-in timing
+    SPAWN_EFFECT_DURATION_EXPAND, 
+    SPAWN_EFFECT_DURATION_LINGER,
 } from './constants.js';
 import { snapToGridCenter, logTotalPickupCount, getGridDimensions } from './utils.js';
-import { createExplosionEffect, createFloatingText, updateAmmoIndicatorP1, updateAmmoIndicatorAI, clearAllTrails, createPlayAreaVisuals } from './visuals.js';
+import { 
+    createExplosionEffect, createFloatingText, updateAmmoIndicatorP1, updateAmmoIndicatorAI, 
+    clearAllTrails, createPlayAreaVisuals, createPickupSpawnEffect
+} from './visuals.js';
 import { isPositionSafe } from './ai.js'; // Need isPositionSafe for spawning
 import { createNewAIPlayer } from './init.js'; // Need the helper from init
 
@@ -112,7 +118,7 @@ function trySpawn(typeToSpawn) {
 
     switch (typeToSpawn) {
         case "multi":
-            pickupVisual = new THREE.Mesh(multiSpawnGeometry, multiSpawnMaterial);
+            pickupVisual = new THREE.Mesh(multiSpawnGeometry, multiSpawnMaterial.clone());
             targetArray = multiSpawnPickups;
             pickupHeight = segmentSize * 0.45 * 2;
             break;
@@ -122,28 +128,28 @@ function trySpawn(typeToSpawn) {
             pickupHeight = (segmentSize * 0.27 * 2) + 0.3;
             break;
         case "zoom":
-            pickupVisual = new THREE.Mesh(zoomPickupGeometry, zoomPickupMaterial);
+            pickupVisual = new THREE.Mesh(zoomPickupGeometry, zoomPickupMaterial.clone());
             targetArray = zoomPickups;
             pickupHeight = segmentSize * 0.5;
             break;
         case "clear":
-            pickupVisual = new THREE.Mesh(clearPickupGeometry, clearPickupMaterial);
+            pickupVisual = new THREE.Mesh(clearPickupGeometry, clearPickupMaterial.clone());
             targetArray = clearPickups;
             pickupHeight = segmentSize * 0.5;
             break;
         case "expansion":
-            pickupVisual = new THREE.Mesh(expansionPickupGeometry, expansionPickupMaterial);
+            pickupVisual = new THREE.Mesh(expansionPickupGeometry, expansionPickupMaterial.clone());
             targetArray = expansionPickups;
             pickupHeight = segmentSize * 0.7;
             break;
         case "score":
-            pickupVisual = new THREE.Mesh(scorePickupGeometry, scorePickupMaterial);
+            pickupVisual = new THREE.Mesh(scorePickupGeometry, scorePickupMaterial.clone());
             targetArray = scorePickups;
             pickupHeight = segmentSize * 0.6;
             spawnTypeName = "score";
             break;
         case "add_ai":
-            pickupVisual = new THREE.Mesh(addAiPickupGeometry, addAiPickupMaterial);
+            pickupVisual = new THREE.Mesh(addAiPickupGeometry, addAiPickupMaterial.clone());
             targetArray = addAiPickups;
             pickupHeight = segmentSize * 0.6 * 2;
             break;
@@ -215,8 +221,25 @@ function trySpawn(typeToSpawn) {
             if (!adjacent) {
                 const pickup = pickupVisual.clone();
                 pickup.position.copy(potentialPos);
+
+                // Make pickup initially invisible for fade-in
+                if (pickup.material) {
+                    pickup.material.transparent = true;
+                    pickup.material.opacity = 0;
+                    pickup.isSpawning = true; // Flag for fade-in
+                    pickup.spawnStartTime = performance.now(); // Record start time
+                    // Make fade-in 3x slower than expand+linger
+                    pickup.spawnFadeInDuration = (SPAWN_EFFECT_DURATION_EXPAND + SPAWN_EFFECT_DURATION_LINGER) * 3000; // Duration in ms (1000 * 3.0)
+                } else {
+                    // Handle groups like sparse trail - maybe just appear instantly?
+                    pickup.isSpawning = false; 
+                }
+
                 scene.add(pickup);
                 targetArray.push(pickup);
+                // Determine color: Use pickup's material color if available, otherwise use sparseTrailMaterial color (yellow)
+                const effectColor = pickup.material ? pickup.material.color : sparseTrailMaterial.color; 
+                createPickupSpawnEffect(potentialPos, effectColor);
                 console.log(`  [trySpawn] SUCCESS on attempt ${attempt+1} for ${spawnTypeName}! Spawning at (${potentialPos.x.toFixed(1)}, ${potentialPos.z.toFixed(1)})`); // Log success AND position
                 logTotalPickupCount(`Spawned ${spawnTypeName}`); // Keep this useful one
                 return true;

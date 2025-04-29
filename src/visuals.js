@@ -8,6 +8,7 @@ import {
     ammoCountP1, isSpeedBoostActiveP1,
     aiPlayers, // Need AI array
     allTrailParticles, // Replaced by aiPlayers - Keeping for now, might be used by particles
+    pickupSpawnParticles,
 } from './state.js';
 import {
     segmentSize, P1_TRAIL_COLOR_BOOST, P1_TRAIL_COLOR_NORMAL, 
@@ -16,6 +17,14 @@ import {
     sparseTrailMaterial, ammoPickupMaterial, AMMO_COLOR, AMMO_PICKUP_RADIUS, P1_HEAD_COLOR_NORMAL,
     AI_COLORS, // <-- Import AI_COLORS instead of individual AI colors
     HEAD_COLOR_LOST, // Import the red color
+    SPAWN_EFFECT_PARTICLE_COUNT,
+    SPAWN_EFFECT_PARTICLE_SIZE,
+    SPAWN_EFFECT_MAX_RADIUS,
+    SPAWN_EFFECT_START_SCALE,
+    SPAWN_EFFECT_MAX_SCALE,
+    SPAWN_EFFECT_DURATION_EXPAND,
+    SPAWN_EFFECT_DURATION_LINGER,
+    SPAWN_EFFECT_DURATION_CONTRACT,
 } from './constants.js';
 import { getGridDimensions } from './utils.js';
 import { FontLoader } from 'three/addons/loaders/FontLoader.js'; // Needed for createFloatingText check
@@ -126,6 +135,47 @@ export function createFloatingText(text, position, color) {
     });
     scene.add(textMesh);
 }
+
+// <<< ADDED: Placeholder for Pickup Spawn Effect >>>
+export const createPickupSpawnEffect = (position, color) => {
+    const particleGeometry = new THREE.SphereGeometry(SPAWN_EFFECT_PARTICLE_SIZE, 8, 8);
+
+    for (let i = 0; i < SPAWN_EFFECT_PARTICLE_COUNT; i++) {
+        const particleMaterial = new THREE.MeshBasicMaterial({
+            color: color,
+            transparent: true,
+            opacity: 1.0,
+        });
+        const particle = new THREE.Mesh(particleGeometry, particleMaterial);
+        particle.position.copy(position);
+
+        // Random direction
+        const direction = new THREE.Vector3(
+            Math.random() - 0.5,
+            Math.random() - 0.5,
+            Math.random() - 0.5
+        ).normalize();
+
+        const particleData = {
+            mesh: particle,
+            center: position.clone(),
+            direction: direction,
+            life: SPAWN_EFFECT_DURATION_EXPAND + SPAWN_EFFECT_DURATION_LINGER + SPAWN_EFFECT_DURATION_CONTRACT,
+            initialLife: SPAWN_EFFECT_DURATION_EXPAND + SPAWN_EFFECT_DURATION_LINGER + SPAWN_EFFECT_DURATION_CONTRACT,
+            startTime: performance.now(), // Use performance.now() for precise start time
+            maxRadius: SPAWN_EFFECT_MAX_RADIUS,
+            expandDuration: SPAWN_EFFECT_DURATION_EXPAND,
+            lingerDuration: SPAWN_EFFECT_DURATION_LINGER,
+            contractDuration: SPAWN_EFFECT_DURATION_CONTRACT,
+            startScale: SPAWN_EFFECT_START_SCALE,
+            maxScale: SPAWN_EFFECT_MAX_SCALE,
+        };
+
+        // console.log('[createPickupSpawnEffect] Creating particle:', particleData); // DEBUG LOG
+        pickupSpawnParticles.push(particleData); // Use imported array
+        scene.add(particle);
+    }
+};
 
 function createSparseTrailPickupVisual() {
     const group = new THREE.Group();
@@ -367,3 +417,7 @@ export function clearExplosionParticles() {
 // let isSpeedBoostActiveAI = false; // REMOVED - Should use imported state
 // let ammoCountP1 = 0; // REMOVED - Should use imported state
 // let ammoCountAI = 0; // REMOVED - Should use imported state 
+
+export const removePlayerVisuals = (playerId) => {
+    // Implementation of removePlayerVisuals function
+}; 

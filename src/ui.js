@@ -571,7 +571,7 @@ export function showGameOverMessage(winnerCode) {
     if (scoreP1 > topScore && (winnerCode === 2 || winnerCode === 3)) {
         // Check if it's also higher than the score at the start of the game to confirm it's *this* game's achievement
         if (scoreP1 > topScoreAtGameStart) { 
-             scoreMessage += ` (NEW TOP SCORE!)`;
+        scoreMessage += ` (NEW TOP SCORE!)`;
         }
     }
 

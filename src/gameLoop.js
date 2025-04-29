@@ -7,6 +7,7 @@ import {
     aiPlayers,
     snakeHead1, snakeTargetPosition1, prevTargetPos1,
     lastTrailSegment1, explosionParticles, floatingTexts, projectiles, allTrailParticles,
+    pickupSpawnParticles,
     headMaterial1, ammoIndicatorP1,
     boundaryXMin, boundaryXMax, boundaryZMin, boundaryZMax, topScore,
     cameraTargetPosition, cameraOffset, targetLookAt, gameOverLookAtTarget, gameOverCameraTargetPosition,
@@ -42,6 +43,8 @@ import {
     setDeathZoomFactor, // ADDED import
     aiDefeatedTime, // ADDED import
     setAiDefeatedTime, // ADDED import
+    // Import all pickup arrays for fade-in update
+    scorePickups, expansionPickups, clearPickups, zoomPickups, sparseTrailPickups, multiSpawnPickups, addAiPickups, ammoPickups,
 } from './state.js';
 import {
     normalUpdateInterval,
@@ -53,7 +56,13 @@ import {
     P1_HEAD_COLOR_NORMAL, P1_TRAIL_COLOR_NORMAL,
     trailParticleGeometry, trailParticleMaterial, TRAIL_PARTICLE_COUNT_PER_FRAME, TRAIL_PARTICLE_LIFE,
     AMMO_COLOR, // <-- Import AMMO_COLOR for explosion
-    GAME_VERSION
+    GAME_VERSION,
+    SPAWN_EFFECT_DURATION_EXPAND, // ADDED
+    SPAWN_EFFECT_DURATION_LINGER, // ADDED
+    SPAWN_EFFECT_DURATION_CONTRACT, // ADDED
+    SPAWN_EFFECT_MAX_SCALE, // ADDED
+    SPAWN_EFFECT_START_SCALE, // ADDED
+    SPAWN_EFFECT_ROTATION_SPEED // ADDED
 } from './constants.js';
 import { snapToGridCenter } from './utils.js';
 import { updateAllAIPlayers } from './ai.js';
@@ -452,7 +461,7 @@ export function animate(currentTime) {
                             setHeadColorToRed(1); // Player is owner 1
                         }
                         currentFrameStatus.forEach((lost, index) => { // Use current frame status
-                            if (lost) {
+                            if (lost && aiPlayers[index].head) {
                                 setHeadColorToRed(aiPlayers[index]);
                             }
                         });
@@ -663,6 +672,89 @@ export function animate(currentTime) {
         const p = allTrailParticles[i]; p.life -= deltaTimeSeconds;
         if (p.life <= 0) { scene.remove(p.mesh); allTrailParticles.splice(i, 1); } 
         else { p.mesh.material.opacity = (p.life / p.initialLife) * 0.8; }
+    }
+
+    // Pickup Spawn Particle Update
+    for (let i = pickupSpawnParticles.length - 1; i >= 0; i--) {
+        const p = pickupSpawnParticles[i];
+        const elapsedTime = (currentTime - p.startTime) / 1000; // Seconds - Use currentTime from animate param
+
+        // Lifetime Check
+        p.life -= deltaTimeSeconds;
+        if (p.life <= 0 || elapsedTime > (p.expandDuration + p.lingerDuration + p.contractDuration)) {
+            if(p.mesh) scene.remove(p.mesh); // Add safety check for mesh
+            pickupSpawnParticles.splice(i, 1);
+            continue;
+        }
+        
+        // Safety check for mesh and material
+        if (!p.mesh || !p.mesh.material) {
+             pickupSpawnParticles.splice(i, 1); // Remove corrupt particle data
+             continue;
+        }
+
+        // Calculate current phase progress
+        let phaseProgress = 0;
+        let currentRadius = 0;
+        let currentScale = p.startScale;
+
+        if (elapsedTime < p.expandDuration) {
+            // Expanding phase
+            phaseProgress = elapsedTime / p.expandDuration;
+            currentRadius = THREE.MathUtils.lerp(0, p.maxRadius, phaseProgress);
+            currentScale = THREE.MathUtils.lerp(p.startScale, p.maxScale, phaseProgress);
+        } else if (elapsedTime < p.expandDuration + p.lingerDuration) {
+            // Lingering phase
+            currentRadius = p.maxRadius;
+            currentScale = p.maxScale;
+        } else {
+            // Contracting phase
+            const contractTime = elapsedTime - (p.expandDuration + p.lingerDuration);
+            phaseProgress = Math.max(0, Math.min(1, contractTime / p.contractDuration)); // Clamp progress 0-1
+            currentRadius = THREE.MathUtils.lerp(p.maxRadius, 0, phaseProgress);
+            currentScale = THREE.MathUtils.lerp(p.maxScale, p.startScale, phaseProgress); // Contract scale too
+        }
+
+        // NEW: Move along particle's unique direction
+        // const offset = p.direction.clone().multiplyScalar(currentRadius);
+        // p.mesh.position.copy(p.center).add(offset); // Move outwards from center along direction
+
+        // COMBINED: Move along direction, scaled by radius, AND rotate over time
+        const baseOffset = p.direction.clone().multiplyScalar(currentRadius);
+        const angle = elapsedTime * SPAWN_EFFECT_ROTATION_SPEED; 
+        baseOffset.applyAxisAngle(new THREE.Vector3(0, 1, 0), angle); // Rotate around Y axis
+        p.mesh.position.copy(p.center).add(baseOffset);
+
+        // Update scale
+        p.mesh.scale.set(currentScale, currentScale, currentScale);
+
+        // Update opacity (fade out towards end of life or end of animation)
+        const totalDuration = p.expandDuration + p.lingerDuration + p.contractDuration;
+        const lifeRatio = Math.max(0, Math.min(1, p.life / p.initialLife));
+        const timeRatio = Math.max(0, 1 - (elapsedTime / totalDuration));
+        // Use the minimum of the two ratios for a more robust fade-out
+        p.mesh.material.opacity = Math.min(lifeRatio, timeRatio); 
+    }
+
+    // --- Pickup Fade-In Update --- 
+    const allPickupArrays = [scorePickups, expansionPickups, clearPickups, zoomPickups, sparseTrailPickups, multiSpawnPickups, addAiPickups, ammoPickups];
+    for (const pickupArray of allPickupArrays) {
+        for (let i = pickupArray.length - 1; i >= 0; i--) { // Iterate backwards if removing, though not needed here yet
+            const pickup = pickupArray[i];
+
+            // Only process if isSpawning is explicitly true and material exists
+            if (pickup.isSpawning === true && pickup.material) {
+                const fadeElapsed = currentTime - pickup.spawnStartTime;
+                const fadeProgress = Math.min(1, fadeElapsed / pickup.spawnFadeInDuration);
+                pickup.material.opacity = fadeProgress;
+
+                if (fadeProgress >= 1) {
+                    pickup.isSpawning = false;
+                    // Optional: Set transparent back to false if needed, but might cause flicker if opacity isn't exactly 1
+                    // pickup.material.transparent = false; 
+                }
+            }
+        }
     }
 
     // 8. Update camera position

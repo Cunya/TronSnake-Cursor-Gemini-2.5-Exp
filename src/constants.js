@@ -3,7 +3,7 @@ import * as THREE from 'three';
 // Game constants (colors, sizes, speeds, etc.) will be defined and exported from here 
 
 // Version
-export const GAME_VERSION = "v1.1.36";
+export const GAME_VERSION = "v1.1.38";
 
 // Color Constants
 export const P1_HEAD_COLOR_NORMAL = 0x00ffff; // Cyan
@@ -92,7 +92,7 @@ export const PARTICLE_COUNT = 60;
 export const PARTICLE_SIZE = 0.15;
 export const EXPLOSION_FORCE = 5.0;
 export const PARTICLE_GRAVITY = -9.8;
-export const PARTICLE_LIFE = 10.0;
+export const PARTICLE_LIFE = 7.0;
 export const GROUND_Y = -segmentSize / 2;
 
 // Floating Text Constants
@@ -100,6 +100,20 @@ export const TEXT_LIFE = 3.0;
 export const TEXT_MOVE_SPEED = 1.5;
 export const TEXT_SIZE = 0.3;
 export const TEXT_HEIGHT_OFFSET = 0.5;
+
+// <<< ADDED: Pickup Spawn Effect Constants >>>
+export const SPAWN_EFFECT_PARTICLE_COUNT = 80; // Doubled from 40
+export const SPAWN_EFFECT_PARTICLE_SIZE = 0.1;
+// export const SPAWN_EFFECT_OUTWARD_DURATION = 0.2; // seconds // REMOVED - Replaced by phase durations
+// export const SPAWN_EFFECT_INWARD_DURATION = 0.3; // seconds // REMOVED - Replaced by phase durations
+export const SPAWN_EFFECT_MAX_RADIUS = 1.5;
+export const SPAWN_EFFECT_START_SCALE = 0.5;
+export const SPAWN_EFFECT_MAX_SCALE = 1.2;
+export const SPAWN_EFFECT_DURATION_EXPAND = 0.3; // Duration of expansion phase (seconds)
+export const SPAWN_EFFECT_DURATION_LINGER = 0.5; // Duration of lingering phase (seconds)
+export const SPAWN_EFFECT_DURATION_CONTRACT = 0.4; // Duration of contraction phase (seconds)
+export const SPAWN_EFFECT_ROTATION_SPEED = Math.PI * 4; // Radians per second for spiral motion
+// <<< END ADDED >>>
 
 // Projectile Constants
 export const PROJECTILE_SPEED = 20;
