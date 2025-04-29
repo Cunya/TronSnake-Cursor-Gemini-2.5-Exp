@@ -79,9 +79,17 @@ export function createExplosionEffect(position, color, scale = 1) {
 
     const particleGeometry = new THREE.BoxGeometry(scaledParticleSize, scaledParticleSize, scaledParticleSize);
     
+    // <<< ADDED: Color validation and fallback >>>
+    let validColor = color;
+    if (validColor === undefined || validColor === null) {
+        console.error(`[createExplosionEffect] Received invalid color: ${color}. Using fallback red.`);
+        validColor = 0xff0000; // Fallback to red
+    }
+    // <<< END ADDED >>>
+
     for (let i = 0; i < scaledParticleCount; i++) {
         const particleMaterial = new THREE.MeshBasicMaterial({
-            color: color, // Use provided color
+            color: validColor, // Use validated/fallback color
             transparent: true,
             opacity: 1.0
         });
