@@ -1,0 +1,17 @@
+Powerup Tron
+
+Experience a modern take on a classic arcade concept! Guide your light trail through a 3D world in this snake game inspired by the light cycles of Tron.
+
+Achieve higher scores to unlock a variety of powerups that add new twists to the gameplay. Can you collect them all?
+
+This project was developed as an experiment in AI-assisted coding, built entirely using Google's Gemini 2.5 Pro within the Cursor editor.
+
+If you enjoy Powerup Tron, consider supporting the project to help future development!
+
+Coming Soon:
+
+*   Global Online High Scores
+*   Multiplayer Mode
+*   Additional Powerup Types
+*   Visual Enhancements
+*   Sound Effects
