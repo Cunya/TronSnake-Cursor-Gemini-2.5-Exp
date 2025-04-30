@@ -604,7 +604,7 @@ export function init() {
     const fontLoader = new FontLoader();
     fontLoader.load(
         // 'https://raw.githubusercontent.com/mrdoob/three.js/dev/examples/fonts/helvetiker_regular.typeface.json',
-        'assets/fonts/helvetiker_regular.typeface.json', // MODIFIED: Load from local path
+        'Assets/Fonts/helvetiker_regular.typeface.json', // MODIFIED: Load from local path with correct casing
         (loadedFont) => {
             console.log("Font loaded.");
             if(setTextFont) setTextFont(loadedFont);
