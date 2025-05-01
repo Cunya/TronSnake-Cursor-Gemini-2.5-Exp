@@ -139,19 +139,22 @@ export function onKeyUp(event) {
 }
 
 export function onTouchStart(event) {
-    // --- Check for Game Over Camera Drag First --- 
+    // --- Check for Game Over Camera Drag First ---
     if (isGameOver) {
-        // If game is over, *don't* reset the game on touch start,
-        // instead, initiate potential camera drag.
-        // The reset logic is handled by keydown or tapping the dialog text.
-        // Check if the touch is on the main canvas/area, not the dialog itself?
-        // For now, assume any touch start initiates drag.
-        if (event.target !== gameOverTextElement && !gameOverTextElement.contains(event.target)) {
+        // If game is over, check the touch target.
+        // If it's the game over dialog, restart the game.
+        // Otherwise, initiate potential camera drag.
+        if (gameOverTextElement && gameOverTextElement.contains(event.target)) {
+            // Tapped on the game over dialog - restart the game
+            resetGame();
+        } else if (event.target !== gameOverTextElement) {
+            // Tapped outside the dialog - initiate camera drag
              handleGameOverPointerDown(event.changedTouches[0].clientX, event.changedTouches[0].clientY, event);
         }
-        return; // Prevent further processing like starting game or player controls
+        // Prevent further processing like starting game or player controls in either game over case
+        return; 
     }
-    // --- End Game Over Check --- 
+    // --- End Game Over Check ---
 
     if (!gameActive) {
         // If game not active BUT not game over, treat as start trigger
